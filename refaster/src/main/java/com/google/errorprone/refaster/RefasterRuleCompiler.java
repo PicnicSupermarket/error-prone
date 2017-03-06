@@ -53,8 +53,10 @@ public class RefasterRuleCompiler {
   }
 
   private Result run(String[] argv, Context context) {
+    List<String> newArgs = new ArrayList<>(Arrays.asList(argv));
+    RefasterRuleCompilerAnalyzer analyzer;
     try {
-      argv = prepareCompilation(argv, context);
+      analyzer = prepareCompilation(newArgs, context);
     } catch (InvalidCommandLineOptionException e) {
       System.err.println(e.getMessage());
       System.err.flush();
@@ -66,8 +68,11 @@ public class RefasterRuleCompiler {
           new Main(
                   "RefasterRuleCompiler",
                   new PrintWriter(new OutputStreamWriter(System.err, StandardCharsets.UTF_8)))
-              .compile(argv, context);
+              .compile(newArgs.toArray(new String[0]), context);
       System.err.flush();
+      if (compileResult == Result.OK) {
+        analyzer.persist();
+      }
       return compileResult;
     } catch (InvalidCommandLineOptionException e) {
       System.err.println(e.getMessage());
@@ -76,11 +81,10 @@ public class RefasterRuleCompiler {
     }
   }
 
-  private String[] prepareCompilation(String[] argv, Context context)
+  private RefasterRuleCompilerAnalyzer prepareCompilation(List<String> argv, Context context)
       throws InvalidCommandLineOptionException {
     context.put(DiagnosticListener.class, new DiagnosticCollector<JavaFileObject>());
-    List<String> newArgs = new ArrayList<>(Arrays.asList(argv));
-    Iterator<String> itr = newArgs.iterator();
+    Iterator<String> itr = argv.iterator();
     String path = null;
     while (itr.hasNext()) {
       if (itr.next().equals("--out")) {
@@ -94,9 +98,10 @@ public class RefasterRuleCompiler {
 
     MaskedClassLoader.preRegisterFileManager(context);
 
-    MultiTaskListener.instance(context)
-        .add(new RefasterRuleCompilerAnalyzer(context, FileSystems.getDefault().getPath(path)));
+    RefasterRuleCompilerAnalyzer analyzer =
+        new RefasterRuleCompilerAnalyzer(context, FileSystems.getDefault().getPath(path));
+    MultiTaskListener.instance(context) .add(analyzer);
 
-    return Iterables.toArray(newArgs, String.class);
+    return analyzer;
   }
 }

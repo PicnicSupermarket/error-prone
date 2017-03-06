@@ -27,13 +27,16 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * TaskListener that receives compilation of a Refaster rule class and outputs a serialized analyzer
  * to the specified path.
  */
 public class RefasterRuleCompilerAnalyzer implements TaskListener {
+  private final List<CodeTransformer> rules = Collections.synchronizedList(new ArrayList<>());
   private final Context context;
   private final Path destinationPath;
 
@@ -54,8 +57,10 @@ public class RefasterRuleCompilerAnalyzer implements TaskListener {
     if (tree == null) {
       return;
     }
-    Collection<? extends CodeTransformer> rules =
-        RefasterRuleBuilderScanner.extractRules(tree, context);
+    rules.addAll(RefasterRuleBuilderScanner.extractRules(tree, context));
+  }
+
+  public void persist() {
     try (ObjectOutputStream output =
         new ObjectOutputStream(Files.newOutputStream(destinationPath))) {
       output.writeObject(CompositeCodeTransformer.compose(rules));
