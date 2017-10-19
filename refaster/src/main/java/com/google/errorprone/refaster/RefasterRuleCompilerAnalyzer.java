@@ -29,6 +29,7 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -36,6 +37,7 @@ import java.util.List;
  * to the specified path.
  */
 public class RefasterRuleCompilerAnalyzer implements TaskListener {
+  private final List<CodeTransformer> allRules = Collections.synchronizedList(new ArrayList<>());
   private final Context context;
   private final Path destinationPath;
 
@@ -46,6 +48,10 @@ public class RefasterRuleCompilerAnalyzer implements TaskListener {
 
   @Override
   public void finished(TaskEvent taskEvent) {
+    if (taskEvent.getKind() == Kind.COMPILATION) {
+      persist();
+      return;
+    }
     if (taskEvent.getKind() != Kind.ANALYZE) {
       return;
     }
@@ -67,9 +73,13 @@ public class RefasterRuleCompilerAnalyzer implements TaskListener {
     if (rules.isEmpty()) {
       throw new IllegalArgumentException("Did not find any Refaster templates");
     }
+    allRules.addAll(rules);
+  }
+
+  private void persist() {
     try (ObjectOutputStream output =
         new ObjectOutputStream(Files.newOutputStream(destinationPath))) {
-      output.writeObject(CompositeCodeTransformer.compose(rules));
+      output.writeObject(CompositeCodeTransformer.compose(allRules));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
