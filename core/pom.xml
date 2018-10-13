@@ -124,7 +124,7 @@
       <!-- GPLv2 with Classpath Exception -->
       <groupId>com.google.errorprone</groupId>
       <artifactId>javac</artifactId>
-      <version>${javac.version}</version>
+      <version>9+181-r4173-1</version>
     </dependency>
     <dependency>
       <!-- Apache 2.0 -->
@@ -430,7 +430,7 @@
             <configuration>
               <!-- set heap size to work around http://github.com/travis-ci/travis-ci/issues/3396 -->
               <!-- put javac.jar on bootclasspath when executing tests -->
-              <argLine>-Xmx1g -Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</argLine>
+              <argLine>-Xmx1g -Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/9+181-r4173-1/javac-9+181-r4173-1.jar</argLine>
             </configuration>
           </plugin>
         </plugins>
