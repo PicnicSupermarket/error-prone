@@ -338,6 +338,11 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
     runTest("UnnecessaryLambdaParens");
   }
 
+  @Test
+  public void nonJdkType() throws IOException {
+    runTest("NonJdkTypeTemplate");
+  }
+
   static boolean isJDK8OrEarlier() {
     try {
       Method versionMethod = Runtime.class.getMethod("version");
