@@ -16,12 +16,15 @@
 
 package com.google.errorprone.refaster;
 
+import static java.util.logging.Level.SEVERE;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ForAll;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * {@link UType} version of {@link ForAll}.
@@ -46,6 +49,7 @@ public abstract class UForAll extends UType {
       return Choice.condition(
           types.overrideEquivalent(types.erasure(myType), types.erasure(target)), unifier);
     } catch (CouldNotResolveImportException e) {
+      Logger.getLogger(UForAll.class.toString()).log(SEVERE, "Failure to resolve an import", e);
       return Choice.none();
     }
   }

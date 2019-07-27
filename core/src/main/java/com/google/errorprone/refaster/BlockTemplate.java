@@ -151,6 +151,7 @@ public abstract class BlockTemplate extends Template<BlockTemplateMatch> {
                   .transform(list -> list.prepend(match));
             }
           } catch (CouldNotResolveImportException e) {
+            logger.log(SEVERE, "Failure to resolve import", e);
             // fall through
           }
           return Choice.none();
