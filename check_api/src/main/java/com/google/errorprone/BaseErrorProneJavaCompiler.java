@@ -25,6 +25,7 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.JavacMessages;
+import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -90,6 +91,11 @@ public class BaseErrorProneJavaCompiler implements JavaCompiler {
     if (refactoringCollection[0] != null) {
       javacTask.addTaskListener(
           new ErrorProneAnalyzer.RefactoringTask(context, refactoringCollection[0]));
+    }
+
+    if (Options.instance(context).isSet("-verbose")) {
+      javacTask.addTaskListener(
+          new TimingReporter(ErrorProneTimings.instance(context), Log.instance(context)));
     }
   }
 
