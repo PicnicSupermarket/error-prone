@@ -99,6 +99,7 @@ import com.sun.tools.javac.tree.DCTree.DCDocComment;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
 import com.sun.tools.javac.util.Position;
 import java.io.IOException;
@@ -1226,6 +1227,14 @@ public final class SuggestedFixes {
     }
 
     JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
+    if (Options.instance(state.context).isSet("-verbose")) {
+      Log.instance(state.context)
+          .printVerbose(
+              "error.prone.compiles.with.fix",
+              fix.toString(compilationUnit),
+              compilationUnit.sourcefile);
+    }
+
     JavaFileObject modifiedFile = compilationUnit.getSourceFile();
     BasicJavacTask javacTask = (BasicJavacTask) state.context.get(JavacTask.class);
     if (javacTask == null) {
