@@ -1003,6 +1003,17 @@ public class SuggestedFixes {
         // but does add them in response to passing --release. Here we invert that operation.
         continue;
       }
+      if (key.equals(Option.XLINT.getPrimaryName())
+          || key.equals(Option.XLINT_CUSTOM.getPrimaryName())
+          || key.equals(Option.XDOCLINT.getPrimaryName())
+          || key.equals(Option.XDOCLINT_CUSTOM.getPrimaryName())
+          || key.equals(Option.XDOCLINT_PACKAGE.getPrimaryName())
+          || key.equals(Option.DOCLINT_FORMAT.getPrimaryName())) {
+        // For unknown reasons retaining -Xdoclint:reference here can cause an NPE; see #849. Since
+        // suggested fixes are unlikely to introduce lint errors that cannot be fixed manually, here
+        // we disable all lint checks. This _may_ also speed up compilation.
+        continue;
+      }
       options.put(key, value);
     }
     JavacTask newTask =
