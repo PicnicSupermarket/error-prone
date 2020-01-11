@@ -38,7 +38,6 @@ import static java.lang.Math.max;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
@@ -159,6 +158,7 @@ import javax.tools.JavaFileObject.Kind;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import org.jspecify.annotations.Nullable;
+import com.sun.tools.javac.util.Log;
 
 /** Factories for constructing {@link Fix}es. */
 public final class SuggestedFixes {
@@ -1403,6 +1403,15 @@ public final class SuggestedFixes {
       fixCompiler = FixCompiler.create(fix, state);
     } catch (IOException e) {
       return false;
+    }
+
+    if (Options.instance(state.context).isSet("-verbose")) {
+      JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
+      Log.instance(state.context)
+          .printVerbose(
+              "error.prone.compiles.with.fix",
+              fix.toString(compilationUnit),
+              compilationUnit.sourcefile);
     }
 
     Result compilationResult = fixCompiler.compile(extraOptions);
