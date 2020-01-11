@@ -1386,6 +1386,17 @@ public final class SuggestedFixes {
           // but does add them in response to passing --release. Here we invert that operation.
           continue;
         }
+        if (key.equals("-Xlint")
+            || key.equals("-Xlint:")
+            || key.equals("-Xdoclint")
+            || key.equals("-Xdoclint:")
+            || key.equals("-Xdoclint/package:")
+            || key.equals("--doclint-format")) {
+          // For unknown reasons retaining -Xdoclint:reference here can cause an NPE; see #849. Since
+          // suggested fixes are unlikely to introduce lint errors that cannot be fixed manually, here
+          // we disable all lint checks. This _may_ also speed up compilation.
+          continue;
+        }
         options.put(key, value);
       }
       return context;
