@@ -22,7 +22,9 @@ import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
 import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.main.Option;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
 
 /** A javac {@link Plugin} that runs Error Prone. */
@@ -47,6 +49,11 @@ public class ErrorProneJavacPlugin implements Plugin {
             refactoringCollection));
     if (refactoringCollection[0] != null) {
       javacTask.addTaskListener(new RefactoringTask(context, refactoringCollection[0]));
+    }
+
+    if (Options.instance(context).isSet(Option.VERBOSE)) {
+      javacTask.addTaskListener(
+          new TimingReporter(ErrorProneTimings.instance(context), Log.instance(context)));
     }
   }
 }

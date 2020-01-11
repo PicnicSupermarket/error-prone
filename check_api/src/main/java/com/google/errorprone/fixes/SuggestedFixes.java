@@ -89,6 +89,7 @@ import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types.DefaultTypeVisitor;
 import com.sun.tools.javac.main.Arguments;
+import com.sun.tools.javac.main.Option;
 import com.sun.tools.javac.parser.Tokens;
 import com.sun.tools.javac.parser.Tokens.Comment;
 import com.sun.tools.javac.parser.Tokens.TokenKind;
@@ -99,6 +100,7 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
 import com.sun.tools.javac.util.Position;
 import java.io.IOException;
@@ -1131,6 +1133,14 @@ public class SuggestedFixes {
     }
 
     JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
+    if (Options.instance(state.context).isSet(Option.VERBOSE)) {
+      Log.instance(state.context)
+          .printVerbose(
+              "error.prone.compiles.with.fix",
+              fix.toString(compilationUnit),
+              compilationUnit.sourcefile);
+    }
+
     JavaFileObject modifiedFile = compilationUnit.getSourceFile();
     BasicJavacTask javacTask = (BasicJavacTask) state.context.get(JavacTask.class);
     if (javacTask == null) {
