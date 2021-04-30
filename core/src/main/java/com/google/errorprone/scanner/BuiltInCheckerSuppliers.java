@@ -442,6 +442,9 @@ import com.google.errorprone.bugpatterns.inject.guice.InjectOnFinalField;
 import com.google.errorprone.bugpatterns.inject.guice.OverridesGuiceInjectableMethod;
 import com.google.errorprone.bugpatterns.inject.guice.OverridesJavaxInjectableMethod;
 import com.google.errorprone.bugpatterns.inject.guice.ProvidesMethodOutsideOfModule;
+import com.google.errorprone.bugpatterns.inlineme.Inliner;
+import com.google.errorprone.bugpatterns.inlineme.Suggester;
+import com.google.errorprone.bugpatterns.inlineme.Validator;
 import com.google.errorprone.bugpatterns.javadoc.AlmostJavadoc;
 import com.google.errorprone.bugpatterns.javadoc.EmptyBlockTag;
 import com.google.errorprone.bugpatterns.javadoc.EscapedEntity;
@@ -704,6 +707,7 @@ public class BuiltInCheckerSuppliers {
           UnnecessaryTypeArgument.class,
           UnusedAnonymousClass.class,
           UnusedCollectionModifiedInPlace.class,
+          Validator.class,
           VarTypeName.class,
           WrongOneof.class,
           XorPower.class,
@@ -793,6 +797,7 @@ public class BuiltInCheckerSuppliers {
           InjectOnConstructorOfAbstractClass.class,
           InjectedConstructorAnnotations.class,
           InlineFormatString.class,
+          Inliner.class,
           InputStreamSlowMultibyteRead.class,
           InstanceOfAndCastMatchWrongType.class,
           IntLongMath.class,
@@ -889,6 +894,7 @@ public class BuiltInCheckerSuppliers {
           StreamResourceLeak.class,
           StreamToIterable.class,
           StringSplitter.class,
+          Suggester.class,
           SwigMemoryLeak.class,
           SynchronizeOnNonFinalField.class,
           ThreadJoinLoop.class,
