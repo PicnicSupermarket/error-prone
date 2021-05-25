@@ -18,10 +18,11 @@ package com.google.errorprone.matchers;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.tools.javac.code.Symbol;
 
-public abstract class MethodThrows implements Matcher<MemberReferenceTree> {
+public abstract class MethodThrows implements Matcher<ExpressionTree> {
 
   private final String throwsException;
 
@@ -29,9 +30,16 @@ public abstract class MethodThrows implements Matcher<MemberReferenceTree> {
     this.throwsException = throwsException;
   }
 
+  public MethodThrows() {
+    throwsException = "java.lang.Exception";
+  }
+
   @Override
-  public boolean matches(MemberReferenceTree methodTree, VisitorState state) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodTree);
+  public boolean matches(ExpressionTree expressionTree, VisitorState state) {
+    if (!(expressionTree instanceof MemberReferenceTree)) {
+      return false;
+    }
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol((MemberReferenceTree) expressionTree);
     if (symbol == null) {
       return false;
     }

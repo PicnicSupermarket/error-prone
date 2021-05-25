@@ -16,15 +16,20 @@
 
 package com.google.errorprone.refaster.testdata.template;
 
+import com.google.errorprone.matchers.MethodThrowsLangExceptionMatcher;
+import com.google.errorprone.matchers.MethodThrowsLangIllegalStateException;
+import com.google.errorprone.matchers.NullnessMatcher;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.Matches;
+import com.google.errorprone.refaster.annotation.NotMatches;
 
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class TestLambdaReferenceTemplate<I, T extends I, O> {
   @BeforeTemplate
-  Stream<O> before(Stream<T> stream, Function<I, O> function) {
+  Stream<O> before(Stream<T> stream, @NotMatches(MethodThrowsLangExceptionMatcher.class) Function<I, O> function) {
     return stream.map(function);
   }
 

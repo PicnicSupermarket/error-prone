@@ -16,9 +16,9 @@
 
 package com.google.errorprone.matchers;
 
-public class MethodThrowsLangException extends MethodThrows {
+public class MethodThrowsLangExceptionMatcher extends MethodThrows {
 
-  public MethodThrowsLangException() {
+  public MethodThrowsLangExceptionMatcher() {
     super("java.lang.Exception");
   }
 }

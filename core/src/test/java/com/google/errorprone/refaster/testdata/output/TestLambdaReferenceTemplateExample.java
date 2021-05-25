@@ -21,10 +21,10 @@ import com.google.common.collect.ImmutableSet;
 /** Test data for {@code TestLambdaReferenceTemplate}. */
 public class TestLambdaReferenceTemplateExample {
   public void test() {
-    ImmutableSet.of(1).stream().map(e -> foo(e));
+    ImmutableSet.of(1).stream().map(this::foo).limit(30);
   }
 
   private Integer foo(Integer x) {
-    return null ;
+    return null;
   }
 }

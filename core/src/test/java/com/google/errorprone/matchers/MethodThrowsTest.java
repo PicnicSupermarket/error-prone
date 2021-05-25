@@ -18,6 +18,7 @@ package com.google.errorprone.matchers;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import org.junit.After;
 import org.junit.Test;
@@ -119,7 +120,7 @@ public class MethodThrowsTest extends CompilerBasedAbstractTest {
   }
 
   private Scanner methodThrowsException(
-      final boolean shouldMatch, final Matcher<MemberReferenceTree> toMatch) {
+      final boolean shouldMatch, final Matcher<ExpressionTree> toMatch) {
     ScannerTest test =
         new ScannerTest() {
           private boolean matched = false;
