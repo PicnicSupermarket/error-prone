@@ -18,6 +18,7 @@ package com.google.errorprone.matchers;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.doctree.DocTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
@@ -61,13 +62,13 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodThrowsException(
             /* shouldMatch= */ true,
-            throwsException(
-                new Matcher<Tree>() {
-                  @Override
-                  public boolean matches(Tree tree, VisitorState state) {
-                    return tree.getKind().equals("java.lang.Exception");
-                  }
-                })));
+            throwsException("java.lang.Exception")));
+//                new Matcher<Tree>() {
+//                  @Override
+//                  public boolean matches(Tree tree, VisitorState state) {
+//                    return tree.getKind().equals("java.lang.Exception");
+//                  }
+//                })));
   }
 
   @Test
@@ -97,15 +98,15 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodThrowsException(
             /* shouldMatch= */ true,
-            Matchers.throwsException(variableType(isSameType("java.lang.Exception")))
-                    //                new Matcher<Tree>() {
-//                  @Override
-//                  public boolean matches(Tree tree, VisitorState state) {
-//                      return isSameType("java.lang.Exception");
-////                      return tree.getType().equals("");
-////                    return tree.getName().contentEquals("Exception");
-//                  }
-                ));
+                throwsException("java.lang.Exception")));
+
+      //            Matchers.throwsException(variableType(isSameType("java.lang.Exception")))
+//            new Matcher<Tree>() {
+//              @Override
+//              public boolean matches(Tree tree, VisitorState state) {
+//                return ASTHelpers.getType(tree).equals("java.lang.Exception");
+//              }
+//            }));
   }
 
   //     @Override
@@ -132,15 +133,6 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
 
             return super.visitMemberReference(node, visitorState);
           }
-
-          //            @Override
-          //          public Void visitMethod(MethodTree node, VisitorState visitorState) {
-          //            visitorState = visitorState.withPath(getCurrentPath());
-          //            if (toMatch.matches(node, visitorState)) {
-          //              matched = true;
-          //            }
-          //            return super.visitMethod(node, visitorState);
-          //          }
 
           @Override
           public void assertDone() {

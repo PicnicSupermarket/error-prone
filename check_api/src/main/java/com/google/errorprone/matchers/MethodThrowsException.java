@@ -19,24 +19,22 @@ package com.google.errorprone.matchers;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.List;
 
 public class MethodThrowsException implements Matcher<MemberReferenceTree> {
 
-  private final Matcher<? super Tree> throwsMatcher;
+  private final String throwsMatcher;
 
-  public MethodThrowsException(Matcher<? super Tree> throwsMatcher) {
+  public MethodThrowsException(String throwsMatcher) {
     this.throwsMatcher = throwsMatcher;
   }
 
   @Override
   public boolean matches(MemberReferenceTree methodTree, VisitorState state) {
     List<Type> thrownTypes = ASTHelpers.getSymbol(methodTree).getThrownTypes();
-    boolean matches = throwsMatcher.matches(methodTree, state);
-    int size = thrownTypes.size();
-
-    return size == 1;
+    return thrownTypes.stream().anyMatch(type -> type.tsym.toString().equals(throwsMatcher));
+    // thrownTypes.get(0).tsym.toString().equals(throwsMatcher);
+    //    boolean matches = throwsMatcher.matches(thrownTypes.get(), state);
   }
 }

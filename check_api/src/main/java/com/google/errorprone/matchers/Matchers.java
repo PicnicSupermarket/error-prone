@@ -1068,8 +1068,8 @@ public class Matchers {
     return new Throws(thrownMatcher);
   }
 
-  public static Matcher<MemberReferenceTree> throwsException(Matcher<? super Tree> throwsMatcher) {
-    return new MethodThrowsException(throwsMatcher);
+  public static Matcher<MemberReferenceTree> throwsException(String exceptionName) {
+    return new MethodThrowsException(exceptionName);
   }
 
   /**
