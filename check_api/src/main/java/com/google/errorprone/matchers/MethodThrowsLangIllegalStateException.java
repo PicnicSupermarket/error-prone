@@ -16,9 +16,9 @@
 
 package com.google.errorprone.matchers;
 
-public class MethodThrowsException extends MethodThrows {
+public class MethodThrowsLangIllegalStateException extends MethodThrows {
 
-  public MethodThrowsException(String fullExceptionQualifier) {
-    super(fullExceptionQualifier);
+  public MethodThrowsLangIllegalStateException() {
+    super("java.lang.IllegalStateException");
   }
 }

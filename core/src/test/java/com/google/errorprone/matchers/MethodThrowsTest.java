@@ -18,16 +18,7 @@ package com.google.errorprone.matchers;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
-import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.doctree.DocTree;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
-import com.sun.source.tree.VariableTree;
-import com.sun.tools.javac.code.Type;
-import org.hamcrest.core.IsSame;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,11 +28,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.errorprone.matchers.Matchers.*;
-import static org.junit.Assert.assertTrue;
+import static com.google.errorprone.matchers.Matchers.throwsException;
 
 @RunWith(JUnit4.class)
-public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
+public class MethodThrowsTest extends CompilerBasedAbstractTest {
   final List<ScannerTest> tests = new ArrayList<>();
 
   @After
@@ -52,27 +42,31 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
   }
 
   @Test
-  public void shouldMatchThis() {
+  public void noThrowDoesntMatch() {
     writeFile(
         "A.java",
-        "public class A {",
-        " A() throws Exception { int foo = 1; throw new NullPointerException(); }",
-        " A(int foo) { int x = foo; }",
+        "class A {",
+        "@FunctionalInterface",
+        "interface MyExceptionThrowingFunctionalInterface<I, O> {",
+        "   O fun(I input) throws Exception;",
+        "}",
+        "",
+        "void receiver(MyExceptionThrowingFunctionalInterface fun) {",
+        "   receiver(this::fun1);",
+        "}",
+        "",
+        "private String fun1(Object o) {",
+        "   return o.toString();",
+        "}",
+        "",
+        "",
         "}");
     assertCompiles(
-        methodThrowsException(
-            /* shouldMatch= */ true,
-            throwsException("java.lang.Exception")));
-//                new Matcher<Tree>() {
-//                  @Override
-//                  public boolean matches(Tree tree, VisitorState state) {
-//                    return tree.getKind().equals("java.lang.Exception");
-//                  }
-//                })));
+        methodThrowsException(/* shouldMatch= */ false, throwsException("java.lang.Exception")));
   }
 
   @Test
-  public void shouldMatchOne() {
+  public void shouldMatchThrows() {
     writeFile(
         "A.java",
         "class A {",
@@ -85,9 +79,29 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
         "   receiver(this::fun2);",
         "}",
         "",
-        //        "private String fun1(Object o) {",
-        //        "   return o.toString();",
-        //        "}",
+        "private String fun2(Object o) throws Exception {",
+        "   return o.toString();",
+        "}",
+        "",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(/* shouldMatch= */ true, throwsException("java.lang.Exception")));
+  }
+
+  @Test
+  public void wrongExceptionDoesntMatch() {
+    writeFile(
+        "A.java",
+        "class A {",
+        "@FunctionalInterface",
+        "interface MyExceptionThrowingFunctionalInterface<I, O> {",
+        "   O fun(I input) throws Exception;",
+        "}",
+        "",
+        "void receiver(MyExceptionThrowingFunctionalInterface fun) {",
+        "   receiver(this::fun2);",
+        "}",
         "",
         "private String fun2(Object o) throws Exception {",
         "   return o.toString();",
@@ -97,22 +111,8 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
 
     assertCompiles(
         methodThrowsException(
-            /* shouldMatch= */ true,
-                throwsException("java.lang.Exception")));
-
-      //            Matchers.throwsException(variableType(isSameType("java.lang.Exception")))
-//            new Matcher<Tree>() {
-//              @Override
-//              public boolean matches(Tree tree, VisitorState state) {
-//                return ASTHelpers.getType(tree).equals("java.lang.Exception");
-//              }
-//            }));
+            /* shouldMatch= */ false, throwsException("java.lang.IllegalStateException")));
   }
-
-  //     @Override
-  //                                  public boolean matches(MethodTree tree, VisitorState state) {
-  //                                      return tree.getName().contentEquals("Exception");
-  //                                  }
 
   private abstract static class ScannerTest extends Scanner {
     abstract void assertDone();
