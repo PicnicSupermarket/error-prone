@@ -1069,7 +1069,7 @@ public class Matchers {
   }
 
   public static Matcher<ExpressionTree> throwsException(String exceptionName) {
-    return new MethodThrowsException(exceptionName);
+    return new MethodThrows(exceptionName);
   }
 
   /**
