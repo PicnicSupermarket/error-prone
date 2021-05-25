@@ -60,6 +60,7 @@ import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -1065,6 +1066,10 @@ public class Matchers {
   public static Matcher<StatementTree> throwStatement(
       Matcher<? super ExpressionTree> thrownMatcher) {
     return new Throws(thrownMatcher);
+  }
+
+  public static Matcher<MemberReferenceTree> throwsException(Matcher<? super Tree> throwsMatcher) {
+    return new MethodThrowsException(throwsMatcher);
   }
 
   /**
