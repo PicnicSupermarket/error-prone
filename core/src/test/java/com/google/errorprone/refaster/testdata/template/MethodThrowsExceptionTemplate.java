@@ -27,7 +27,7 @@ import com.google.errorprone.refaster.annotation.NotMatches;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-public class TestLambdaReferenceTemplate<I, T extends I, O> {
+public class MethodThrowsExceptionTemplate<I, T extends I, O> {
   @BeforeTemplate
   Stream<O> before(Stream<T> stream, @NotMatches(MethodThrowsLangExceptionMatcher.class) Function<I, O> function) {
     return stream.map(function);

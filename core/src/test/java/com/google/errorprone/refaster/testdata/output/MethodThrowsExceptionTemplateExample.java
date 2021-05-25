@@ -19,9 +19,9 @@ package com.google.errorprone.refaster.testdata;
 import com.google.common.collect.ImmutableSet;
 
 /** Test data for {@code TestLambdaReferenceTemplate}. */
-public class TestLambdaReferenceTemplateExample {
+public class MethodThrowsExceptionTemplateExample {
   public void test() {
-    ImmutableSet.of(1).stream().map(this::foo);
+    ImmutableSet.of(1).stream().map(this::foo).limit(30);
   }
 
   private Integer foo(Integer x) {

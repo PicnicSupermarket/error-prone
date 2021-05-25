@@ -373,7 +373,7 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   }
 
   @Test
-  public void testLambdaReference() throws IOException {
-    runTest("TestLambdaReferenceTemplate");
+  public void methodThrowsException() throws IOException {
+    runTest("MethodThrowsExceptionTemplate");
   }
 }
