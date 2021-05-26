@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import java.util.ArrayList;
 import java.util.List;
@@ -184,6 +185,114 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
         methodThrowsException(/* shouldMatch= */ false, throwsException("java.lang.Exception")));
   }
 
+  @Test
+  public void lambdaThrowsShouldMatch() {
+    writeFile(
+        "A.java",
+        "abstract class A {",
+        " @FunctionalInterface",
+        " interface Foo<I, O> {",
+        "   O fun(I input) throws Exception;",
+        " }",
+        "",
+        "  void invoke() {",
+        "    receiver(e -> fun1(e));",
+        "  }",
+        "",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
+        "",
+        "  private String fun1(Object o) throws Exception {",
+        "    return o.toString();",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(/* shouldMatch= */ true, throwsException("java.lang.Exception")));
+  }
+
+  @Test
+  public void lambdaDoesNotThrowShouldNotMatch() {
+    writeFile(
+        "A.java",
+        "abstract class A {",
+        " @FunctionalInterface",
+        " interface Foo<I, O> {",
+        "   O fun(I input) throws Exception;",
+        " }",
+        "",
+        "  void invoke() {",
+        "    receiver(e -> fun1(e));",
+        "  }",
+        "",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
+        "",
+        "  private String fun1(Object o) {",
+        "    return o.toString();",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(/* shouldMatch= */ false, throwsException("java.lang.Exception")));
+  }
+
+  @Test
+  public void lambdaLastStatementDoesThrowShouldMatch() {
+    writeFile(
+        "A.java",
+        "abstract class A {",
+        " @FunctionalInterface",
+        " interface Foo<I, O> {",
+        "   O fun(I input) throws Exception;",
+        " }",
+        "",
+        "  void invoke() {",
+        "  receiver(e -> {",
+        "    System.out.println(\"Test\");",
+        "    return fun1(e);",
+        "   });",
+        "  }",
+        "",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
+        "",
+        "  private String fun1(Object o) throws Exception {",
+        "    return o.toString();",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(/* shouldMatch= */ true, throwsException("java.lang.Exception")));
+  }
+
+  @Test
+  public void lambdaSecondStatementDoesThrowShouldMatch() {
+    writeFile(
+        "A.java",
+        "abstract class A {",
+        " @FunctionalInterface",
+        " interface Foo<I, O> {",
+        "   O fun(I input) throws Exception;",
+        " }",
+        "",
+        "  void invoke() {",
+        "    receiver(e -> {",
+        "      System.out.println(\"Print\");",
+        "      String x = fun1(e);",
+        "      System.out.println(\"Print\");",
+        "      return x;",
+        "    });",
+        "  }",
+        "",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
+        "",
+        "  private String fun1(Object o) throws Exception {",
+        "    return o.toString();",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(/* shouldMatch= */ true, throwsException("java.lang.Exception")));
+  }
+
   private abstract static class ScannerTest extends Scanner {
     abstract void assertDone();
   }
@@ -193,6 +302,16 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
     ScannerTest test =
         new ScannerTest() {
           private boolean matched = false;
+
+          @Override
+          public Void visitLambdaExpression(LambdaExpressionTree node, VisitorState visitorState) {
+            visitorState = visitorState.withPath(getCurrentPath());
+            if (toMatch.matches(node, visitorState)) {
+              matched = true;
+            }
+
+            return super.visitLambdaExpression(node, visitorState);
+          }
 
           @Override
           public Void visitMemberReference(MemberReferenceTree node, VisitorState visitorState) {
