@@ -16,15 +16,17 @@
 
 package com.google.errorprone.refaster.testdata;
 
-import com.google.common.collect.ImmutableSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** Test data for {@code TestLambdaReferenceTemplate}. */
 public class MethodThrowsExceptionTemplateExample {
-  public void positive() {
-    ImmutableSet.of(1).stream().map(this::foo);
+  public void foo() {
+    ExecutorService service = Executors.newFixedThreadPool(10);
+    service.submit(() -> bar(1));
   }
 
-  private Integer foo(Integer x) {
+  private Integer bar(Integer x) throws Exception {
     return null;
   }
 }

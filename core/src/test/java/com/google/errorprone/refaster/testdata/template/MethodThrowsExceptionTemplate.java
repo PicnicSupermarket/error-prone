@@ -16,25 +16,26 @@
 
 package com.google.errorprone.refaster.testdata.template;
 
-import com.google.errorprone.matchers.MethodThrowsLangExceptionMatcher;
-import com.google.errorprone.matchers.MethodThrowsLangIllegalStateException;
-import com.google.errorprone.matchers.NullnessMatcher;
+import com.google.errorprone.matchers.MethodThrowsExceptionLangExceptionMatcher;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.Matches;
-import com.google.errorprone.refaster.annotation.NotMatches;
 
-import java.util.function.Function;
-import java.util.stream.Stream;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
-public class MethodThrowsExceptionTemplate<I, T extends I, O> {
+public class MethodThrowsExceptionTemplate<O> {
   @BeforeTemplate
-  Stream<O> before(Stream<T> stream, @NotMatches(MethodThrowsLangExceptionMatcher.class) Function<I, O> function) {
-    return stream.map(function);
+  Future<O> before(
+      ExecutorService es,
+      @Matches(MethodThrowsExceptionLangExceptionMatcher.class) Callable<O> function) {
+    return es.submit(function);
   }
 
   @AfterTemplate
-  Stream<O> after(Stream<T> stream, Function<I, O> function) {
-    return stream.map(function).limit(30);
+  Future<O> after(ExecutorService es, Supplier<O> function) {
+    return es.submit(() -> function.get());
   }
 }

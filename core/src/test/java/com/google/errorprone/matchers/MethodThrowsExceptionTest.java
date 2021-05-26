@@ -31,7 +31,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class MethodThrowsTest extends CompilerBasedAbstractTest {
+public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
   private final List<ScannerTest> tests = new ArrayList<>();
 
   @After

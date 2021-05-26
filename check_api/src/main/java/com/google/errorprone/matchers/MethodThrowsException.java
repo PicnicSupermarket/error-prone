@@ -23,10 +23,10 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.tools.javac.code.Symbol;
 
 // XXX: Method name. Maybe `ThrowsException`?
-public class MethodThrows implements Matcher<ExpressionTree> {
+public class MethodThrowsException implements Matcher<ExpressionTree> {
   private final String throwsException;
 
-  public MethodThrows(String throwsException) {
+  public MethodThrowsException(String throwsException) {
     this.throwsException = throwsException;
   }
 
