@@ -16,27 +16,27 @@
 
 package com.google.errorprone.refaster.testdata;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
-/** Test data for {@code TestLambdaReferenceTemplate}. */
+/** Test data for {@code MethodThrowsExceptionTemplate}. */
 public class MethodThrowsExceptionTemplateExample {
   public void foo() {
     ExecutorService service = Executors.newFixedThreadPool(10);
-    service.submit(
-        () ->
-            (Supplier<Integer>)
-                () -> {
-                  try {
-                    return bar(1);
-                  } catch (Exception e) {
-                    return null;
-                  }
-                });
+    service.submit(() -> ((Supplier<Integer>) () -> bar(1)).get());
   }
 
   private Integer bar(Integer x) throws Exception {
     return null;
+  }
+
+  private int test() {
+    try {
+    return ((Supplier<Integer>) () -> bar(1)).get();
+    } catch(Exception e) {
+      return 0;
+    }
   }
 }

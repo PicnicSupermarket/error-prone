@@ -36,6 +36,13 @@ public class MethodThrowsExceptionTemplate<O> {
 
   @AfterTemplate
   Future<O> after(ExecutorService es, Supplier<O> function) {
-    return es.submit(() -> function.get());
-  }
+    return es.submit(
+        () -> {
+          try {
+            return ((Supplier<O>) function).get();
+          } catch (Exception e) {
+            return null;
+          }
+        });
+    }
 }

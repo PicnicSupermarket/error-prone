@@ -16,10 +16,12 @@
 
 package com.google.errorprone.refaster.testdata;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 
-/** Test data for {@code TestLambdaReferenceTemplate}. */
+/** Test data for {@code MethodThrowsExceptionTemplate}. */
 public class MethodThrowsExceptionTemplateExample {
   public void foo() {
     ExecutorService service = Executors.newFixedThreadPool(10);

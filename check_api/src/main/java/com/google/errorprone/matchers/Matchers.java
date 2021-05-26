@@ -1067,8 +1067,8 @@ public class Matchers {
     return new Throws(thrownMatcher);
   }
 
-  public static Matcher<ExpressionTree> throwsException(String exceptionName) {
-    return new MethodThrowsException(exceptionName);
+  public static Matcher<ExpressionTree> throwsException(String exceptionQualifier) {
+    return new MethodThrowsException(exceptionQualifier);
   }
 
   /**
