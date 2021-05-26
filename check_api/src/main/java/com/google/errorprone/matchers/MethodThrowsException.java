@@ -16,8 +16,6 @@
 
 package com.google.errorprone.matchers;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
@@ -25,7 +23,8 @@ import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.tree.JCTree;
+
+import java.util.function.Predicate;
 
 // XXX: Method name. Maybe `ThrowsException`?
 public class MethodThrowsException implements Matcher<ExpressionTree> {
@@ -37,30 +36,26 @@ public class MethodThrowsException implements Matcher<ExpressionTree> {
 
   @Override
   public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-    // Code for the lambda expression case, as well as for a separate "does this expression throw an
-    // exception?" check
-    //    return ASTHelpers.getThrownExceptions(expressionTree, state).stream()
-    //            .anyMatch(type -> type.tsym.toString().equals(throwsException));
-
-    ImmutableCollection<Type> thrownTypes;
+    // XXX: @Stephan
+    // Type qualifiedType = state.getTypeFromString(qualifierException); is nu dubbel, maar
+    // dat is een dure operatie zei je, dus wellicht nice?
     if (expressionTree instanceof MemberReferenceTree) {
       MethodSymbol symbol = ASTHelpers.getSymbol((MemberReferenceTree) expressionTree);
-      if (symbol == null) {
-        return false;
-      }
-      thrownTypes = ImmutableList.copyOf(symbol.getThrownTypes());
+      Type qualifiedExceptionType = state.getTypeFromString(qualifierException);
+      return symbol != null
+          && symbol.getThrownTypes().stream()
+              .anyMatch(isSubtypeOfThrownException(state, qualifiedExceptionType));
     } else if (expressionTree instanceof LambdaExpressionTree) {
-      thrownTypes =
-          ASTHelpers.getThrownExceptions(((JCTree.JCLambda) expressionTree).getBody(), state);
-    } else {
-      return false;
+      Type qualifiedExceptionType = state.getTypeFromString(qualifierException);
+      return ASTHelpers.getThrownExceptions(
+              ((LambdaExpressionTree) expressionTree).getBody(), state)
+          .stream()
+          .anyMatch(isSubtypeOfThrownException(state, qualifiedExceptionType));
     }
+    return false;
+  }
 
-    return thrownTypes.stream()
-        .anyMatch(
-            type ->
-                type.tsym.toString().equals(qualifierException)
-                    || ASTHelpers.isSubtype(
-                        state.getTypeFromString(qualifierException), type, state));
+  private Predicate<Type> isSubtypeOfThrownException(VisitorState state, Type qualifiedExceptionType) {
+    return type -> ASTHelpers.isSubtype(qualifiedExceptionType, type, state);
   }
 }

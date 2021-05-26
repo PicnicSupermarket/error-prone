@@ -371,9 +371,4 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   public void suppressWarnings() throws IOException {
     runTest("SuppressWarningsTemplate");
   }
-
-  @Test
-  public void methodThrowsException() throws IOException {
-    runTest("MethodThrowsExceptionTemplate");
-  }
 }
