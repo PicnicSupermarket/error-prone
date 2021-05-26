@@ -20,34 +20,37 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
-import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
 
 // XXX: Method name. Maybe `ThrowsException`?
 public class MethodThrowsException implements Matcher<ExpressionTree> {
-  private final String throwsException;
+  private final String qualifierException;
 
-  public MethodThrowsException(String throwsException) {
-    this.throwsException = throwsException;
+  public MethodThrowsException(String qualifierException) {
+    this.qualifierException = qualifierException;
   }
 
-  // XXX: Subtype support
   @Override
   public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-    // Code for the lambda expression case, as well as for a separate "does this expression throw an exception?" check
-//    return ASTHelpers.getThrownExceptions(expressionTree, state).stream()
-//            .anyMatch(type -> type.tsym.toString().equals(throwsException));
+    // Code for the lambda expression case, as well as for a separate "does this expression throw an
+    // exception?" check
+    //    return ASTHelpers.getThrownExceptions(expressionTree, state).stream()
+    //            .anyMatch(type -> type.tsym.toString().equals(throwsException));
 
-    // XXX: Also constructors. But can we get rid of this constraint.
     // XXX: Also lambda expression bodies
     if (!(expressionTree instanceof MemberReferenceTree)) {
       return false;
     }
 
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol((MemberReferenceTree) expressionTree);
+    MethodSymbol symbol = ASTHelpers.getSymbol((MemberReferenceTree) expressionTree);
     if (symbol == null) {
       return false;
     }
     return symbol.getThrownTypes().stream()
-        .anyMatch(type -> type.tsym.toString().equals(throwsException));
+        .anyMatch(
+            type ->
+                type.tsym.toString().equals(qualifierException)
+                    || ASTHelpers.isSubtype(
+                        state.getTypeFromString(qualifierException), type, state));
   }
 }

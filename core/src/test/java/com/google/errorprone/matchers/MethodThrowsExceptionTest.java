@@ -19,6 +19,7 @@ package com.google.errorprone.matchers;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.errorprone.matchers.Matchers.throwsException;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
 import com.sun.source.tree.ExpressionTree;
@@ -55,7 +56,7 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
         "    receiver(this::fun1);",
         "  }",
         "",
-        "  abstract void <I, O> receiver(Foo<I, O> fun);",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
         "",
         "  private String fun1(Object o) {",
         "    return o.toString();",
@@ -67,23 +68,24 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
   }
 
   @Test
-  public void shouldMatchThrows() {
+  public void throwDoesMatch() {
     writeFile(
         "A.java",
-        "class A {",
-        "@FunctionalInterface",
-        "interface Foo<I, O> {",
-        "   O fun(I input) throws Exception;",
-        "}",
+        "abstract class A {",
+        "  @FunctionalInterface",
+        "  interface Foo<I, O> {",
+        "     O fun(I input) throws Exception;",
+        "  }",
         "",
-        "void receiver(Foo fun) {",
-        "   receiver(this::fun2);",
-        "}",
+        "  void invoke() {",
+        "     receiver(this::fun2);",
+        "  }",
         "",
-        "private String fun2(Object o) throws Exception {",
-        "   return o.toString();",
-        "}",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
         "",
+        "  private String fun2(Object o) throws Exception {",
+        "     return o.toString();",
+        "  }",
         "}");
 
     assertCompiles(
@@ -91,28 +93,95 @@ public class MethodThrowsExceptionTest extends CompilerBasedAbstractTest {
   }
 
   @Test
-  public void wrongExceptionDoesntMatch() {
+  public void throwSubtypeShouldMatch() {
     writeFile(
         "A.java",
-        "class A {",
-        "@FunctionalInterface",
-        "interface Foo<I, O> {",
-        "   O fun(I input) throws Exception;",
-        "}",
+        "abstract class A {",
+        "  @FunctionalInterface",
+        "  interface Foo<I, O> {",
+        "     O fun(I input) throws Exception;",
+        "  }",
         "",
-        "void receiver(Foo fun) {",
-        "   receiver(this::fun2);",
-        "}",
+        "  void invoke() {",
+        "     receiver(this::fun2);",
+        "  }",
         "",
-        "private String fun2(Object o) throws Exception {",
-        "   return o.toString();",
-        "}",
-        "",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
+        "  ",
+        "  private String fun2(Object o) throws Exception {",
+        "     return o.toString();",
+        "  }",
         "}");
 
     assertCompiles(
         methodThrowsException(
-            /* shouldMatch= */ false, throwsException("java.lang.IllegalStateException")));
+            /* shouldMatch= */ true, throwsException("java.lang.IllegalStateException")));
+  }
+
+  @Test
+  public void throwSupertypeShouldNotMatch() {
+    writeFile(
+        "A.java",
+        "abstract class A {",
+        "  @FunctionalInterface",
+        "  interface Foo<I, O> {",
+        "     O fun(I input) throws Exception;",
+        "  }",
+        "",
+        "  void invoke() {",
+        "     receiver(this::fun2);",
+        "  }",
+        "",
+        "  abstract <I, O> void receiver(Foo<I, O> fun);",
+        "  ",
+        "  private String fun2(Object o) throws Exception {",
+        "     return o.toString();",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(/* shouldMatch= */ false, throwsException("java.lang.Throwable")));
+  }
+
+  @Test
+  public void constructorThrowShouldMatch() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableSet;",
+        "",
+        "abstract class A {",
+        "  public void Foo() {",
+        "    ImmutableSet.of(1).stream().map(Test::new);",
+        "  }",
+        "}",
+        "",
+        "class Test {",
+        "  public Test(int i) throws IllegalStateException { }",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(
+            /* shouldMatch= */ true, throwsException("java.lang.IllegalStateException")));
+  }
+
+  @Test
+  public void constructorDoesntThrowShouldNotMatch() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableSet;",
+        "",
+        "abstract class A {",
+        "  public void Foo() {",
+        "    ImmutableSet.of(1).stream().map(Test::new);",
+        "  }",
+        "}",
+        "",
+        "class Test {",
+        "  public Test(int i) { }",
+        "}");
+
+    assertCompiles(
+        methodThrowsException(/* shouldMatch= */ false, throwsException("java.lang.Exception")));
   }
 
   private abstract static class ScannerTest extends Scanner {
