@@ -16,11 +16,12 @@
 
 package com.google.errorprone.matchers;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
-import com.sun.source.tree.IdentifierTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,31 +45,172 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
   }
 
   @Test
-  public void shouldMatchThis() {
-    writeFile("A.java", "public class A {", "  A() { test(\"x\"); }", " String test(String foo) { return foo; }", "}");
+  public void sameTypeMethodReferenceMatches() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(this::bar);",
+        "  }",
+        "",
+        "  private Integer bar(Integer i) {",
+        "    return null;",
+        "  }",
+        "}");
+
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ true,
-            methodHasParameters(variableType(isSubtypeOf("java.lang.Object")))));
+            methodReferenceHasParameters(
+                ImmutableList.of(variableType(isSameType("java.lang.Integer"))))));
   }
+
+  @Test
+  public void wrongTypeDoesntMatchMethodReference() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(this::bar);",
+        "  }",
+        "",
+        "  private Integer bar(Integer i) {",
+        "    return null;",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ false,
+            methodReferenceHasParameters(
+                ImmutableList.of(variableType(isSubtypeOf("java.lang.String"))))));
+  }
+
+  @Test
+  public void subtypeMethodReferenceMatches() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(this::bar);",
+        "  }",
+        "",
+        "  private Integer bar(Integer i) {",
+        "    return null;",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ true,
+            methodReferenceHasParameters(
+                ImmutableList.of(variableType(isSubtypeOf("java.lang.Object"))))));
+  }
+
+  @Test
+  public void typeLambdaMatches() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(i -> i * 2);",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ true,
+            methodReferenceHasParameters(
+                ImmutableList.of(variableType(isSubtypeOf("java.lang.Integer"))))));
+  }
+
+  @Test
+  public void typeLambdaDoesntMatch() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(i -> i * 2);",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ false,
+            methodReferenceHasParameters(
+                ImmutableList.of(variableType(isSubtypeOf("java.lang.String"))))));
+  }
+
+  @Test
+  public void subtypeLambdaMatch() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(i -> i * 2);",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ true,
+            methodReferenceHasParameters(
+                ImmutableList.of(variableType(isSubtypeOf("java.lang.Object"))))));
+  }
+
+  // Example to match a method
+  //  @Test
+  //  public void shouldMatchNormalMethodCall() {
+  //    writeFile(
+  //        "A.java",
+  //        "public class A {",
+  //        "  A() { test(\"x\"); }",
+  //        " String test(String foo) { return foo; }",
+  //        "}");
+  //    assertCompiles(
+  //        methodSignatureIsMatching(
+  //            /* shouldMatch= */ true,
+  //            methodHasParameters(variableType(isSubtypeOf("java.lang.Object")))));
+  //  }
 
   private abstract static class ScannerTest extends Scanner {
     abstract void assertDone();
   }
 
   private Scanner methodSignatureIsMatching(
-      final boolean shouldMatch, final Matcher<MethodTree> toMatch) {
+      final boolean shouldMatch, final Matcher<ExpressionTree> toMatch) {
     ScannerTest test =
         new ScannerTest() {
           private boolean matched = false;
 
           @Override
-          public Void visitMethod(MethodTree node, VisitorState visitorState) {
+          public Void visitLambdaExpression(LambdaExpressionTree node, VisitorState visitorState) {
             visitorState = visitorState.withPath(getCurrentPath());
             if (toMatch.matches(node, visitorState)) {
               matched = true;
             }
-            return super.visitMethod(node, visitorState);
+            return super.visitLambdaExpression(node, visitorState);
+          }
+
+          @Override
+          public Void visitMemberReference(MemberReferenceTree node, VisitorState visitorState) {
+            visitorState = visitorState.withPath(getCurrentPath());
+            if (toMatch.matches(node, visitorState)) {
+              matched = true;
+            }
+            return super.visitMemberReference(node, visitorState);
           }
 
           @Override

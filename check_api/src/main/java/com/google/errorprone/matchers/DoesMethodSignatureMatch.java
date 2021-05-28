@@ -17,27 +17,54 @@
 package com.google.errorprone.matchers;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
+import com.sun.tools.javac.code.Symbol;
 
-import java.util.stream.Stream;
+import java.util.List;
 
 // XXX: Naming; DoParamsMatch? MethodParamsMatcher?
-public class DoesMethodSignatureMatch implements Matcher<MethodTree> {
+public class DoesMethodSignatureMatch implements Matcher<ExpressionTree> {
 
-  private ImmutableList<VariableTree> variables;
+  private final ImmutableList<Matcher<VariableTree>> variables;
 
-  public DoesMethodSignatureMatch(ImmutableList<VariableTree> variables) {
-    this.variables = variables;
+  public DoesMethodSignatureMatch(ImmutableList<Matcher<VariableTree>> variableMatchers) {
+    this.variables = variableMatchers;
   }
 
   @Override
-  public boolean matches(MethodTree methodTree, VisitorState state) {
-    Stream<Boolean> zip = Streams.zip(variables.stream(), methodTree.getParameters().stream(), (a, b) -> {
-      return a.getType().equals(b.getType());
-    });
-    return false;
+  public boolean matches(ExpressionTree expressionTree, VisitorState state) {
+    if (!(expressionTree instanceof MemberReferenceTree)
+        && !(expressionTree instanceof LambdaExpressionTree)) {
+      return false;
+    }
+
+    Symbol symbol = ASTHelpers.getSymbol(expressionTree);
+    List<? extends VariableTree> parameters;
+    if (expressionTree instanceof MemberReferenceTree) {
+      MethodTree method = ASTHelpers.findMethod((Symbol.MethodSymbol) symbol, state);
+      parameters = method.getParameters();
+    } else {
+      parameters = ((LambdaExpressionTree) expressionTree).getParameters();
+    }
+
+    return hasMatchingParameters(state, parameters);
+  }
+
+  private boolean hasMatchingParameters(
+      VisitorState state, List<? extends VariableTree> parameters) {
+    for (int i = 0; i < parameters.size(); i++) {
+      Matcher<VariableTree> variableTreeMatcher = variables.get(i);
+      boolean matches = variableTreeMatcher.matches(parameters.get(i), state);
+      if (!matches) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -896,6 +896,10 @@ public class Matchers {
     return methodHasParameters(ImmutableList.copyOf(variableMatcher));
   }
 
+  public static Matcher<ExpressionTree> methodReferenceHasParameters(ImmutableList<Matcher<VariableTree>> variableMatchers) {
+    return new DoesMethodSignatureMatch(variableMatchers);
+  }
+
   /**
    * Matches an AST node that represents a method declaration, based on the list of
    * variableMatchers. Applies the variableMatcher at index n to the parameter at index n and
