@@ -896,8 +896,8 @@ public class Matchers {
     return methodHasParameters(ImmutableList.copyOf(variableMatcher));
   }
 
-  public static Matcher<ExpressionTree> methodReferenceHasParameters(ImmutableList<Matcher<VariableTree>> variableMatchers) {
-    return new DoesMethodSignatureMatch(variableMatchers);
+  public static Matcher<ExpressionTree> methodReferenceHasParameters(ImmutableList<String> parameterTypes) {
+    return new DoesMethodSignatureMatch(parameterTypes);
   }
 
   /**

@@ -16,57 +16,75 @@
 
 package com.google.errorprone.matchers;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Symbol.VarSymbol;
+import com.sun.tools.javac.code.Type;
 import java.util.List;
-import javax.annotation.Nullable;
 
 // XXX: Naming; DoParamsMatch? MethodParamsMatcher?
 public class DoesMethodSignatureMatch implements Matcher<ExpressionTree> {
-  private final ImmutableList<Matcher<VariableTree>> variables;
+  private final ImmutableList<Supplier<Type>> parameterTypes;
 
-  public DoesMethodSignatureMatch(ImmutableList<Matcher<VariableTree>> variableMatchers) {
-    this.variables = variableMatchers;
+  public DoesMethodSignatureMatch(ImmutableList<String> parameterTypes) {
+    this.parameterTypes =
+        parameterTypes.stream().map(Suppliers::typeFromString).collect(toImmutableList());
   }
 
   @Override
   public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-    List<? extends VariableTree> parameters = getParameters(expressionTree, state);
-    return parameters != null && hasMatchingParameters(state, parameters);
-  }
-
-  @Nullable
-  private List<? extends VariableTree> getParameters(
-      ExpressionTree expressionTree, VisitorState state) {
     if (expressionTree instanceof LambdaExpressionTree) {
-      return ((LambdaExpressionTree) expressionTree).getParameters();
+      return hasMatchingParameters((LambdaExpressionTree) expressionTree, state);
     }
 
     Symbol symbol = ASTHelpers.getSymbol(expressionTree);
     if (symbol instanceof MethodSymbol) {
-      MethodTree method = ASTHelpers.findMethod((MethodSymbol) symbol, state);
-      return method.getParameters();
+      return hasMatchingParameters((MethodSymbol) symbol, state);
     }
 
-    return null;
+    return false;
   }
 
-  private boolean hasMatchingParameters(
-      VisitorState state, List<? extends VariableTree> parameters) {
-    for (int i = 0; i < parameters.size(); i++) {
-      Matcher<VariableTree> variableTreeMatcher = variables.get(i);
-      boolean matches = variableTreeMatcher.matches(parameters.get(i), state);
-      if (!matches) {
+  // XXX: Deduplicate the methods below.
+  private boolean hasMatchingParameters(LambdaExpressionTree lambdaExpr, VisitorState state) {
+    List<? extends VariableTree> params = lambdaExpr.getParameters();
+    if (params.size() != parameterTypes.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < params.size(); i++) {
+      if (!state
+          .getTypes()
+          .isSubtype(ASTHelpers.getSymbol(params.get(i)).type, parameterTypes.get(i).get(state))) {
         return false;
       }
     }
+
+    return true;
+  }
+
+  private boolean hasMatchingParameters(MethodSymbol symbol, VisitorState state) {
+    List<VarSymbol> params = symbol.getParameters();
+    if (params.size() != parameterTypes.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < params.size(); i++) {
+      if (!state.getTypes().isSubtype(params.get(i).type, parameterTypes.get(i).get(state))) {
+        return false;
+      }
+    }
+
     return true;
   }
 }

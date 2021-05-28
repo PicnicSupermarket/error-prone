@@ -16,22 +16,21 @@
 
 package com.google.errorprone.matchers;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.errorprone.matchers.Matchers.methodReferenceHasParameters;
+
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.errorprone.matchers.Matchers.*;
 
 @RunWith(JUnit4.class)
 public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
@@ -63,8 +62,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ true,
-            methodReferenceHasParameters(
-                ImmutableList.of(variableType(isSameType("java.lang.Integer"))))));
+            methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
   }
 
   @Test
@@ -75,7 +73,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
         "",
         "class A {",
         "  public void foo() {",
-        "    ImmutableList.of(1).stream().map(this::bar);",
+        "    ImmutableList.of(1).stream().map(Integer::valueOf);",
         "  }",
         "",
         "  private Integer bar(Integer i) {",
@@ -86,8 +84,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ false,
-            methodReferenceHasParameters(
-                ImmutableList.of(variableType(isSubtypeOf("java.lang.String"))))));
+            methodReferenceHasParameters(ImmutableList.of("java.lang.String"))));
   }
 
   @Test
@@ -98,7 +95,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
         "",
         "class A {",
         "  public void foo() {",
-        "    ImmutableList.of(1).stream().map(this::bar);",
+        "    ImmutableList.of(1).stream().map(Integer::valueOf);",
         "  }",
         "",
         "  private Integer bar(Integer i) {",
@@ -109,8 +106,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ true,
-            methodReferenceHasParameters(
-                ImmutableList.of(variableType(isSubtypeOf("java.lang.Object"))))));
+            methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
   }
 
   @Test
@@ -128,8 +124,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ true,
-            methodReferenceHasParameters(
-                ImmutableList.of(variableType(isSubtypeOf("java.lang.Integer"))))));
+            methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
   }
 
   @Test
@@ -147,8 +142,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ false,
-            methodReferenceHasParameters(
-                ImmutableList.of(variableType(isSubtypeOf("java.lang.String"))))));
+            methodReferenceHasParameters(ImmutableList.of("java.lang.String"))));
   }
 
   @Test
@@ -166,8 +160,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ true,
-            methodReferenceHasParameters(
-                ImmutableList.of(variableType(isSubtypeOf("java.lang.Object"))))));
+            methodReferenceHasParameters(ImmutableList.of("java.lang.Object"))));
   }
 
   // Example to match a method
