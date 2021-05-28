@@ -21,16 +21,15 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
-
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import java.util.List;
+import javax.annotation.Nullable;
 
 // XXX: Naming; DoParamsMatch? MethodParamsMatcher?
 public class DoesMethodSignatureMatch implements Matcher<ExpressionTree> {
-
   private final ImmutableList<Matcher<VariableTree>> variables;
 
   public DoesMethodSignatureMatch(ImmutableList<Matcher<VariableTree>> variableMatchers) {
@@ -39,21 +38,24 @@ public class DoesMethodSignatureMatch implements Matcher<ExpressionTree> {
 
   @Override
   public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-    if (!(expressionTree instanceof MemberReferenceTree)
-        && !(expressionTree instanceof LambdaExpressionTree)) {
-      return false;
+    List<? extends VariableTree> parameters = getParameters(expressionTree, state);
+    return parameters != null && hasMatchingParameters(state, parameters);
+  }
+
+  @Nullable
+  private List<? extends VariableTree> getParameters(
+      ExpressionTree expressionTree, VisitorState state) {
+    if (expressionTree instanceof LambdaExpressionTree) {
+      return ((LambdaExpressionTree) expressionTree).getParameters();
     }
 
     Symbol symbol = ASTHelpers.getSymbol(expressionTree);
-    List<? extends VariableTree> parameters;
-    if (expressionTree instanceof MemberReferenceTree) {
-      MethodTree method = ASTHelpers.findMethod((Symbol.MethodSymbol) symbol, state);
-      parameters = method.getParameters();
-    } else {
-      parameters = ((LambdaExpressionTree) expressionTree).getParameters();
+    if (symbol instanceof MethodSymbol) {
+      MethodTree method = ASTHelpers.findMethod((MethodSymbol) symbol, state);
+      return method.getParameters();
     }
 
-    return hasMatchingParameters(state, parameters);
+    return null;
   }
 
   private boolean hasMatchingParameters(
