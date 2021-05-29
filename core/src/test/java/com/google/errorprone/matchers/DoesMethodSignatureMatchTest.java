@@ -16,21 +16,22 @@
 
 package com.google.errorprone.matchers;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.errorprone.matchers.Matchers.methodReferenceHasParameters;
-
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.errorprone.matchers.Matchers.methodReferenceHasParameters;
 
 @RunWith(JUnit4.class)
 public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
