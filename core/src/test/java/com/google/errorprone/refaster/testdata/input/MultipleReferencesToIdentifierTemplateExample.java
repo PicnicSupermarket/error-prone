@@ -19,7 +19,7 @@ package com.google.errorprone.refaster.testdata;
  * 
  * @author lowasser@google.com (Louis Wasserman)
  */
-public eclass MultipleReferencesToIdentifierTemplateExample {
+public class MultipleReferencesToIdentifierTemplateExample {
   public void example(int x, int y, String text) {
     // positive examples
     System.out.println(true || true);
