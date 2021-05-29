@@ -88,46 +88,6 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
   }
 
   @Test
-  public void primitiveTypeMethodReferenceMatches() {
-    writeFile(
-            "A.java",
-            "import com.google.common.collect.ImmutableList;",
-            "",
-            "class A {",
-            "  public void foo() {",
-            "    ImmutableList.of(1).stream().map(Integer::valueOf);",
-            "  }",
-            "}");
-
-    assertCompiles(
-            methodSignatureIsMatching(
-                    /* shouldMatch= */ true,
-                    methodReferenceHasParameters(ImmutableList.of("int"))));
-  }
-
-  @Test
-  public void wrapperTypeMethodReferenceMatches() {
-    writeFile(
-            "A.java",
-            "import com.google.common.collect.ImmutableList;",
-            "",
-            "class A {",
-            "  public void foo() {",
-            "    ImmutableList.of(1).stream().map(this::bar);",
-            "  }",
-            "",
-            "  private Integer bar(int i) {",
-            "    return null;",
-            "  }",
-            "}");
-
-    assertCompiles(
-            methodSignatureIsMatching(
-                    /* shouldMatch= */ true,
-                    methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
-  }
-
-  @Test
   public void subtypeMethodReferenceMatches() {
     writeFile(
         "A.java",
@@ -135,7 +95,7 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
         "",
         "class A {",
         "  public void foo() {",
-        "    ImmutableList.of(1).stream().map(Integer::valueOf);",
+        "    ImmutableList.of(1).stream().map(this::bar);",
         "  }",
         "",
         "  private Integer bar(Integer i) {",
@@ -146,11 +106,67 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
     assertCompiles(
         methodSignatureIsMatching(
             /* shouldMatch= */ true,
+            methodReferenceHasParameters(ImmutableList.of("java.lang.Object"))));
+  }
+
+  // XXX: Figure out good name
+  @Test
+  public void valueOfSubtypeOfMethodReferenceMatches() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(Integer::valueOf);",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ true,
             methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
   }
 
-  // define the order, make two tests for that. multiple arguments.
-  // string to object.
+  @Test
+  public void primitiveTypeMethodReferenceMatches() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(Integer::valueOf);",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ true, methodReferenceHasParameters(ImmutableList.of("int"))));
+  }
+
+  @Test
+  public void wrapperTypeMethodReferenceMatches() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(this::bar);",
+        "  }",
+        "",
+        "  private Integer bar(int i) {",
+        "    return null;",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ true,
+            methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
+  }
+
   @Test
   public void typeLambdaMatches() {
     writeFile(
@@ -204,6 +220,89 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
             /* shouldMatch= */ true,
             methodReferenceHasParameters(ImmutableList.of("java.lang.Object"))));
   }
+
+  @Test
+  public void correctParameterOrderLambdaMatches() {
+    writeFile(
+        "A.java",
+        "import java.util.function.BiConsumer;",
+        "",
+        "public class A {",
+        "  public void foo() {",
+        "    BiConsumer<String, Integer> stringIntegerBiConsumer = (String first, Integer second) -> {",
+        "      System.out.println(first + second);",
+        "    };",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ true,
+            methodReferenceHasParameters(
+                ImmutableList.of("java.lang.String", "java.lang.Integer"))));
+  }
+
+  @Test
+  public void wrongParameterOrderLambdaDoesntMatch() {
+    writeFile(
+        "A.java",
+        "import java.util.function.BiConsumer;",
+        "",
+        "public class A {",
+        "  public void foo() {",
+        "    BiConsumer<String, Integer> consumer = (String first, Integer second) -> {",
+        "      System.out.println(first + second);",
+        "    };",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ false,
+            methodReferenceHasParameters(
+                ImmutableList.of("java.lang.Integer", "java.lang.String"))));
+  }
+
+  @Test
+  public void tooFewParametersDoesntMatch() {
+    writeFile(
+        "A.java",
+        "import java.util.function.BiConsumer;",
+        "",
+        "public class A {",
+        "  public void foo() {",
+        "    BiConsumer<String, Integer> consumer = (String first, Integer second) -> {",
+        "      System.out.println(first + second);",
+        "    };",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ false,
+            methodReferenceHasParameters(ImmutableList.of("java.lang.String"))));
+  }
+
+  @Test
+  public void tooManyParametersDoesntMatch() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "",
+        "class A {",
+        "  public void foo() {",
+        "    ImmutableList.of(1).stream().map(i -> i * 2);",
+        "  }",
+        "}");
+
+    assertCompiles(
+        methodSignatureIsMatching(
+            /* shouldMatch= */ false,
+            methodReferenceHasParameters(
+                ImmutableList.of("java.lang.Integer", "java.lang.String"))));
+  }
+
+  // XXX: Stephan talked about a specific case with `String to Object`?
 
   private abstract static class ScannerTest extends Scanner {
     abstract void assertDone();
