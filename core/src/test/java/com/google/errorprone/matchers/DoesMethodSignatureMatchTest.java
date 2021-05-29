@@ -88,6 +88,46 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
   }
 
   @Test
+  public void primitiveTypeMethodReferenceMatches() {
+    writeFile(
+            "A.java",
+            "import com.google.common.collect.ImmutableList;",
+            "",
+            "class A {",
+            "  public void foo() {",
+            "    ImmutableList.of(1).stream().map(Integer::valueOf);",
+            "  }",
+            "}");
+
+    assertCompiles(
+            methodSignatureIsMatching(
+                    /* shouldMatch= */ true,
+                    methodReferenceHasParameters(ImmutableList.of("int"))));
+  }
+
+  @Test
+  public void wrapperTypeMethodReferenceMatches() {
+    writeFile(
+            "A.java",
+            "import com.google.common.collect.ImmutableList;",
+            "",
+            "class A {",
+            "  public void foo() {",
+            "    ImmutableList.of(1).stream().map(this::bar);",
+            "  }",
+            "",
+            "  private Integer bar(int i) {",
+            "    return null;",
+            "  }",
+            "}");
+
+    assertCompiles(
+            methodSignatureIsMatching(
+                    /* shouldMatch= */ true,
+                    methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
+  }
+
+  @Test
   public void subtypeMethodReferenceMatches() {
     writeFile(
         "A.java",
@@ -109,6 +149,8 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
             methodReferenceHasParameters(ImmutableList.of("java.lang.Integer"))));
   }
 
+  // define the order, make two tests for that. multiple arguments.
+  // string to object.
   @Test
   public void typeLambdaMatches() {
     writeFile(
@@ -162,21 +204,6 @@ public class DoesMethodSignatureMatchTest extends CompilerBasedAbstractTest {
             /* shouldMatch= */ true,
             methodReferenceHasParameters(ImmutableList.of("java.lang.Object"))));
   }
-
-  // Example to match a method
-  //  @Test
-  //  public void shouldMatchNormalMethodCall() {
-  //    writeFile(
-  //        "A.java",
-  //        "public class A {",
-  //        "  A() { test(\"x\"); }",
-  //        " String test(String foo) { return foo; }",
-  //        "}");
-  //    assertCompiles(
-  //        methodSignatureIsMatching(
-  //            /* shouldMatch= */ true,
-  //            methodHasParameters(variableType(isSubtypeOf("java.lang.Object")))));
-  //  }
 
   private abstract static class ScannerTest extends Scanner {
     abstract void assertDone();

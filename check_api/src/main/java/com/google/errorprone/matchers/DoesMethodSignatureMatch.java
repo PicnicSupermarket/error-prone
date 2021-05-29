@@ -30,6 +30,8 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
+
 import java.util.List;
 
 // XXX: Naming; DoParamsMatch? MethodParamsMatcher?
@@ -65,7 +67,8 @@ public class DoesMethodSignatureMatch implements Matcher<ExpressionTree> {
     for (int i = 0; i < params.size(); i++) {
       if (!state
           .getTypes()
-          .isSubtype(ASTHelpers.getSymbol(params.get(i)).type, parameterTypes.get(i).get(state))) {
+          .isConvertible(ASTHelpers.getSymbol(params.get(i)).type, parameterTypes.get(i).get(state))) {
+//          .isSubtype(ASTHelpers.getSymbol(params.get(i)).type, parameterTypes.get(i).get(state))) {
         return false;
       }
     }
@@ -80,7 +83,10 @@ public class DoesMethodSignatureMatch implements Matcher<ExpressionTree> {
     }
 
     for (int i = 0; i < params.size(); i++) {
-      if (!state.getTypes().isSubtype(params.get(i).type, parameterTypes.get(i).get(state))) {
+      Types types = state.getTypes();
+      //      !types.isSubtype(params.get(i).type, parameterTypes.get(i).get(state))
+      //          &&
+      if (!types.isConvertible(params.get(i).type, parameterTypes.get(i).get(state))) {
         return false;
       }
     }
