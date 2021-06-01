@@ -114,7 +114,10 @@ abstract class RefasterScanner<M extends TemplateMatch, T extends Template<M>>
         // match.unifier.types().isConvertible()
         // rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner())
         // rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) -> This gives a type.
-
+        // match.unifier.types().isConvertible(rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()), rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) )
+        // ASTHelpers.getSymbol(((JCTree.JCMethodInvocation) tree).getArguments().get(0))
+        // ((Symbol.MethodSymbol)ASTHelpers.getSymbol(((JCTree.JCMethodInvocation)
+        // tree).getArguments().get(0))).getThrownTypes()
         // match.unifier.types().isConvertible(rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()), rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) )
         if (beforeTemplate.annotations().containsKey(CanTransformToTargetType.class)) {
           List<Type> t = rule().afterTemplates().get(0).actualTypes(match.createInliner());

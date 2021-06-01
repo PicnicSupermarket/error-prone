@@ -607,10 +607,11 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         EnumSet<Kind> allowed = EnumSet.copyOf(Arrays.asList(hasKind.value()));
         ident = UOfKind.create(ident, ImmutableSet.copyOf(allowed));
       }
-      CanTransformToTargetType canTransformToTargetType = ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
-      if (canTransformToTargetType != null) {
-        ident = UCanBeTransformed.create(ident, canTransformToTargetType.value());
-      }
+      // XXX: At first, the annotation was here, but probably not useful.
+//      CanTransformToTargetType canTransformToTargetType = ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
+//      if (canTransformToTargetType != null) {
+//        ident = UCanBeTransformed.create(ident, canTransformToTargetType.value());
+//      }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);
       if (repeated != null) {
