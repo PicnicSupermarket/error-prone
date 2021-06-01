@@ -57,9 +57,6 @@ abstract class UCanBeTransformed extends UExpression {
   @Override
   @Nullable
   protected Choice<Unifier> defaultAction(Tree tree, @Nullable Unifier unifier) {
-    // unifier.createInliner().resolveClass(type()).fullname
     return expression().unify(tree, unifier);
-//    return Choice.condition(type().equals(tree.getKind().toString()), unifier)
-//        .thenChoose(unifications(expression(), tree));
   }
 }
