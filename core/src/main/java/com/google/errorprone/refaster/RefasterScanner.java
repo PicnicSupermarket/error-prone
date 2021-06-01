@@ -17,10 +17,12 @@
 package com.google.errorprone.refaster;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.DescriptionListener;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.DoWhileLoopTree;
@@ -34,6 +36,7 @@ import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.parser.JavaTokenizer;
 import com.sun.tools.javac.parser.ScannerFactory;
 import com.sun.tools.javac.parser.Tokens.Token;
@@ -43,6 +46,7 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCStatement;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import java.nio.CharBuffer;
 
@@ -108,6 +112,19 @@ abstract class RefasterScanner<M extends TemplateMatch, T extends Template<M>>
     for (T beforeTemplate : rule().beforeTemplates()) {
       matchLoop:
       for (M match : beforeTemplate.match((JCTree) tree, context)) {
+        // Check here whether the match is indeed correct? If the annotation is present.
+        // This would work if the annotation is on the method instead of parameter.
+        //match.unifier.types().isConvertible()
+        //rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner())
+        // rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) -> This gives a type.
+
+        //match.unifier.types().isConvertible(rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()), rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) )
+        if (beforeTemplate.annotations().containsKey(CanTransformToTargetType.class)) {
+          List<Type> t = rule().afterTemplates().get(0).actualTypes(match.createInliner());
+          ImmutableMap<String, UType> stringUTypeImmutableMap =
+              rule().afterTemplates().get(0).expressionArgumentTypes();
+          rule().afterTemplates().get(0).templateTypeVariables();
+        }
         if (rule().rejectMatchesWithComments()) {
           String matchContents = match.getRange(compilationUnit);
           JavaTokenizer tokenizer =
@@ -115,6 +132,7 @@ abstract class RefasterScanner<M extends TemplateMatch, T extends Template<M>>
                   ScannerFactory.instance(context), CharBuffer.wrap(matchContents)) {};
           for (Token token = tokenizer.readToken();
               token.kind != TokenKind.EOF;
+
               token = tokenizer.readToken()) {
             if (token.comments != null && !token.comments.isEmpty()) {
               continue matchLoop;
