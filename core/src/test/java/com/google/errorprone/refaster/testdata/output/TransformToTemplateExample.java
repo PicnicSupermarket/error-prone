@@ -16,9 +16,18 @@
 
 package com.google.errorprone.refaster.testdata;
 
+import com.google.common.collect.ImmutableSet;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
 /** Example */
 public class TransformToTemplateExample {
-  public int example() {
-    return 2 + 3 + 1;
+  public List<Integer> example() {
+    return ImmutableSet.of(1).stream().map(this::test).map(this::test).collect(Collectors.toList());
+  }
+
+  public Integer test(Integer i) {
+    return i + i;
   }
 }

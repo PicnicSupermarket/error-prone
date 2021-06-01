@@ -21,9 +21,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** TODO  */
-@Target(ElementType.PARAMETER)
+@Target(ElementType.METHOD)
 @Retention(RetentionPolicy.SOURCE)
-public @interface CanTransformToTargetType {
-    String value();
-}
+@RequiredAnnotation(BeforeTemplate.class)
+public @interface CanTransformToTargetType {}
+
+// perhaps pass index?
