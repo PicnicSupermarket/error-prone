@@ -29,6 +29,7 @@ import com.google.common.reflect.TypeToken;
 import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 import com.google.errorprone.refaster.annotation.Matches;
 import com.google.errorprone.refaster.annotation.NotMatches;
 import com.google.errorprone.refaster.annotation.OfKind;
@@ -605,6 +606,10 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (hasKind != null) {
         EnumSet<Kind> allowed = EnumSet.copyOf(Arrays.asList(hasKind.value()));
         ident = UOfKind.create(ident, ImmutableSet.copyOf(allowed));
+      }
+      CanTransformToTargetType canTransformToTargetType = ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
+      if (canTransformToTargetType != null) {
+        ident = UCanBeTransformed.create(ident, canTransformToTargetType.value());
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);
