@@ -30,6 +30,7 @@ import com.google.common.reflect.TypeToken;
 import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 import com.google.errorprone.refaster.annotation.Matches;
 import com.google.errorprone.refaster.annotation.NotMatches;
 import com.google.errorprone.refaster.annotation.OfKind;
@@ -139,16 +140,30 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
    * are guessed to be expression templates, and all other methods are guessed to be block
    * templates.
    */
-  public static Template<?> createTemplate(Context context, MethodTree decl) {
+  public static Template<?> createTemplate(
+      Context context, MethodTree decl, @Nullable ImmutableList<MethodTree> afterTemplateMethods) {
+    // Here need to have the types UTypes, Map, String to UType. And pass that to UTemplater.
     MethodSymbol declSym = ASTHelpers.getSymbol(decl);
     ImmutableClassToInstanceMap<Annotation> annotations = UTemplater.annotationMap(declSym);
     ImmutableMap<String, VarSymbol> freeExpressionVars = freeExpressionVariables(decl);
+    @Nullable
+    ImmutableMap<String, Type> parameterTargetTypes =
+        afterTemplateMethods == null
+            ? null
+            : extractParameterTargetTypes(afterTemplateMethods.get(0));
+
     Context subContext = new SubContext(context);
-    UTemplater templater = new UTemplater(freeExpressionVars, subContext);
+    final UTemplater templater =
+        new UTemplater(freeExpressionVars, parameterTargetTypes, subContext);
     ImmutableMap<String, UType> expressionVarTypes =
         ImmutableMap.copyOf(
             Maps.transformValues(
                 freeExpressionVars, (VarSymbol sym) -> templater.template(sym.type)));
+
+    if (afterTemplateMethods != null) {
+      MethodSymbol symbol = ASTHelpers.getSymbol(afterTemplateMethods.get(0));
+      UType genericType2 = templater.template(symbol.type);
+    }
 
     UType genericType = templater.template(declSym.type);
     ImmutableList<UTypeVar> typeParameters;
@@ -196,16 +211,32 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     return builder.buildOrThrow();
   }
 
+  public static ImmutableMap<String, Type> extractParameterTargetTypes(MethodTree methodTree) {
+    ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
+    for (VariableTree param : methodTree.getParameters()) {
+      builder.put(param.getName().toString(), ((JCTree) param.getType()).type);
+    }
+    return builder.build();
+  }
+
   private final ImmutableMap<String, VarSymbol> freeVariables;
+  @Nullable private final ImmutableMap<String, UType> freeVariableTargetTypes;
   private final Context context;
 
-  public UTemplater(Map<String, VarSymbol> freeVariables, Context context) {
+  public UTemplater(
+      Map<String, VarSymbol> freeVariables,
+      @Nullable Map<String, Type> freeVariableTargetTypes,
+      Context context) {
     this.freeVariables = ImmutableMap.copyOf(freeVariables);
+    this.freeVariableTargetTypes =
+        freeVariableTargetTypes == null
+            ? null
+            : ImmutableMap.copyOf(Maps.transformValues(freeVariableTargetTypes, this::template));
     this.context = context;
   }
 
   UTemplater(Context context) {
-    this(ImmutableMap.<String, VarSymbol>of(), context);
+    this(ImmutableMap.<String, VarSymbol>of(), null, context);
   }
 
   public Tree template(Tree tree) {
@@ -410,10 +441,10 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
   }
 
   private static Tree getSingleExplicitTypeArgument(MethodInvocationTree tree) {
-    if (tree.getTypeArguments().isEmpty()) {
+    if (tree.getTypeArguments().size() != 1) {
       throw new IllegalArgumentException(
-          "Methods in the Refaster class must be invoked with "
-              + "an explicit type parameter; for example, 'Refaster.<T>isInstance(o)'.");
+          "Methods in the Refaster class must be invoked with a single "
+              + "explicit type parameter; for example, 'Refaster.<T>isInstance(o)'.");
     }
     return Iterables.getOnlyElement(tree.getTypeArguments());
   }
@@ -587,13 +618,14 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
 
   @Override
   public UExpression visitIdentifier(IdentifierTree tree, Void v) {
+    String name = tree.getName().toString();
     Symbol sym = ASTHelpers.getSymbol(tree);
     if (sym instanceof ClassSymbol) {
       return UClassIdent.create((ClassSymbol) sym);
     } else if (sym != null && isStatic(sym)) {
       return staticMember(sym);
-    } else if (freeVariables.containsKey(tree.getName().toString())) {
-      VarSymbol symbol = freeVariables.get(tree.getName().toString());
+    } else if (freeVariables.containsKey(name)) {
+      VarSymbol symbol = freeVariables.get(name);
       checkState(symbol == sym);
       UExpression ident = UFreeIdent.create(tree.getName());
       Matches matches = ASTHelpers.getAnnotation(symbol, Matches.class);
@@ -608,6 +640,21 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (hasKind != null) {
         EnumSet<Kind> allowed = EnumSet.copyOf(Arrays.asList(hasKind.value()));
         ident = UOfKind.create(ident, ImmutableSet.copyOf(allowed));
+      }
+      CanTransformToTargetType canTransformToTargetType =
+          ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
+      if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
+        UType targetType = freeVariableTargetTypes.get(name);
+        checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
+        if (targetType instanceof UClassType) {
+          CType ctype =
+              CType.create(
+                  ((UClassType) targetType).fullyQualifiedClass().contents(),
+                  ((UClassType) targetType).typeArguments());
+          ident = UCanBeTransformed.create(ident, ctype);
+        } else {
+          throw new IllegalStateException("NOT YET IMPLEMENTED");
+        }
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);

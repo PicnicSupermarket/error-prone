@@ -41,7 +41,6 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
-import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import java.util.HashSet;
 import java.util.List;
@@ -145,9 +144,10 @@ abstract class InlinabilityResult {
     }
 
     MethodSymbol methSymbol = getSymbol(tree);
-    if (methSymbol.getModifiers().contains(Modifier.PRIVATE)) {
-      return fromError(InlineValidationErrorReason.API_IS_PRIVATE);
-    }
+    // XXX: Turned off for the purpose of the thesis.
+    //    if (methSymbol.getModifiers().contains(Modifier.PRIVATE)) {
+    //      return fromError(InlineValidationErrorReason.API_IS_PRIVATE);
+    //    }
 
     StatementTree statement = tree.getBody().getStatements().get(0);
 
@@ -202,15 +202,16 @@ abstract class InlinabilityResult {
       return fromError(InlineValidationErrorReason.LAMBDA_CAPTURES_PARAMETER, body);
     }
 
-    if (ASTHelpers.methodCanBeOverridden(methSymbol)) {
-      // TODO(glorioso): One additional edge case we can check is if the owning class can't be
-      // overridden due to having no publicly-accessible constructors.
-      return fromError(
-          methSymbol.isDefault()
-              ? InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_AND_CANT_BE_FIXED
-              : InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_BUT_CAN_BE_FIXED,
-          body);
-    }
+    // XXX: If we remove this, we can use the InlinerSuggester for the thesis.
+    //    if (ASTHelpers.methodCanBeOverridden(methSymbol)) {
+    //      // TODO(glorioso): One additional edge case we can check is if the owning class can't be
+    //      // overridden due to having no publicly-accessible constructors.
+    //      return fromError(
+    //          methSymbol.isDefault()
+    //              ? InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_AND_CANT_BE_FIXED
+    //              : InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_BUT_CAN_BE_FIXED,
+    //          body);
+    //    }
 
     return inlinable(body);
   }
@@ -327,11 +328,12 @@ abstract class InlinabilityResult {
 
       private boolean isDeprecatedOrLessVisible(Tree tree, Visibility minVisibility) {
         Symbol sym = getSymbol(tree);
-        Visibility visibility = getVisibility(sym);
-        if (!(sym instanceof PackageSymbol) && visibility.compareTo(minVisibility) < 0) {
-          usesDeprecatedOrLessVisibleApis.set(tree);
-          return true;
-        }
+        //        if (!(sym instanceof PackageSymbol)) {
+        //          // XXX: Removed this for the thesis:
+        //          // && !sym.getModifiers().contains(Modifier.PUBLIC)
+        //          usesDeprecatedOrNonPublicApis.set(tree);
+        //          return true;
+        //        }
         if (hasAnnotation(sym, "java.lang.Deprecated", state)) {
           usesDeprecatedOrLessVisibleApis.set(tree);
           return true;

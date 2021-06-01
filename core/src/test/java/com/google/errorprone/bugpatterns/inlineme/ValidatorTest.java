@@ -19,6 +19,7 @@ package com.google.errorprone.bugpatterns.inlineme;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
 import java.util.regex.Pattern;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -220,6 +221,7 @@ public class ValidatorTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void instanceMethod_privateVariable() {
     helper
         .addSourceLines(
@@ -255,6 +257,7 @@ public class ValidatorTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void instanceMethod_privateMethod() {
     helper
         .addSourceLines(
@@ -556,6 +559,7 @@ public class ValidatorTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void assignmentToPrivateField() {
     helper
         .addSourceLines(

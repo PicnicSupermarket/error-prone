@@ -16,10 +16,16 @@
 
 package com.google.errorprone.bugpatterns.inlineme;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
+import static com.google.errorprone.bugpatterns.BugChecker.MemberReferenceTreeMatcher;
+import static com.google.errorprone.matchers.Matchers.anyOf;
+import static com.google.errorprone.matchers.method.MethodMatchers.instanceMethod;
+import static com.google.errorprone.matchers.method.MethodMatchers.staticMethod;
 import static com.google.errorprone.util.ASTHelpers.enclosingPackage;
+import static com.google.errorprone.util.ASTHelpers.findEnclosingMethod;
 import static com.google.errorprone.util.ASTHelpers.getReceiver;
 import static com.google.errorprone.util.ASTHelpers.getSymbol;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
@@ -44,12 +50,17 @@ import com.google.errorprone.bugpatterns.BugChecker.NewClassTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.util.ASTHelpers;
 import com.google.errorprone.util.MoreAnnotations;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -59,6 +70,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 /**
@@ -71,12 +83,13 @@ import javax.inject.Inject;
     severity = WARNING,
     tags = Inliner.FINDING_TAG)
 public final class Inliner extends BugChecker
-    implements MethodInvocationTreeMatcher, NewClassTreeMatcher {
+    implements MethodInvocationTreeMatcher, NewClassTreeMatcher, MemberReferenceTreeMatcher {
 
   public static final String FINDING_TAG = "JavaInlineMe";
 
   static final String PREFIX_FLAG = "InlineMe:Prefix";
   static final String SKIP_COMMENTS_FLAG = "InlineMe:SkipInliningsWithComments";
+  static final String ALLOW_BREAKING_CHANGES_FLAG = "InlineMe:AllowBreakingChanges";
 
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
@@ -85,9 +98,17 @@ public final class Inliner extends BugChecker
   private static final String INLINE_ME = "InlineMe";
   private static final String VALIDATION_DISABLED = "InlineMeValidationDisabled";
 
+  private static final com.google.errorprone.matchers.Matcher<ExpressionTree> MOCKITO_MATCHER =
+      anyOf(
+          staticMethod().onClass("org.mockito.Mockito").named("when"),
+          instanceMethod().onDescendantOf("org.mockito.stubbing.Stubber").named("when"),
+          staticMethod().onClass("org.mockito.Mockito").named("verify"),
+          staticMethod().onClass("org.testng.Assert").named("assertSame"));
+
   private final ImmutableSet<String> apiPrefixes;
   private final boolean skipCallsitesWithComments;
   private final boolean checkFixCompiles;
+  private final boolean allowBreakingChanges;
 
   @Inject
   Inliner(ErrorProneFlags flags) {
@@ -95,6 +116,7 @@ public final class Inliner extends BugChecker
         ImmutableSet.copyOf(flags.getSet(PREFIX_FLAG).orElse(ImmutableSet.<String>of()));
     this.skipCallsitesWithComments = flags.getBoolean(SKIP_COMMENTS_FLAG).orElse(true);
     this.checkFixCompiles = flags.getBoolean(CHECK_FIX_COMPILES).orElse(false);
+    this.allowBreakingChanges = flags.getBoolean(ALLOW_BREAKING_CHANGES_FLAG).orElse(false);
   }
 
   @Override
@@ -114,9 +136,18 @@ public final class Inliner extends BugChecker
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
-    if (!hasDirectAnnotationWithSimpleName(symbol, INLINE_ME)) {
+    MethodTree enclosingMethod = findEnclosingMethod(state);
+    if (!hasDirectAnnotationWithSimpleName(symbol, INLINE_ME)
+        || isMockMethodThatCannotBeInlined(tree, state)
+        || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
       return Description.NO_MATCH;
     }
+    //    if (!hasAnnotation(symbol, INLINE_ME, state)
+    //        || isMockMethodThatCannotBeInlined(tree, state)
+    //        || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
+    //      return Description.NO_MATCH;
+    //    }
+
     ImmutableList<String> callingVars =
         tree.getArguments().stream().map(state::getSourceForNode).collect(toImmutableList());
 
@@ -142,6 +173,104 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
+  public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
+    MethodSymbol symbol = getSymbol(tree);
+    MethodTree enclosingMethod = findEnclosingMethod(state);
+    if (!hasDirectAnnotationWithSimpleName(symbol, INLINE_ME)
+        || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
+      return Description.NO_MATCH;
+    }
+
+    String receiverString =
+        getReceiver(tree).toString().startsWith("this") ? "" : getReceiver(tree).toString();
+
+    ImmutableList<String> callingVars;
+    if (symbol.params().size() < 2) {
+      callingVars = ImmutableList.of("ident");
+    } else {
+      callingVars = ImmutableList.of("ident1", "ident2");
+    }
+    Description match = match(tree, symbol, callingVars, receiverString, getReceiver(tree), state);
+
+    String lambdaPrefix = getLambdaPrefix(symbol);
+
+    SuggestedFix fix =
+        Stream.of(
+                SuggestedFix.prefixWith(tree, lambdaPrefix + " -> "),
+                (SuggestedFix) match.fixes.get(0))
+            .reduce(
+                SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
+            .build();
+
+    return describeMatch(tree, fix);
+  }
+
+  // XXX: Improve this method, this is now quick solution and ugly.
+  private String getLambdaPrefix(MethodSymbol symbol) {
+    String lambdaPrefix = symbol.getParameters().size() == 0 ? "()" : "ident";
+    if (symbol.params().size() == 1) {
+      String type = symbol.params().get(0).type.toString();
+      lambdaPrefix = "(" + type + " " + lambdaPrefix + ")";
+    } else if (symbol.params().size() == 2) {
+      String type = symbol.params().get(0).type.toString();
+      String type2 = symbol.params().get(1).type.toString();
+      lambdaPrefix = "(" + type + " ident1, " + type2 + " ident2)";
+    }
+    return lambdaPrefix;
+  }
+
+  /**
+   * Checks whether the enclosing method is a _migrated method *and* in an interface. There is an
+   * extra check, to ensure that the check is looking for the same method name.
+   *
+   * <p>Assume you have method A, A_migrated, B, and B_migrated. Without the check there is a
+   * special case which would not be migrated. When A_migrated call B in the default body of an
+   * interface, the call to B was not migrated to B_migrated.
+   */
+  private boolean isEnclosingMethodAnAlreadyMigratedInterface(
+      ExpressionTree currentMethodInvocation, MethodTree enclosingMethod, VisitorState state) {
+    ExpressionTree methodSelect =
+        currentMethodInvocation instanceof MethodInvocationTree
+            ? ((MethodInvocationTree) currentMethodInvocation).getMethodSelect()
+            : ((MemberReferenceTree) currentMethodInvocation).getQualifierExpression();
+
+    String migratedNameOfCurrentMethodInvocation = methodSelect.toString() + "_migrated";
+    return enclosingMethod != null
+        && (methodSelect.equals(enclosingMethod.getName())
+            || migratedNameOfCurrentMethodInvocation.equals(enclosingMethod.getName().toString()))
+        && enclosingMethod.getName().toString().contains("_migrated")
+        && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
+  }
+
+  //  XXX: This is also in FindIdentifiers, where should this method be?
+  @Nullable
+  private static ClassTree getEnclosingClass(TreePath treePath) {
+    while (treePath != null) {
+      TreePath parent = treePath.getParentPath();
+      if (parent == null) {
+        return null;
+      }
+      Tree leaf = parent.getLeaf();
+      if (leaf instanceof ClassTree
+          && ((ClassTree) leaf).getMembers().contains(treePath.getLeaf())) {
+        return (ClassTree) leaf;
+      }
+      treePath = parent;
+    }
+    return null;
+  }
+
+  private static boolean isMockMethodThatCannotBeInlined(
+      MethodInvocationTree tree, VisitorState state) {
+    Tree parent = state.getPath().getParentPath().getLeaf();
+    ExpressionTree receiverExpr = getReceiver(tree);
+    return (parent instanceof MethodInvocationTree
+            && MOCKITO_MATCHER.matches(((MethodInvocationTree) parent).getMethodSelect(), state))
+        || (receiverExpr instanceof MethodInvocationTree
+            && MOCKITO_MATCHER.matches(
+                ((MethodInvocationTree) receiverExpr).getMethodSelect(), state));
+  }
+
   private Description match(
       ExpressionTree tree,
       MethodSymbol symbol,
@@ -153,6 +282,7 @@ public final class Inliner extends BugChecker
     if (inlineMe.isEmpty()) {
       return Description.NO_MATCH;
     }
+    checkState(hasDirectAnnotationWithSimpleName(symbol, INLINE_ME));
 
     Api api = Api.create(symbol, state);
     if (!matchesApiPrefixes(api)) {
@@ -254,9 +384,11 @@ public final class Inliner extends BugChecker
 
     SuggestedFix fix = builder.build();
 
-    if (checkFixCompiles && fix.getImportsToAdd().isEmpty()) {
-      // If there are no new imports being added (then there are no new dependencies). Therefore, we
-      // can verify that the fix compiles (if CHECK_FIX_COMPILES is enabled).
+    // If there are no imports to add, then there's no new dependencies, so we can verify that it
+    // compilesWithFix(); if there are new imports to add, then we can't validate that it compiles.
+    if (fix.getImportsToAdd().isEmpty()
+        && !allowBreakingChanges
+        && !(tree instanceof MemberReferenceTree)) {
       return SuggestedFixes.compilesWithFix(fix, state)
           ? describe(tree, fix, api)
           : Description.NO_MATCH;

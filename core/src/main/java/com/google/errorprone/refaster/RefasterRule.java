@@ -122,13 +122,13 @@ public abstract class RefasterRule<M extends TemplateMatch, T extends Template<M
 
   RefasterRule() {}
 
-  abstract String qualifiedTemplateClass();
+  public abstract String qualifiedTemplateClass();
 
-  abstract ImmutableList<UTypeVar> typeVariables();
+  public abstract ImmutableList<UTypeVar> typeVariables();
 
-  abstract ImmutableList<T> beforeTemplates();
+  public abstract ImmutableList<T> beforeTemplates();
 
-  abstract ImmutableList<T> afterTemplates();
+  public abstract ImmutableList<T> afterTemplates();
 
   @Override
   public abstract ImmutableClassToInstanceMap<Annotation> annotations();
@@ -141,7 +141,7 @@ public abstract class RefasterRule<M extends TemplateMatch, T extends Template<M
   }
 
   boolean rejectMatchesWithComments() {
-    return true; // TODO(lowasser): worth making configurable?
+    return false; // TODO(lowasser): worth making configurable?
   }
 
   static final Context.Key<ImmutableList<UTypeVar>> RULE_TYPE_VARS = new Context.Key<>();

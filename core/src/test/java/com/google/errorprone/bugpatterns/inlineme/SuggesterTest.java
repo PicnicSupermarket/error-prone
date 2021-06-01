@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,6 +30,75 @@ import org.junit.runners.JUnit4;
 public class SuggesterTest {
   private final BugCheckerRefactoringTestHelper refactoringTestHelper =
       BugCheckerRefactoringTestHelper.newInstance(Suggester.class, getClass());
+
+  @Test
+  public void testInterfaceSuggestion() {
+    refactoringTestHelper
+        .addInputLines(
+            "/com/google/frobber/Client.java",
+            "package com.google.frobber;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .addOutputLines(
+            "/com/google/frobber/Client.java",
+            "package com.google.frobber;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  @Deprecated",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  // XXX: Go over this variant where the interface is already migrated.
+  @Test
+  @Ignore // This adds the InlineMe, but now we added that it should migrate this method, so add
+  // `_migrated()` and then remove the old implementation.
+  public void testMigratedInterfaceClientSuggestion() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.frobber;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "ClientImpl.java",
+            "package com.google.frobber;",
+            "",
+            "public final class ClientImpl implements Client {",
+            "  @Override",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
 
   @Test
   public void buildAnnotation_withImports() {
@@ -450,6 +520,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void returnPrivateVariable() {
     refactoringTestHelper
         .addInputLines(
@@ -468,6 +539,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void returnPrivateVariable_qualifiedWithThis() {
     refactoringTestHelper
         .addInputLines(
@@ -486,6 +558,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void settingPrivateVariable() {
     refactoringTestHelper
         .addInputLines(
@@ -578,6 +651,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void accessPrivateVariable() {
     refactoringTestHelper
         .addInputLines(
@@ -596,6 +670,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void accessPrivateMethod() {
     refactoringTestHelper
         .addInputLines(
@@ -631,6 +706,38 @@ public class SuggesterTest {
             "  }",
             "}")
         .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void suggestingOnPrivateMethod() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.frobber;",
+            "public final class Client {",
+            "  @Deprecated",
+            "  private boolean silly() {",
+            "    return privateDelegate();",
+            "  }",
+            "  private boolean privateDelegate() {",
+            "    return false;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Client.java",
+            "package com.google.frobber;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public final class Client {",
+            "  @InlineMe(replacement = \"this.privateDelegate()\")",
+            "  @Deprecated",
+            "  private boolean silly() {",
+            "    return privateDelegate();",
+            "  }",
+            "  private boolean privateDelegate() {",
+            "    return false;",
+            "  }",
+            "}")
         .doTest();
   }
 
@@ -798,6 +905,8 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore // XXX: Turned off specific behavior which causes the Suggester to not do anything with
+  // final.
   public void suggestedFinalOnOtherwiseGoodMethod() {
     refactoringTestHelper
         .addInputLines(
@@ -824,6 +933,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow suggestions on default methods")
   public void dontSuggestOnDefaultMethods() {
     refactoringTestHelper
         .addInputLines(
@@ -870,6 +980,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void publicStaticFactoryCallsPrivateConstructor() {
     refactoringTestHelper
         .addInputLines(

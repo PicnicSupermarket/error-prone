@@ -91,5 +91,6 @@ public abstract class UMethodInvocation extends UExpression implements MethodInv
             inliner.<JCExpression>inlineList(getTypeArguments()),
             getMethodSelect().inline(inliner),
             inliner.<JCExpression>inlineList(getArguments()));
+    //            com.sun.tools.javac.util.List.<JCExpression>nil(),
   }
 }

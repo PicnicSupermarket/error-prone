@@ -85,6 +85,8 @@ public final class Suggester extends BugChecker implements MethodTreeMatcher {
                 tree,
                 InlineMeData.buildExpectedInlineMeAnnotation(state, inlinabilityResult.body())
                     .buildAnnotation());
+    // XXX: This is broken, because this error cannot be returned. In the
+    // `InlinabilityResult.forMethod` we turned something off.
     if (inlinabilityResult.error()
         == InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_BUT_CAN_BE_FIXED) {
       SuggestedFixes.addModifiers(tree, state, Modifier.FINAL).ifPresent(fixBuilder::merge);

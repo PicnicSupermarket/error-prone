@@ -839,6 +839,8 @@ public class Matchers {
     return methodReturns(isSameType(returnType));
   }
 
+
+
   /** Match a method that returns a non-primitive type. */
   public static Matcher<MethodTree> methodReturnsNonPrimitiveType() {
     return methodReturns(not(isPrimitiveOrVoidType()));
@@ -1073,6 +1075,11 @@ public class Matchers {
   public static Matcher<StatementTree> returnStatement(
       Matcher<? super ExpressionTree> returnedMatcher) {
     return new Returns(returnedMatcher);
+  }
+
+  /** Only statements in blockTree */
+  public static Matcher<ExpressionTree> directReturnStatement() {
+    return new IsParentReturnTree();
   }
 
   /**

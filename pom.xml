@@ -70,6 +70,8 @@
     <module>docgen</module>
     <module>docgen_processor</module>
     <module>refaster</module>
+    <module>migration</module>
+    <module>migration_resource_compiler</module>
   </modules>
 
   <scm>
@@ -354,4 +356,13 @@
       </build>
     </profile>
   </profiles>
+
+  <dependencies>
+    <dependency>
+      <groupId>tech.picnic.error-prone-support</groupId>
+      <artifactId>migration-util</artifactId>
+      <version>0.0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
 </project>

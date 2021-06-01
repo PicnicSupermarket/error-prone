@@ -98,8 +98,10 @@ abstract class RefasterScanner<M extends TemplateMatch, T extends Template<M>>
 
   @Override
   public Void scan(Tree tree, Context context) {
-    if (tree == null) {
+    if (tree == null || tree instanceof JCTree.JCPackageDecl) {
       return null;
+    } else if (tree instanceof JCTree.JCFieldAccess) {
+      return super.scan(tree, context);
     }
     JCCompilationUnit compilationUnit = context.get(JCCompilationUnit.class);
     for (T beforeTemplate : rule().beforeTemplates()) {

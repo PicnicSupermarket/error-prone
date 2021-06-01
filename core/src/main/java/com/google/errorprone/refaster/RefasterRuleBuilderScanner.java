@@ -18,6 +18,7 @@ package com.google.errorprone.refaster;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.logging.Level.FINE;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -132,13 +133,15 @@ public final class RefasterRuleBuilderScanner extends SimpleTreeVisitor<Void, Vo
                 UTemplater.annotationMap(sym)));
       } else if (ASTHelpers.hasAnnotation(tree, BeforeTemplate.class, state)) {
         checkState(afterTemplates.isEmpty(), "BeforeTemplate must come before AfterTemplate");
-        Template<?> template = UTemplater.createTemplate(context, tree);
+        ImmutableList<MethodTree> afterTemplateMethodTrees =
+            extractAfterTemplateMethodTrees(tree, state);
+        Template<?> template = UTemplater.createTemplate(context, tree, afterTemplateMethodTrees);
         beforeTemplates.add(template);
         if (template instanceof BlockTemplate) {
           context.put(UTemplater.REQUIRE_BLOCK_KEY, /* data= */ true);
         }
       } else if (ASTHelpers.hasAnnotation(tree, AfterTemplate.class, state)) {
-        afterTemplates.add(UTemplater.createTemplate(context, tree));
+        afterTemplates.add(UTemplater.createTemplate(context, tree, null));
       } else if (tree.getModifiers().getFlags().contains(Modifier.ABSTRACT)) {
         throw new IllegalArgumentException(
             "Placeholder methods must have @Placeholder, but abstract method does not: " + tree);
@@ -147,6 +150,31 @@ public final class RefasterRuleBuilderScanner extends SimpleTreeVisitor<Void, Vo
     } catch (RuntimeException t) {
       throw new RuntimeException("Error analysing: " + tree.getName(), t);
     }
+  }
+
+  // XXX: Throw exception if more than one `@AfterTemplate`. Later on properly support this and
+  // either:
+  // - For `@BeforeTemplate`s:
+  //   1. Don't type check based on @AfterTemplate` parameters.
+  //   2. Type check based on conjunction of `@AfterTemplate` parameters.
+  //   3. Type check based on disjunction of `@AfterTemplate` parameters.
+  // - For `@AfterTemplate`s:
+  //   1. Emit all, even if they may not compile.
+  //   2. Emit only those with matching parameters. If no `@AfterTemplate` matches,
+  //      a. Don't report a match at all.
+  //      b. Emit a comment.
+  // TBD: Decide whether to make this a template-level setting or a
+  // per-`@Before/@After`Template-setting (where this makes sense).
+  private ImmutableList<MethodTree> extractAfterTemplateMethodTrees(
+      MethodTree tree, VisitorState state) {
+    // XXX: Review: can we avoid the tree -> symbol -> tree round-trip?
+    ClassSymbol classSymbol = ASTHelpers.enclosingClass(ASTHelpers.getSymbol(tree));
+    ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
+    return classTree.getMembers().stream()
+        .filter(MethodTree.class::isInstance)
+        .map(MethodTree.class::cast)
+        .filter(t -> ASTHelpers.hasAnnotation(t, AfterTemplate.class, state))
+        .collect(toImmutableList());
   }
 
   private ImmutableList<? extends CodeTransformer> createMatchers(

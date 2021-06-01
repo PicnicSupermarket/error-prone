@@ -38,6 +38,484 @@ public class InlinerTest {
           ScannerSupplier.fromBugCheckerClasses(Inliner.class, Validator.class), getClass());
 
   @Test
+  public void migrateMethodReference() {
+    refactoringTestHelper
+        .allowBreakingChanges()
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getName_migrated(s))\")",
+            "  public String getName(String s) {",
+            "    return String.valueOf(getName_migrated(s)); ",
+            "  }",
+            "  public Integer getName_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "public final class Foo {",
+            "  private Client client = new Client();",
+            "",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  public static <T, R> java.util.function.Function<T, R> toJdkFunction(",
+            "    java.util.function.Function<T, R> function) {",
+            "      return (t) -> {",
+            "        try {",
+            "          return function.apply(t);",
+            "          } catch (Exception e) {",
+            "            throw new IllegalArgumentException(\"BiFunction threw checked exception\", e);",
+            "          }",
+            "        };",
+            "  }",
+            "",
+            "  ",
+            "  public void baz() {",
+            "    ImmutableList.of(\"1\", \"2\").stream().map(client::getName);",
+            "    ImmutableList.of(\"1\").stream().map(e -> toJdkFunction(this::bar).apply(e));",
+            "    ImmutableList.of(\"1\", \"2\").stream().map(this::bar);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "public final class Foo {",
+            "  private Client client = new Client();",
+            "",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  public static <T, R> java.util.function.Function<T, R> toJdkFunction(",
+            "    java.util.function.Function<T, R> function) {",
+            "      return (t) -> {",
+            "        try {",
+            "          return function.apply(t);",
+            "          } catch (Exception e) {",
+            "            throw new IllegalArgumentException(\"BiFunction threw checked exception\", e);",
+            "          }",
+            "        };",
+            "  }",
+            "",
+            "  ",
+            "  public void baz() {",
+            "    ImmutableList.of(\"1\", \"2\").stream().map((java.lang.String ident) -> String.valueOf(client.getName_migrated(ident)));",
+            "    ImmutableList.of(\"1\").stream().map(e -> toJdkFunction((java.lang.String ident) -> String.valueOf(bar_migrated(ident))).apply(e));",
+            "    ImmutableList.of(\"1\", \"2\").stream().map((java.lang.String ident) -> String.valueOf(bar_migrated(ident)));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void fixVoidCases() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"this.noparam_migrated()\")",
+            "  public String noparam() {",
+            "    return noparam_migrated();",
+            "  }",
+            "  public String noparam_migrated() {",
+            "    return \"1\";",
+            "  }",
+            "  public void foo() {",
+            "    String s = test(this::noparam);",
+            "  }",
+            "  @FunctionalInterface",
+            "  public interface SecuredOperation {",
+            "    void call() throws Exception;",
+            "  }",
+            "  public String test(SecuredOperation securedOperation) {",
+            "    return null;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"this.noparam_migrated()\")",
+            "  public String noparam() {",
+            "    return noparam_migrated();",
+            "  }",
+            "  public String noparam_migrated() {",
+            "    return \"1\";",
+            "  }",
+            "  public void foo() {",
+            "    String s = test(() -> this.noparam_migrated());",
+            "  }",
+            "  @FunctionalInterface",
+            "  public interface SecuredOperation {",
+            "    void call() throws Exception;",
+            "  }",
+            "  public String test(SecuredOperation securedOperation) {",
+            "    return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void fixBugInMethodReferenceInliner() {
+    refactoringTestHelper
+        .allowBreakingChanges()
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getName_migrated(s))\")",
+            "  public String getName(String s) {",
+            "    return String.valueOf(getName_migrated(s)); ",
+            "  }",
+            "  public Integer getName_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "import java.util.Comparator;",
+            "",
+            "public final class Foo {",
+            "  private Client client = new Client();",
+            "",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  public static <T, R> java.util.function.Function<T, R> toJdkFunction(",
+            "    java.util.function.Function<T, R> function) {",
+            "      return (t) -> {",
+            "        try {",
+            "          return function.apply(t);",
+            "          } catch (Exception e) {",
+            "            throw new IllegalArgumentException(\"BiFunction threw checked exception\", e);",
+            "          }",
+            "        };",
+            "  }",
+            "",
+            "  ",
+            "  public void baz() {",
+            "     ImmutableList.of(\"1\", \"2\")",
+            "        .stream()",
+            "        .map(String::valueOf)",
+            "        .sorted(Comparator.comparing(String::length))",
+            "        .map((java.lang.String ident) -> String.valueOf(client.getName_migrated(ident)));",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void dontDoubleInlineInterface() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void migrateMethodsWithinInterfaceIfIsNotTheSameMigration() {
+    refactoringTestHelper
+        .addInputLines(
+            "Bar.java",
+            "import io.reactivex.Completable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.core.publisher.Flux;",
+            "",
+            "public interface Bar {",
+            "  @InlineMe(",
+            "      replacement = \"RxJava2Adapter.fluxToFlowable(this.getAllDcs_migrated())\",",
+            "      imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Flowable<String> getAllDcs() {",
+            "    return RxJava2Adapter.fluxToFlowable(getAllDcs_migrated());",
+            "  }",
+            "",
+            "  default Flux<String> getAllDcs_migrated() {",
+            "    return RxJava2Adapter.flowableToFlux(getAllDcs());",
+            "  }",
+            "  @InlineMe(",
+            "  replacement = \"RxJava2Adapter.monoToSingle(this.getDc_migrated(dcId))\",",
+            "  imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Single<String> getDc(Integer dcId) {",
+            "  return RxJava2Adapter.monoToSingle(getDc_migrated(dcId));",
+            "  }",
+            "  ",
+            "  default Mono<String> getDc_migrated(Integer dcId) {",
+            "    return RxJava2Adapter.singleToMono(",
+            "    getAllDcs()",
+            "      .filter(dc -> dc.equals(String.valueOf(dcId)))",
+            "      .firstElement()",
+            "      .switchIfEmpty(Single.error(new RuntimeException())));",
+            "    }",
+            "}")
+        .addOutputLines(
+            "Bar.java",
+            "import io.reactivex.Completable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.core.publisher.Flux;",
+            "",
+            "public interface Bar {",
+            "  @InlineMe(",
+            "      replacement = \"RxJava2Adapter.fluxToFlowable(this.getAllDcs_migrated())\",",
+            "      imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Flowable<String> getAllDcs() {",
+            "    return RxJava2Adapter.fluxToFlowable(getAllDcs_migrated());",
+            "  }",
+            "",
+            "  default Flux<String> getAllDcs_migrated() {",
+            "    return RxJava2Adapter.flowableToFlux(getAllDcs());",
+            "  }",
+            "  @InlineMe(",
+            "  replacement = \"RxJava2Adapter.monoToSingle(this.getDc_migrated(dcId))\",",
+            "  imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Single<String> getDc(Integer dcId) {",
+            "  return RxJava2Adapter.monoToSingle(getDc_migrated(dcId));",
+            "  }",
+            "  ",
+            "  default Mono<String> getDc_migrated(Integer dcId) {",
+            "    return RxJava2Adapter.singleToMono(",
+            "        RxJava2Adapter.fluxToFlowable(getAllDcs_migrated())",
+            "           .filter(dc -> dc.equals(String.valueOf(dcId)))",
+            "           .firstElement()",
+            "           .switchIfEmpty(Single.error(new RuntimeException())));",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedMigratedCallShouldMigrate() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Flowable;",
+            "import reactor.core.publisher.Flux;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Foo {",
+            "  @InlineMe(",
+            "    replacement = \"RxJava2Adapter.fluxToFlowable(this.getAll_migrated(activeOnly))\",",
+            "    imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  public Flowable<String> getAll(boolean activeOnly) {",
+            "    return RxJava2Adapter.fluxToFlowable(getAll_migrated(activeOnly));",
+            "  }",
+            "",
+            "  public Flux<String> getAll_migrated(boolean activeOnly) {",
+            "    return RxJava2Adapter.flowableToFlux(Flowable.empty());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Bar.java",
+            "import io.reactivex.Flowable;",
+            "import reactor.core.publisher.Flux;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public class Bar {",
+            "  public Foo foo = new Foo();",
+            "",
+            "  public Flux<String> getBanners_migrated(boolean activeOnly) {",
+            "    return RxJava2Adapter.flowableToFlux(foo.getAll(activeOnly));",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Bar.java",
+            "import io.reactivex.Flowable;",
+            "import reactor.core.publisher.Flux;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public class Bar {",
+            "  public Foo foo = new Foo();",
+            "",
+            "  public Flux<String> getBanners_migrated(boolean activeOnly) {",
+            "    return RxJava2Adapter.flowableToFlux(RxJava2Adapter.fluxToFlowable(foo.getAll_migrated(activeOnly)));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void migrateLambdaPassedAsParam() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import java.util.function.Function;",
+            "",
+            "public class Foo implements Client {",
+            "  public void baz() {",
+            "    func((i) -> bar());",
+            "  }",
+            "  public void func(Function function) {",
+            "    ",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import java.util.function.Function;",
+            "",
+            "public class Foo implements Client {",
+            "  public void baz() {",
+            "    func((i) -> String.valueOf(bar_migrated()));",
+            "  }",
+            "  public void func(Function function) {",
+            "    ",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void inlinerDoesNothingInAlreadyMigratedClass() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"RxJava2Adapter.monoToSingle(this.bar_migrated(s))\", imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  public Single<String> bar(String s) {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated(s));",
+            "  }",
+            "  public Mono<String> bar_migrated(String s) {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
+            "  }",
+            "  ",
+            "  @Deprecated",
+            "  public Single<String> bar(Integer i) {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated(i));",
+            "  }",
+            "  public Mono<String> bar_migrated(Integer i) {",
+            "    return RxJava2Adapter.singleToMono(Single.just(String.valueOf(i)));",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void rewriteLambda() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  ",
+            "  public void baz() {",
+            "    ImmutableList.of(\"1\", \"2\").stream().map(i -> bar(i));",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  ",
+            "  public void baz() {",
+            "    ImmutableList.of(\"1\", \"2\").stream().map(i -> String.valueOf(bar_migrated(i)));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void instanceMethod_withThisLiteral() {
     refactoringTestHelper
         .addInputLines(
@@ -188,6 +666,107 @@ public class InlinerTest {
   }
 
   @Test
+  public void updateCallersAfterInterfaceAndMethodAreMigrated() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Caller.java",
+            "package com.google.foo;",
+            "import com.google.foo.Client;",
+            "public final class Caller implements Client {",
+            // the content of the `bar` was initially: return "1";
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "com/google/foo/Test.java",
+            "package com.google.foo;",
+            "import com.google.foo.Caller;",
+            "public class Test {",
+            "  public void test() {",
+            "    Caller call = new Caller();",
+            "    String s = call.bar();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "com/google/foo/Test.java",
+            "package com.google.foo;",
+            "import com.google.foo.Caller;",
+            "public class Test {",
+            "  public void test() {",
+            "    Caller call = new Caller();",
+            "    String s = String.valueOf(call.bar_migrated());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testInterfaceSuggestionWithRemovalOfImplementation() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.frobber;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "ClientImpl.java",
+            "package com.google.frobber;",
+            "",
+            "public final class ClientImpl implements Client {",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Magic.java",
+            "package com.google.frobber;",
+            "",
+            "public final class Magic {",
+            "  public void test() {",
+            "    ClientImpl impl = new ClientImpl();",
+            "    String s = impl.bar();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Magic.java",
+            "package com.google.frobber;",
+            "",
+            "public final class Magic {",
+            "  public void test() {",
+            "    ClientImpl impl = new ClientImpl();",
+            "    String s = String.valueOf(impl.bar_migrated());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void staticMethod_explicitTypeParam() {
     refactoringTestHelper
         .addInputLines(
@@ -216,7 +795,7 @@ public class InlinerTest {
             "  }",
             "}")
         .addOutputLines(
-            "out/Caller.java",
+            "com/google/foo/Caller.java",
             "package com.google.foo;",
             "public final class Caller {",
             "  public void doTest() {",
@@ -884,6 +1463,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid for our code, it works...")
   public void replaceWithJustParameter() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -921,6 +1501,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid in our code, it works...")
   public void orderOfOperations() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -956,6 +1537,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid in our code, it works...")
   public void orderOfOperationsWithParamAddition() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -991,6 +1573,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid in our code, it works...")
   public void orderOfOperationsWithTrailingOperand() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -1225,6 +1808,53 @@ public class InlinerTest {
             "    Client.execute2(\"hi %s\");",
             "  }",
             "}")
+        .doTest();
+  }
+
+  @Test
+  public void dontInlineMockitoExpressions() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated())\")",
+            "  public String getId() {",
+            "    return String.valueOf(getId_migrated());",
+            "  }",
+            "",
+            "  public Integer getId_migrated() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import static org.mockito.Mockito.doReturn;",
+            "import static org.mockito.Mockito.doAnswer;",
+            "import static org.mockito.Mockito.verify;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId()).thenReturn(\"2\");",
+            "    when(foo.getId()).thenAnswer(inv -> inv.getArgument(0));",
+            "    doReturn(\"2\").when(foo).getId();",
+            "    doAnswer(inv -> inv.getArgument(0)).when(foo).getId();",
+            "    verify(foo).getId();",
+            "  }",
+            "}")
+        .expectUnchanged()
         .doTest();
   }
 
