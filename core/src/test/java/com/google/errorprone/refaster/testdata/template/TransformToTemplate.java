@@ -22,17 +22,18 @@ import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 import com.google.errorprone.refaster.annotation.NoAutoboxing;
 
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 /** Example */
-public class TransformToTemplate<T, R> {
+public class TransformToTemplate<T, R extends T> {
   @BeforeTemplate
-  public int before(Function<T, R> function) {
-    return function.hashCode();
+  @CanTransformToTargetType
+  public Stream<R> before(Stream<T> stream, Function<T, R> function) {
+    return stream.map(function);
   }
 
-  @NoAutoboxing
   @AfterTemplate
-  public Integer after(Integer a, Integer b) {
-    return a + b + 1;
+  public Stream<R> after(Stream<T> stream, Function<T, R> function) {
+    return stream.map(function).map(function);
   }
 }
