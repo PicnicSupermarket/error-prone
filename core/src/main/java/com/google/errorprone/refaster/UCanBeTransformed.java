@@ -28,16 +28,15 @@ import java.util.Set;
 
 import static com.google.errorprone.refaster.Unifier.unifications;
 
-/** TODO */
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
-  public static UCanBeTransformed create(UExpression expression, String type) {
+  public static UCanBeTransformed create(UExpression expression, UType type) {
     return new AutoValue_UCanBeTransformed(expression, type);
   }
 
   abstract UExpression expression();
 
-  abstract String type();
+  abstract UType type();
 
   @Override
   public JCExpression inline(Inliner inliner) throws CouldNotResolveImportException {
@@ -47,6 +46,11 @@ abstract class UCanBeTransformed extends UExpression {
   @Override
   public <R, D> R accept(TreeVisitor<R, D> visitor, D data) {
     return expression().accept(visitor, data);
+  }
+
+  @Override
+  public Choice<Unifier> unify(@Nullable Tree target, Unifier unifier) {
+    return super.unify(target, unifier);
   }
 
   @Override
