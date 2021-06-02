@@ -37,7 +37,6 @@ import com.google.errorprone.refaster.annotation.Placeholder;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -50,8 +49,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
 
 /**
@@ -136,21 +133,14 @@ public final class RefasterRuleBuilderScanner extends SimpleTreeVisitor<Void, Vo
                 UTemplater.annotationMap(sym)));
       } else if (ASTHelpers.hasAnnotation(tree, BeforeTemplate.class, state)) {
         checkState(afterTemplates.isEmpty(), "BeforeTemplate must come before AfterTemplate");
-        ClassSymbol classSymbol = ASTHelpers.enclosingClass(ASTHelpers.getSymbol(tree));
-        ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
-        ImmutableList<? extends MethodTree> members =
-            classTree.getMembers().stream()
-                .filter(t -> ASTHelpers.hasAnnotation(t, AfterTemplate.class, state))
-                .map(t -> (MethodTree) t)
-                .collect(toImmutableList());
-        // here retrieve the other method.
-        Template<?> template = UTemplater.createTemplate(context, tree);
+        ImmutableList<MethodTree> afterTemplateMethodTrees = afterTemplateMethodTrees(tree, state);
+        Template<?> template = UTemplater.createTemplate(context, tree, afterTemplateMethodTrees);
         beforeTemplates.add(template);
         if (template instanceof BlockTemplate) {
           context.put(UTemplater.REQUIRE_BLOCK_KEY, /* data= */ true);
         }
       } else if (ASTHelpers.hasAnnotation(tree, AfterTemplate.class, state)) {
-        afterTemplates.add(UTemplater.createTemplate(context, tree));
+        afterTemplates.add(UTemplater.createTemplate(context, tree, null));
       } else if (tree.getModifiers().getFlags().contains(Modifier.ABSTRACT)) {
         throw new IllegalArgumentException(
             "Placeholder methods must have @Placeholder, but abstract method does not: " + tree);
@@ -159,6 +149,16 @@ public final class RefasterRuleBuilderScanner extends SimpleTreeVisitor<Void, Vo
     } catch (Throwable t) {
       throw new RuntimeException("Error analysing: " + tree.getName(), t);
     }
+  }
+
+  private ImmutableList<MethodTree> afterTemplateMethodTrees(MethodTree tree, VisitorState state) {
+    ClassSymbol classSymbol = ASTHelpers.enclosingClass(ASTHelpers.getSymbol(tree));
+    ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
+    return classTree.getMembers().stream()
+        .filter(MethodTree.class::isInstance)
+        .map(MethodTree.class::cast)
+        .filter(t -> ASTHelpers.hasAnnotation(t, AfterTemplate.class, state))
+        .collect(toImmutableList());
   }
 
   private ImmutableList<? extends CodeTransformer> createMatchers(

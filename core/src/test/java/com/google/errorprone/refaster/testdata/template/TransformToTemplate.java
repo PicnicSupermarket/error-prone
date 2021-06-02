@@ -19,6 +19,7 @@ package com.google.errorprone.refaster.testdata.template;
 import com.google.errorprone.refaster.Refaster;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 
 import java.util.EnumMap;
 import java.util.Locale;
@@ -38,7 +39,7 @@ import java.util.Map;
 //  }
 public class TransformToTemplate<K extends Enum<K>, V> {
   @BeforeTemplate
-  String before(Map<K, V>  enumMap) {
+  String before(@CanTransformToTargetType Map<K, V>  enumMap) {
     return enumMap.toString();
   }
 

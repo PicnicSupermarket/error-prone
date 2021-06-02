@@ -45,7 +45,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return array[5];",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("array", UArrayType.create(UPrimitiveType.DOUBLE)),
@@ -61,7 +61,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return (x + y) / 2;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of(
@@ -83,7 +83,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return foo ? null : \"bar\";",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("foo", UPrimitiveType.BOOLEAN),
@@ -103,7 +103,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    }",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of(
@@ -132,7 +132,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return java.math.RoundingMode.FLOOR;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 UStaticIdent.create(
@@ -149,7 +149,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return RoundingMode.FLOOR;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 UStaticIdent.create(
@@ -167,7 +167,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return FLOOR;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 UStaticIdent.create(
@@ -184,7 +184,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return BigInteger.valueOf(x);",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("x", UPrimitiveType.INT),
@@ -206,7 +206,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return str.charAt(5);",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("str", UClassType.create("java.lang.String")),
@@ -228,7 +228,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return str.charAt(Refaster.anyOf(1, 3, 5));",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("str", UClassType.create("java.lang.String")),
@@ -250,7 +250,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return ~Arrays.binarySearch(array, key);",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of(
@@ -279,7 +279,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return list.get(0);",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableClassToInstanceMap.of(),
@@ -306,7 +306,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "}");
     UTypeVar tVar = UTypeVar.create("T");
     UTypeVar eVar = UTypeVar.create("E");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableClassToInstanceMap.of(),
@@ -338,7 +338,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    } while (old != -1);",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of("str", UClassType.create("java.lang.String")),
@@ -377,7 +377,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    md.update(bytes);",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of(
@@ -401,7 +401,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return (String[]) o;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("o", UClassType.create("java.lang.Object")),
@@ -419,7 +419,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return (char) x;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("x", UPrimitiveType.INT),
@@ -435,7 +435,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return (String) o;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("o", UClassType.create("java.lang.Object")),
@@ -452,7 +452,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return new String(\"foo\");",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 UNewClass.create(UClassIdent.create("java.lang.String"), ULiteral.stringLit("foo")),
@@ -468,7 +468,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "     }",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of(
@@ -495,7 +495,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "     }",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of(
@@ -520,7 +520,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "     }",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of(
@@ -546,7 +546,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "     }",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of(
@@ -572,7 +572,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return (List<String>) elements;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of(
@@ -595,7 +595,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return foo instanceof CharSequence;",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("foo", UClassType.create("java.lang.Object")),
@@ -612,7 +612,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return foo = \"bar\";",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             ExpressionTemplate.create(
                 ImmutableMap.of("foo", UClassType.create("java.lang.String")),
@@ -628,7 +628,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    return e;",
         "  }",
         "}");
-    Template<?> template = UTemplater.createTemplate(context, getMethodDeclaration("example"));
+    Template<?> template = UTemplater.createTemplate(context, getMethodDeclaration("example"), null);
     UTypeVar eVar = Iterables.getOnlyElement(template.templateTypeVariables());
     assertThat(template)
         .isEqualTo(
@@ -654,7 +654,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    Collections.sort(list, comparator);",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableList.of(UTypeVar.create("E")),
@@ -696,7 +696,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    throw new IllegalArgumentException();",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 UThrow.create(
@@ -714,7 +714,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    }",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of("array", UArrayType.create(UPrimitiveType.INT)),
@@ -743,7 +743,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "    }",
         "  }",
         "}");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of("array", UArrayType.create(UPrimitiveType.INT)),
@@ -778,7 +778,7 @@ public class TemplatingTest extends CompilerBasedTest {
         "  }",
         "}");
     UTypeVar tVar = UTypeVar.create("T");
-    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example")))
+    assertThat(UTemplater.createTemplate(context, getMethodDeclaration("example"), null))
         .isEqualTo(
             BlockTemplate.create(
                 ImmutableMap.of(
