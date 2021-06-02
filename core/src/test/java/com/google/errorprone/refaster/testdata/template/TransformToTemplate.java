@@ -16,24 +16,35 @@
 
 package com.google.errorprone.refaster.testdata.template;
 
+import com.google.errorprone.refaster.Refaster;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
-import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
-import com.google.errorprone.refaster.annotation.NoAutoboxing;
 
-import java.util.function.Function;
-import java.util.stream.Stream;
+import java.util.EnumMap;
+import java.util.Locale;
+import java.util.Map;
 
 /** Example */
-public class TransformToTemplate<T, R extends T> {
+//public class TransformToTemplate<T, R extends Enum<R>> {
+//  @BeforeTemplate
+//  @CanTransformToTargetType
+//  public Stream<R> before(Stream<T> stream, Function<T, R> function) {
+//    return stream.map(function);
+//  }
+//
+//  @AfterTemplate
+//  public Stream<R> after(Stream<T> stream, Function<T, R> function) {
+//    return stream.map(function).map(function);
+//  }
+public class TransformToTemplate<K extends Enum<K>, V> {
   @BeforeTemplate
-  @CanTransformToTargetType
-  public Stream<R> before(Stream<T> stream, Function<T, R> function) {
-    return stream.map(function);
+  String before(Map<K, V>  enumMap) {
+    return enumMap.toString();
   }
 
   @AfterTemplate
-  public Stream<R> after(Stream<T> stream, Function<T, R> function) {
-    return stream.map(function).map(function);
+  String after(Map<K, V> enumMap) {
+    return enumMap.toString().toLowerCase(Locale.ROOT);
   }
 }
+//}

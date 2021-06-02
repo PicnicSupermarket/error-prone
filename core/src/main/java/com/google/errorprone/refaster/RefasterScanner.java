@@ -114,12 +114,12 @@ abstract class RefasterScanner<M extends TemplateMatch, T extends Template<M>>
       for (M match : beforeTemplate.match((JCTree) tree, context)) {
         // Check here whether the match is indeed correct? If the annotation is present.
         // This would work if the annotation is on the method instead of parameter.
-        //match.unifier.types().isConvertible()
-        //rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner())
+        // match.unifier.types().isConvertible()
+        // rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner())
         // rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) -> This gives a type.
         // ASTHelpers.getSymbol(((JCTree.JCMethodInvocation) tree).getArguments().get(0))
         // ((Symbol.MethodSymbol)ASTHelpers.getSymbol(((JCTree.JCMethodInvocation) tree).getArguments().get(0))).getThrownTypes()
-        //match.unifier.types().isConvertible(rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()), rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) )
+        // match.unifier.types().isConvertible(rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()), rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) )
         if (beforeTemplate.annotations().containsKey(CanTransformToTargetType.class)) {
           List<Type> t = rule().afterTemplates().get(0).actualTypes(match.createInliner());
           ImmutableMap<String, UType> stringUTypeImmutableMap =

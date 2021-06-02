@@ -18,6 +18,7 @@ package com.google.errorprone.refaster;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.logging.Level.FINE;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -36,6 +37,7 @@ import com.google.errorprone.refaster.annotation.Placeholder;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -48,6 +50,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
 
 /**
@@ -132,6 +136,14 @@ public final class RefasterRuleBuilderScanner extends SimpleTreeVisitor<Void, Vo
                 UTemplater.annotationMap(sym)));
       } else if (ASTHelpers.hasAnnotation(tree, BeforeTemplate.class, state)) {
         checkState(afterTemplates.isEmpty(), "BeforeTemplate must come before AfterTemplate");
+        ClassSymbol classSymbol = ASTHelpers.enclosingClass(ASTHelpers.getSymbol(tree));
+        ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
+        ImmutableList<? extends MethodTree> members =
+            classTree.getMembers().stream()
+                .filter(t -> ASTHelpers.hasAnnotation(t, AfterTemplate.class, state))
+                .map(t -> (MethodTree) t)
+                .collect(toImmutableList());
+        // here retrieve the other method.
         Template<?> template = UTemplater.createTemplate(context, tree);
         beforeTemplates.add(template);
         if (template instanceof BlockTemplate) {
