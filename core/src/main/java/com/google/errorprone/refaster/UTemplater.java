@@ -140,6 +140,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
    * templates.
    */
   public static Template<?> createTemplate(Context context, MethodTree decl) {
+    // Here need to have the types UTypes, Map, String to UType. And pass that to UTemplater.
     MethodSymbol declSym = ASTHelpers.getSymbol(decl);
     ImmutableClassToInstanceMap<Annotation> annotations = UTemplater.annotationMap(declSym);
     ImmutableMap<String, VarSymbol> freeExpressionVars = freeExpressionVariables(decl);
