@@ -115,6 +115,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -139,13 +140,18 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
    * are guessed to be expression templates, and all other methods are guessed to be block
    * templates.
    */
-  public static Template<?> createTemplate(Context context, MethodTree decl) {
+  public static Template<?> createTemplate(
+      Context context, MethodTree decl, ImmutableList<MethodTree> afterTemplateMethods) {
     // Here need to have the types UTypes, Map, String to UType. And pass that to UTemplater.
     MethodSymbol declSym = ASTHelpers.getSymbol(decl);
     ImmutableClassToInstanceMap<Annotation> annotations = UTemplater.annotationMap(declSym);
     ImmutableMap<String, VarSymbol> freeExpressionVars = freeExpressionVariables(decl);
+    ImmutableMap<String, Type> parameterTargetTypes =
+        afterTemplateMethods != null ? parameterTargetTypes(afterTemplateMethods.get(0)) : null;
+
     Context subContext = new SubContext(context);
-    final UTemplater templater = new UTemplater(freeExpressionVars, subContext);
+    final UTemplater templater =
+        new UTemplater(freeExpressionVars, parameterTargetTypes, subContext);
     ImmutableMap<String, UType> expressionVarTypes =
         ImmutableMap.copyOf(
             Maps.transformValues(
@@ -197,17 +203,36 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     return builder.build();
   }
 
-  private final ImmutableMap<String, Type> freeVariableTargetTypes = ImmutableMap.of();
+  public static ImmutableMap<String, Type> parameterTargetTypes(MethodTree methodTree) {
+    ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
+    for (VariableTree param : methodTree.getParameters()) {
+      builder.put(param.getName().toString(), ((JCTree.JCTypeApply) param.getType()).type);
+    }
+    return builder.build();
+  }
+
+  private final ImmutableMap<String, UType> freeVariableTargetTypes;
   private final ImmutableMap<String, VarSymbol> freeVariables;
   private final Context context;
 
-  public UTemplater(Map<String, VarSymbol> freeVariables, Context context) {
+  public UTemplater(
+      Map<String, VarSymbol> freeVariables,
+      Map<String, Type> freeVariableTargetTypes,
+      Context context) {
     this.freeVariables = ImmutableMap.copyOf(freeVariables);
+    if (freeVariableTargetTypes != null) {
+      Map<String, UType> uTypeMap =
+          freeVariableTargetTypes.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, tree -> template(tree.getValue())));
+      this.freeVariableTargetTypes = ImmutableMap.copyOf(uTypeMap);
+    } else {
+      this.freeVariableTargetTypes = null;
+    }
     this.context = context;
   }
 
   UTemplater(Context context) {
-    this(ImmutableMap.<String, VarSymbol>of(), context);
+    this(ImmutableMap.<String, VarSymbol>of(), null, context);
   }
 
   public Tree template(Tree tree) {
@@ -609,11 +634,13 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         EnumSet<Kind> allowed = EnumSet.copyOf(Arrays.asList(hasKind.value()));
         ident = UOfKind.create(ident, ImmutableSet.copyOf(allowed));
       }
-      CanTransformToTargetType canTransformToTargetType = ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
+      CanTransformToTargetType canTransformToTargetType =
+          ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
       if (canTransformToTargetType != null) {
-        Type targetType = freeVariableTargetTypes.get(name);
-        checkState(targetType !=null, "No @AfterTemplate parameter named '%s'", name);
-//        ident = UCanBeTransformed.create(ident, targetType);
+        UType targetType = freeVariableTargetTypes.get(name);
+        checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
+        ident = UCanBeTransformed.create(ident, targetType);
+        // here use targetTypes.
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);
