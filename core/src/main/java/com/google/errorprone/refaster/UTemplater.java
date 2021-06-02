@@ -197,6 +197,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     return builder.build();
   }
 
+  private final ImmutableMap<String, Type> freeVariableTargetTypes = ImmutableMap.of();
   private final ImmutableMap<String, VarSymbol> freeVariables;
   private final Context context;
 
@@ -585,13 +586,14 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
 
   @Override
   public UExpression visitIdentifier(IdentifierTree tree, Void v) {
+    String name = tree.getName().toString();
     Symbol sym = ASTHelpers.getSymbol(tree);
     if (sym instanceof ClassSymbol) {
       return UClassIdent.create((ClassSymbol) sym);
     } else if (sym != null && sym.isStatic()) {
       return staticMember(sym);
-    } else if (freeVariables.containsKey(tree.getName().toString())) {
-      VarSymbol symbol = freeVariables.get(tree.getName().toString());
+    } else if (freeVariables.containsKey(name)) {
+      VarSymbol symbol = freeVariables.get(name);
       checkState(symbol == sym);
       UExpression ident = UFreeIdent.create(tree.getName());
       Matches matches = ASTHelpers.getAnnotation(symbol, Matches.class);
@@ -607,11 +609,12 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         EnumSet<Kind> allowed = EnumSet.copyOf(Arrays.asList(hasKind.value()));
         ident = UOfKind.create(ident, ImmutableSet.copyOf(allowed));
       }
-      // XXX: At first, the annotation was here, but probably not useful.
-//      CanTransformToTargetType canTransformToTargetType = ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
-//      if (canTransformToTargetType != null) {
-//        ident = UCanBeTransformed.create(ident, canTransformToTargetType.value());
-//      }
+      CanTransformToTargetType canTransformToTargetType = ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
+      if (canTransformToTargetType != null) {
+        Type targetType = freeVariableTargetTypes.get(name);
+        checkState(targetType !=null, "No @AfterTemplate parameter named '%s'", name);
+//        ident = UCanBeTransformed.create(ident, targetType);
+      }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);
       if (repeated != null) {
