@@ -18,6 +18,7 @@ package com.google.errorprone.refaster;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -141,11 +142,12 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
    * templates.
    */
   public static Template<?> createTemplate(
-      Context context, MethodTree decl, ImmutableList<MethodTree> afterTemplateMethods) {
+      Context context, MethodTree decl, @Nullable ImmutableList<MethodTree> afterTemplateMethods) {
     // Here need to have the types UTypes, Map, String to UType. And pass that to UTemplater.
     MethodSymbol declSym = ASTHelpers.getSymbol(decl);
     ImmutableClassToInstanceMap<Annotation> annotations = UTemplater.annotationMap(declSym);
     ImmutableMap<String, VarSymbol> freeExpressionVars = freeExpressionVariables(decl);
+    @Nullable
     ImmutableMap<String, Type> parameterTargetTypes =
         afterTemplateMethods != null ? parameterTargetTypes(afterTemplateMethods.get(0)) : null;
 
@@ -206,29 +208,32 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
   public static ImmutableMap<String, Type> parameterTargetTypes(MethodTree methodTree) {
     ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
     for (VariableTree param : methodTree.getParameters()) {
-      builder.put(param.getName().toString(), ((JCTree.JCTypeApply) param.getType()).type);
+      builder.put(param.getName().toString(), ((JCTree) param.getType()).type);
     }
     return builder.build();
   }
 
-  private final ImmutableMap<String, UType> freeVariableTargetTypes;
   private final ImmutableMap<String, VarSymbol> freeVariables;
+  @Nullable private final ImmutableMap<String, UType> freeVariableTargetTypes;
   private final Context context;
 
   public UTemplater(
       Map<String, VarSymbol> freeVariables,
-      Map<String, Type> freeVariableTargetTypes,
+      @Nullable Map<String, Type> freeVariableTargetTypes,
       Context context) {
     this.freeVariables = ImmutableMap.copyOf(freeVariables);
-    if (freeVariableTargetTypes != null) {
-      Map<String, UType> uTypeMap =
-          freeVariableTargetTypes.entrySet().stream()
-              .collect(Collectors.toMap(Map.Entry::getKey, tree -> template(tree.getValue())));
-      this.freeVariableTargetTypes = ImmutableMap.copyOf(uTypeMap);
-    } else {
-      this.freeVariableTargetTypes = null;
-    }
+    this.freeVariableTargetTypes = convertTargetTypesToUTypes(freeVariableTargetTypes);
     this.context = context;
+  }
+
+  @Nullable
+  private ImmutableMap<String, UType> convertTargetTypesToUTypes(
+      @Nullable Map<String, Type> freeVariableTargetTypes) {
+    if (freeVariableTargetTypes == null) {
+      return null;
+    }
+    return freeVariableTargetTypes.entrySet().stream()
+        .collect(toImmutableMap(Map.Entry::getKey, tree -> template(tree.getValue())));
   }
 
   UTemplater(Context context) {
@@ -636,11 +641,12 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       }
       CanTransformToTargetType canTransformToTargetType =
           ASTHelpers.getAnnotation(symbol, CanTransformToTargetType.class);
-      if (canTransformToTargetType != null) {
+      if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
+        VisitorState visitorState = VisitorState.createForUtilityPurposes(context);
+        visitorState.getTypeFromString(targetType.)
         ident = UCanBeTransformed.create(ident, targetType);
-        // here use targetTypes.
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);

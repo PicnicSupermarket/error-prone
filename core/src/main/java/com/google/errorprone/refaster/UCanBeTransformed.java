@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TreeVisitor;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 
 import javax.annotation.Nullable;
@@ -61,6 +62,16 @@ abstract class UCanBeTransformed extends UExpression {
   @Override
   @Nullable
   protected Choice<Unifier> defaultAction(Tree tree, @Nullable Unifier unifier) {
-    return expression().unify(tree, unifier);
+    final UType t = type();
+//    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
+//    return expression().unify(exprTarget,unifier)
+//            .condition(true);
+    return expression().unify(tree, unifier).thenChoose((Unifier u)  -> {
+      return Choice.none();
+    });
+//    final Tree exprTarget = ASTHelpers.stripParentheses(target);
+//    return expression()
+//            .unify(exprTarget, unifier)
+//            .condition((Unifier success) -> matches(exprTarget, success) == positive());
   }
 }
