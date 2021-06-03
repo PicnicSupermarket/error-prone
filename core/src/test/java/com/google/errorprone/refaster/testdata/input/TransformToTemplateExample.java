@@ -16,21 +16,25 @@
 
 package com.google.errorprone.refaster.testdata;
 
-import java.math.RoundingMode;
-import java.util.EnumMap;
-
 /** Example */
 public class TransformToTemplateExample {
-  String testCreateEnumMap() {
-    EnumMap<RoundingMode, Object> roundingModeObjectEnumMap = new EnumMap<>(RoundingMode.class);
-    return roundingModeObjectEnumMap.toString();
+
+  public String test() {
+    Number n = (Number) 1;
+    return n.toString();
   }
 
-  //  public List<Integer> example() {
-  //    return ImmutableSet.of(1).stream().map(this::test).collect(Collectors.toList());
-  //  }
-  //
-  //  public Integer test(Integer i) {
-  //    return i + i;
-  //  }
+// input
+//  String testCreateEnumMap() {
+//    EnumMap<RoundingMode, Object> roundingModeObjectEnumMap = new EnumMap<>(RoundingMode.class);
+//    return roundingModeObjectEnumMap.toString();
+//  }
+
+//  public List<Integer> example() {
+//    return ImmutableSet.of(1).stream().map(this::test).collect(Collectors.toList());
+//  }
+//
+//  public Integer test(Integer i) {
+//    return i + i;
+//  }
 }

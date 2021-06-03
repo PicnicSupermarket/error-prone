@@ -16,16 +16,22 @@
 
 package com.google.errorprone.refaster.testdata.template;
 
-import com.google.errorprone.refaster.Refaster;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 
-import java.util.EnumMap;
-import java.util.Locale;
-import java.util.Map;
-
 /** Example */
+public class TransformToTemplate {
+  @BeforeTemplate
+  public Object before(@CanTransformToTargetType Object num) {
+    return num.toString();
+  }
+
+  @AfterTemplate
+  public Object after(Number num) {
+    return String.valueOf(num);
+  }
+}
 //public class TransformToTemplate<T, R extends Enum<R>> {
 //  @BeforeTemplate
 //  @CanTransformToTargetType
@@ -37,15 +43,15 @@ import java.util.Map;
 //  public Stream<R> after(Stream<T> stream, Function<T, R> function) {
 //    return stream.map(function).map(function);
 //  }
-public class TransformToTemplate<K extends Enum<K>, V> {
-  @BeforeTemplate
-  String before(@CanTransformToTargetType Map<K, V>  enumMap) {
-    return enumMap.toString();
-  }
-
-  @AfterTemplate
-  String after(Map<K, V> enumMap) {
-    return enumMap.toString().toLowerCase(Locale.ROOT);
-  }
-}
+//public class TransformToTemplate<K extends Enum<K>, V> {
+//  @BeforeTemplate
+//  String before(@CanTransformToTargetType Map<K, V>  enumMap) {
+//    return enumMap.toString();
+//  }
+//
+//  @AfterTemplate
+//  String after(Map<K, V> enumMap) {
+//    return enumMap.toString().toLowerCase(Locale.ROOT);
+//  }
+//}
 //}
