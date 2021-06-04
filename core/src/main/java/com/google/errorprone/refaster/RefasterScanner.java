@@ -36,10 +36,6 @@ import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.parser.JavaTokenizer;
-import com.sun.tools.javac.parser.ScannerFactory;
-import com.sun.tools.javac.parser.Tokens.Token;
-import com.sun.tools.javac.parser.Tokens.TokenKind;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCStatement;
@@ -109,41 +105,10 @@ abstract class RefasterScanner<M extends TemplateMatch, T extends Template<M>>
     for (T beforeTemplate : rule().beforeTemplates()) {
       matchLoop:
       for (M match : beforeTemplate.match((JCTree) tree, context)) {
-        // Check here whether the match is indeed correct? If the annotation is present.
-        // This would work if the annotation is on the method instead of parameter.
-        // match.unifier.types().isConvertible()
-        // rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner())
-        // rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) -> This gives a type.
-        // match.unifier.types().isConvertible(rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()), rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) )
-        // ASTHelpers.getSymbol(((JCTree.JCMethodInvocation) tree).getArguments().get(0))
-        // ((Symbol.MethodSymbol)ASTHelpers.getSymbol(((JCTree.JCMethodInvocation)
-        // tree).getArguments().get(0))).getThrownTypes()
-        // ((Symbol.MethodSymbol)ASTHelpers.getSymbol(((JCTree.JCMethodInvocation)
-        // tree).getArguments().get(0))).getThrownTypes()
-        // match.unifier.types().isConvertible(rule().beforeTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()), rule().afterTemplates().get(0).expressionArgumentTypes().get("b").inline(match.createInliner()) )
-        //        if (beforeTemplate.annotations().containsKey(CanTransformToTargetType.class)) {
-        //          List<Type> t =
-        // rule().afterTemplates().get(0).actualTypes(match.createInliner());
-        //          ImmutableMap<String, UType> stringUTypeImmutableMap =
-        //              rule().afterTemplates().get(0).expressionArgumentTypes();
-        //          rule().afterTemplates().get(0).templateTypeVariables();
-        //        }
         if (rule().rejectMatchesWithComments()) {
           String matchContents = match.getRange(compilationUnit);
-<<<<<<< HEAD
           if (stringContainsComments(matchContents, context)) {
             continue matchLoop;
-=======
-          JavaTokenizer tokenizer =
-              new JavaTokenizer(
-                  ScannerFactory.instance(context), CharBuffer.wrap(matchContents)) {};
-          for (Token token = tokenizer.readToken();
-              token.kind != TokenKind.EOF;
-              token = tokenizer.readToken()) {
-            if (token.comments != null && !token.comments.isEmpty()) {
-              continue matchLoop;
-            }
->>>>>>> Pair programming
           }
         }
         Description.Builder builder =

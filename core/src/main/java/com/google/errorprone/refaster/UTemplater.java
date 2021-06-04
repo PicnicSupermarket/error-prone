@@ -641,7 +641,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         // XXX: Instead get the expression type.
         Type beforeTemplateType = ((JCTree) tree).type;
         Type afterTemplateType = getType((UClassType) targetType);
-        ident = UCanBeTransformed.create(ident, beforeTemplateType, afterTemplateType);
+        ident = UCanBeTransformed.create(ident, afterTemplateType);
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);
