@@ -20,7 +20,7 @@ package com.google.errorprone.refaster.testdata;
 public class TransformToTemplateExample {
 
   public String test() {
-    Number n = (Number) 1;
+    Integer n = (Integer) 1;
     return String.valueOf(n);
   }
 
