@@ -31,15 +31,15 @@ import javax.annotation.Nullable;
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
   public static UCanBeTransformed create(
-      UExpression expression, Type beforeTemplateType, Type afterTemplateType) {
-    return new AutoValue_UCanBeTransformed(expression, beforeTemplateType, afterTemplateType);
+          UExpression expression, Type afterTemplateType) {
+    return new AutoValue_UCanBeTransformed(expression, afterTemplateType);
   }
 
   abstract UExpression expression();
 
   // XXX: Review whether we can infer this from `expression()`.
   // XXX: Nope, this should go. Need to infer after unification.
-  abstract Type beforeTemplateType();
+//  abstract Type beforeTemplateType();
 
   abstract Type afterTemplateType();
 
@@ -66,11 +66,11 @@ abstract class UCanBeTransformed extends UExpression {
   @Override
   protected Choice<Unifier> defaultAction(Tree tree, Unifier unifier) {
     final Type afterTemplateType = afterTemplateType();
-    final Type beforeTemplateType = beforeTemplateType();
 
-    // XXX: Use.
-    ASTHelpers.isSubtype(beforeTemplateType, beforeTemplateType, makeVisitorState(tree, unifier));
+    //    // XXX: Use.
+//    ASTHelpers.isSubtype(afterTemplateType, afterTemplateType, makeVisitorState(tree, unifier));
 
+    String bindingName = ((UFreeIdent) expression()).getName().contents();
     //    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
     //    return expression().unify(exprTarget,unifier)
     //            .condition(true);
@@ -79,6 +79,7 @@ abstract class UCanBeTransformed extends UExpression {
         .unify(tree, unifier)
         .thenChoose(
             (Unifier u) -> {
+//               u.getBinding(new UFreeIdent.Key(bindingName)).type;
               return Choice.none();
             });
     //    final Tree exprTarget = ASTHelpers.stripParentheses(target);
