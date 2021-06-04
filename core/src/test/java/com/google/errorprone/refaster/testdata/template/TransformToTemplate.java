@@ -28,7 +28,7 @@ public class TransformToTemplate {
   }
 
   @AfterTemplate
-  public Object after(Integer num) {
+  public Object after(Number num) {
     return String.valueOf(num);
   }
 }

@@ -133,7 +133,8 @@ public final class RefasterRuleBuilderScanner extends SimpleTreeVisitor<Void, Vo
                 UTemplater.annotationMap(sym)));
       } else if (ASTHelpers.hasAnnotation(tree, BeforeTemplate.class, state)) {
         checkState(afterTemplates.isEmpty(), "BeforeTemplate must come before AfterTemplate");
-        ImmutableList<MethodTree> afterTemplateMethodTrees = afterTemplateMethodTrees(tree, state);
+        ImmutableList<MethodTree> afterTemplateMethodTrees =
+            extractAfterTemplateMethodTrees(tree, state);
         Template<?> template = UTemplater.createTemplate(context, tree, afterTemplateMethodTrees);
         beforeTemplates.add(template);
         if (template instanceof BlockTemplate) {
@@ -151,7 +152,22 @@ public final class RefasterRuleBuilderScanner extends SimpleTreeVisitor<Void, Vo
     }
   }
 
-  private ImmutableList<MethodTree> afterTemplateMethodTrees(MethodTree tree, VisitorState state) {
+  // XXX: Throw exception if more than one `@AfterTemplate`. Later on properly support this and
+  // either:
+  // - For `@BeforeTemplate`s:
+  //   1. Don't type check based on @AfterTemplate` parameters.
+  //   2. Type check based on conjunction of `@AfterTemplate` parameters.
+  //   3. Type check based on disjunction of `@AfterTemplate` parameters.
+  // - For `@AfterTemplate`s:
+  //   1. Emit all, even if they may not compile.
+  //   2. Emit only those with matching parameters. If no `@AfterTemplate` matches,
+  //      a. Don't report a match at all.
+  //      b. Emit a comment.
+  // TBD: Decide whether to make this a template-level setting or a
+  // per-`@Before/@After`Template-setting (where this makes sense).
+  private ImmutableList<MethodTree> extractAfterTemplateMethodTrees(
+      MethodTree tree, VisitorState state) {
+    // XXX: Review: can we avoid the tree -> symbol -> tree round-trip?
     ClassSymbol classSymbol = ASTHelpers.enclosingClass(ASTHelpers.getSymbol(tree));
     ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
     return classTree.getMembers().stream()
