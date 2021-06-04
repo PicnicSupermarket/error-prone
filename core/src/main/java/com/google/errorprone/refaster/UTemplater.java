@@ -116,7 +116,6 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -645,9 +644,9 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
-        VisitorState visitorState = VisitorState.createForUtilityPurposes(context);
-        visitorState.getTypeFromString(targetType.)
-        ident = UCanBeTransformed.create(ident, targetType);
+        Type afterTemplateType = getAfterTemplateType((AutoValue_UClassType) targetType);
+        Type beforeTemplateType = ((JCTree.JCIdent) tree).type;
+        ident = UCanBeTransformed.create(ident, beforeTemplateType, afterTemplateType);
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);
@@ -665,6 +664,13 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       default:
         return ULocalVarIdent.create(tree.getName());
     }
+  }
+
+//  @org.jetbrains.annotations.Nullable
+  private Type getAfterTemplateType(AutoValue_UClassType targetType) {
+    VisitorState visitorState = VisitorState.createForUtilityPurposes(context);
+    Type typeFromAfterTemplate = visitorState.getTypeFromString(targetType.fullyQualifiedClass().toString());
+    return typeFromAfterTemplate;
   }
 
   /**

@@ -17,27 +17,30 @@
 package com.google.errorprone.refaster;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.util.ASTHelpers;
+import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TreeVisitor;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.util.Context;
 
 import javax.annotation.Nullable;
-import java.util.Set;
 
 import static com.google.errorprone.refaster.Unifier.unifications;
 
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
-  public static UCanBeTransformed create(UExpression expression, UType type) {
-    return new AutoValue_UCanBeTransformed(expression, type);
+  public static UCanBeTransformed create(UExpression expression, Type beforeTemplateType, Type afterTemplateType) {
+    return new AutoValue_UCanBeTransformed(expression, beforeTemplateType, afterTemplateType);
   }
 
   abstract UExpression expression();
 
-  abstract UType type();
+  abstract Type beforeTemplateType();
+
+  abstract Type afterTemplateType();
 
   @Override
   public JCExpression inline(Inliner inliner) throws CouldNotResolveImportException {
@@ -62,10 +65,13 @@ abstract class UCanBeTransformed extends UExpression {
   @Override
   @Nullable
   protected Choice<Unifier> defaultAction(Tree tree, @Nullable Unifier unifier) {
-    final UType t = type();
+    final Type afterTemplateType = afterTemplateType();
+    final Type beforeTemplateType = beforeTemplateType();
+
 //    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
 //    return expression().unify(exprTarget,unifier)
 //            .condition(true);
+//    return expression().unify(tree, unifier);
     return expression().unify(tree, unifier).thenChoose((Unifier u)  -> {
       return Choice.none();
     });
@@ -74,4 +80,5 @@ abstract class UCanBeTransformed extends UExpression {
 //            .unify(exprTarget, unifier)
 //            .condition((Unifier success) -> matches(exprTarget, success) == positive());
   }
+
 }
