@@ -18,7 +18,6 @@ package com.google.errorprone.refaster;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -148,7 +147,9 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     ImmutableMap<String, VarSymbol> freeExpressionVars = freeExpressionVariables(decl);
     @Nullable
     ImmutableMap<String, Type> parameterTargetTypes =
-        afterTemplateMethods != null ? parameterTargetTypes(afterTemplateMethods.get(0)) : null;
+        afterTemplateMethods == null
+            ? null
+            : extractParameterTargetTypes(afterTemplateMethods.get(0));
 
     Context subContext = new SubContext(context);
     final UTemplater templater =
@@ -204,7 +205,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     return builder.buildOrThrow();
   }
 
-  public static ImmutableMap<String, Type> parameterTargetTypes(MethodTree methodTree) {
+  public static ImmutableMap<String, Type> extractParameterTargetTypes(MethodTree methodTree) {
     ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
     for (VariableTree param : methodTree.getParameters()) {
       builder.put(param.getName().toString(), ((JCTree) param.getType()).type);
@@ -221,18 +222,11 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       @Nullable Map<String, Type> freeVariableTargetTypes,
       Context context) {
     this.freeVariables = ImmutableMap.copyOf(freeVariables);
-    this.freeVariableTargetTypes = convertTargetTypesToUTypes(freeVariableTargetTypes);
+    this.freeVariableTargetTypes =
+        freeVariableTargetTypes == null
+            ? null
+            : ImmutableMap.copyOf(Maps.transformValues(freeVariableTargetTypes, this::template));
     this.context = context;
-  }
-
-  @Nullable
-  private ImmutableMap<String, UType> convertTargetTypesToUTypes(
-      @Nullable Map<String, Type> freeVariableTargetTypes) {
-    if (freeVariableTargetTypes == null) {
-      return null;
-    }
-    return freeVariableTargetTypes.entrySet().stream()
-        .collect(toImmutableMap(Map.Entry::getKey, tree -> template(tree.getValue())));
   }
 
   UTemplater(Context context) {
@@ -644,8 +638,9 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
-        Type afterTemplateType = getAfterTemplateType((AutoValue_UClassType) targetType);
-        Type beforeTemplateType = ((JCTree.JCIdent) tree).type;
+        // XXX: Instead get the expression type.
+        Type beforeTemplateType = ((JCTree) tree).type;
+        Type afterTemplateType = getType((UClassType) targetType);
         ident = UCanBeTransformed.create(ident, beforeTemplateType, afterTemplateType);
       }
       // @Repeated annotations need to be checked last.
@@ -666,11 +661,10 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     }
   }
 
-//  @org.jetbrains.annotations.Nullable
-  private Type getAfterTemplateType(AutoValue_UClassType targetType) {
+  @Nullable
+  private Type getType(UClassType targetType) {
     VisitorState visitorState = VisitorState.createForUtilityPurposes(context);
-    Type typeFromAfterTemplate = visitorState.getTypeFromString(targetType.fullyQualifiedClass().toString());
-    return typeFromAfterTemplate;
+    return visitorState.getTypeFromString(targetType.fullyQualifiedClass().toString());
   }
 
   /**
