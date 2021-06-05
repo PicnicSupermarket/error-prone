@@ -30,8 +30,7 @@ import javax.annotation.Nullable;
 
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
-  public static UCanBeTransformed create(
-          UExpression expression, Type afterTemplateType) {
+  public static UCanBeTransformed create(UExpression expression, Type afterTemplateType) {
     return new AutoValue_UCanBeTransformed(expression, afterTemplateType);
   }
 
@@ -39,7 +38,7 @@ abstract class UCanBeTransformed extends UExpression {
 
   // XXX: Review whether we can infer this from `expression()`.
   // XXX: Nope, this should go. Need to infer after unification.
-//  abstract Type beforeTemplateType();
+  //  abstract Type beforeTemplateType();
 
   abstract Type afterTemplateType();
 
@@ -65,10 +64,12 @@ abstract class UCanBeTransformed extends UExpression {
 
   @Override
   protected Choice<Unifier> defaultAction(Tree tree, Unifier unifier) {
+    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
     final Type afterTemplateType = afterTemplateType();
-
+    UExpression expression = expression();
+    final VisitorState state = makeVisitorState(tree, unifier);
     //    // XXX: Use.
-//    ASTHelpers.isSubtype(afterTemplateType, afterTemplateType, makeVisitorState(tree, unifier));
+    ASTHelpers.isSubtype(afterTemplateType, afterTemplateType, state);
 
     String bindingName = ((UFreeIdent) expression()).getName().contents();
     //    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
@@ -77,15 +78,24 @@ abstract class UCanBeTransformed extends UExpression {
     //    return expression().unify(tree, unifier);
     return expression()
         .unify(tree, unifier)
-        .thenChoose(
-            (Unifier u) -> {
-//               u.getBinding(new UFreeIdent.Key(bindingName)).type;
-              return Choice.none();
+        .condition(
+            (Unifier success) -> {
+              Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
+              Type other = afterTemplateType;
+              boolean b = ASTHelpers.isSubtype(type, other, state);
+              boolean b2 = ASTHelpers.isSubtype(other, type, state);
+              boolean convertible = success.types().isConvertible(type, other);
+              boolean convertible1 = success.types().isConvertible(other, type);
+              boolean equals =
+                  other.tsym.toString().equals(success.types().supertype(type).tsym.toString());
+              boolean subtype =
+                  ASTHelpers.isSubtype(
+                      state.getTypeFromString(type.tsym.toString()),
+                      state.getTypeFromString(other.tsym.toString()),
+                      state);
+
+              return subtype;
             });
-    //    final Tree exprTarget = ASTHelpers.stripParentheses(target);
-    //    return expression()
-    //            .unify(exprTarget, unifier)
-    //            .condition((Unifier success) -> matches(exprTarget, success) == positive());
   }
 
   // XXX: Move!
