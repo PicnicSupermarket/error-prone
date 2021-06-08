@@ -17,8 +17,13 @@
 package com.google.errorprone.refaster;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TreeVisitor;
 import com.sun.source.util.TreePath;
@@ -27,6 +32,10 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.util.Context;
 import javax.annotation.Nullable;
+
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
@@ -60,9 +69,10 @@ abstract class UCanBeTransformed extends UExpression {
 
   @Override
   protected Choice<Unifier> defaultAction(Tree tree, Unifier unifier) {
-    final Type afterTemplateType = afterTemplateType();
     final VisitorState state = makeVisitorState(tree, unifier);
     String bindingName = ((UFreeIdent) expression()).getName().contents();
+
+    Type afterTemplateType = afterTemplateType();
 
     final Tree exprTarget = ASTHelpers.stripParentheses(tree);
     UExpression expression = expression();
@@ -71,8 +81,23 @@ abstract class UCanBeTransformed extends UExpression {
         .unify(tree, unifier)
         .condition(
             (Unifier success) -> {
+              if (tree instanceof LambdaExpressionTree) {
+                ImmutableList<Type> params = getParameterTypesOfLambda((LambdaExpressionTree) tree);
+                ImmutableSet<Type> thrownExceptions =
+                    ASTHelpers.getThrownExceptions(((LambdaExpressionTree) tree).getBody(), state);
+                Type returnType =
+                    state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
+
+                // XXX: How get the returnType from the afterTemplateType? How we know it is T
+                // afterTemplateType().tsym.getTypeParameters().get(0).type.getUpperBound() // -> java.lang.Object, perhaps to get parameter type.
+                // XXX: How do we know whether afterTemplate types signature matches?
+                List<Type> thrownTypesTargetExpression = afterTemplateType().baseType().getThrownTypes();
+              } else if (tree instanceof MemberReferenceTree) {
+
+              }
+
               Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
-              Type other = afterTemplateType;
+              Type other = afterTemplateType();
               boolean b = ASTHelpers.isSubtype(type, other, state);
               boolean b2 = ASTHelpers.isSubtype(other, type, state);
               boolean convertible = success.types().isConvertible(type, other);
@@ -89,10 +114,43 @@ abstract class UCanBeTransformed extends UExpression {
             });
   }
 
+  private ImmutableList<Type> getParameterTypesOfLambda(LambdaExpressionTree tree) {
+    ImmutableList<Type> params =
+        tree.getParameters().stream()
+            .map(param -> ASTHelpers.getSymbol(param).type)
+            .collect(toImmutableList());
+    return params;
+  }
+
   // XXX: Move!
   static VisitorState makeVisitorState(Tree target, Unifier unifier) {
     Context context = unifier.getContext();
     TreePath path = TreePath.getPath(context.get(JCCompilationUnit.class), target);
     return new VisitorState(context).withPath(path);
+  }
+
+  //  Code for checking the lambda:
+  //          boolean hasMatchingParameters = hasMatchingParameters(params,
+  // ImmutableList.of(afterTemplateType().getTypeArguments().get(0)), state);
+  //
+  //                Type qualifiedExceptionType = state.getTypeFromString(qualifierException);
+  //                return ASTHelpers.getThrownExceptions(
+  //                        ((LambdaExpressionTree) expressionTree).getBody(), state)
+  //                        .stream()
+  //                        .anyMatch(isSubtypeOfThrownException(state, qualifiedExceptionType));
+
+  private boolean hasMatchingParameters(
+      List<Type> params, List<Type> parameterTargetTypes, VisitorState state) {
+    if (params.size() != parameterTargetTypes.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < params.size(); i++) {
+      if (!state.getTypes().isConvertible(params.get(i), parameterTargetTypes.get(i))) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }
