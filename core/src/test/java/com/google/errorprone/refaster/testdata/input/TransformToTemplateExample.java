@@ -21,7 +21,7 @@ public class TransformToTemplateExample {
 
   public String test() {
     Integer n = (Integer) 1;
-    return ((Integer) 1).toString();
+    return n.toString();
   }
 
 // input
