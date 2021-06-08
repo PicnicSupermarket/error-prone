@@ -21,6 +21,9 @@ import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 
 import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.ToIntFunction;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /** Example */
@@ -31,7 +34,7 @@ public class TransformLambdaTemplate<T, R extends T> {
   }
 
   @AfterTemplate
-  public Stream<R> after(Stream<T> stream, Function<T, R> function) {
-    return stream.map(function).map(function);
+  public IntStream after(Stream<T> stream, ToIntFunction<T> function) {
+    return stream.mapToInt(function).filter(x -> x != 0);
   }
 }
