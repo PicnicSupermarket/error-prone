@@ -20,6 +20,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.bugpatterns.SystemOut;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -32,10 +33,12 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.util.Context;
 import javax.annotation.Nullable;
+import javax.lang.model.type.TypeKind;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.errorprone.util.ASTHelpers.getType;
 
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
@@ -92,6 +95,12 @@ abstract class UCanBeTransformed extends UExpression {
                 // afterTemplateType().tsym.getTypeParameters().get(0).type.getUpperBound() // -> java.lang.Object, perhaps to get parameter type.
                 // XXX: How do we know whether afterTemplate types signature matches?
                 List<Type> thrownTypesTargetExpression = afterTemplateType().baseType().getThrownTypes();
+
+                boolean isFunctionalInterface = success.types().isFunctionalInterface(afterTemplateType);
+                List<Type> parameterTypes = success.types().findDescriptorType(afterTemplateType).getParameterTypes();
+                List<Type> bounds = success.types().getBounds((Type.TypeVar) parameterTypes.get(0));
+                Type returnTypeFunctionalInterface = state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
+                afterTemplateType();
               } else if (tree instanceof MemberReferenceTree) {
 
               }
