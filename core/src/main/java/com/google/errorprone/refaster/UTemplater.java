@@ -434,10 +434,10 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
   }
 
   private static Tree getSingleExplicitTypeArgument(MethodInvocationTree tree) {
-    if (tree.getTypeArguments().isEmpty()) {
+    if (tree.getTypeArguments().size() != 1) {
       throw new IllegalArgumentException(
-          "Methods in the Refaster class must be invoked with "
-              + "an explicit type parameter; for example, 'Refaster.<T>isInstance(o)'.");
+          "Methods in the Refaster class must be invoked with a single "
+              + "explicit type parameter; for example, 'Refaster.<T>isInstance(o)'.");
     }
     return Iterables.getOnlyElement(tree.getTypeArguments());
   }
@@ -637,8 +637,8 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
-        Type afterTemplateType = getType((UClassType) targetType);
-        ident = UCanBeTransformed.create(ident, afterTemplateType);
+//        Type afterTemplateType = getType((UClassType) targetType);
+        ident = UCanBeTransformed.create(ident, targetType);
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);

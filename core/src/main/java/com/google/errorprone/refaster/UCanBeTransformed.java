@@ -40,13 +40,13 @@ import static com.google.errorprone.util.ASTHelpers.getType;
 
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
-  public static UCanBeTransformed create(UExpression expression, Type afterTemplateType) {
+  public static UCanBeTransformed create(UExpression expression, UType afterTemplateType) {
     return new AutoValue_UCanBeTransformed(expression, afterTemplateType);
   }
 
   abstract UExpression expression();
 
-  abstract Type afterTemplateType();
+  abstract UType afterTemplateType();
 
   @Override
   public JCExpression inline(Inliner inliner) throws CouldNotResolveImportException {
@@ -73,16 +73,17 @@ abstract class UCanBeTransformed extends UExpression {
     final VisitorState state = makeVisitorState(tree, unifier);
     String bindingName = ((UFreeIdent) expression()).getName().contents();
 
-    Type afterTemplateType = afterTemplateType();
+//    Type afterTemplateType = afterTemplateType();
 
-    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
-    UExpression expression = expression();
+//    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
+//    UExpression expression = expression();
 
     return expression()
         .unify(tree, unifier)
         .condition(
             (Unifier success) -> {
               if (tree instanceof LambdaExpressionTree) {
+                Type afterTemplateType = state.getTypeFromString("java.util.function.Function");
                 Preconditions.checkState(
                     success.types().isFunctionalInterface(afterTemplateType),
                     "Lambda should be functional interface");
@@ -93,20 +94,24 @@ abstract class UCanBeTransformed extends UExpression {
               }
 
               Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
-              Type other = afterTemplateType();
-              boolean b = ASTHelpers.isSubtype(type, other, state);
-              boolean b2 = ASTHelpers.isSubtype(other, type, state);
-              boolean convertible = success.types().isConvertible(type, other);
-              boolean convertible1 = success.types().isConvertible(other, type);
-              boolean equals =
-                  other.tsym.toString().equals(success.types().supertype(type).tsym.toString());
-              boolean subtype =
-                  ASTHelpers.isSubtype(
-                      state.getTypeFromString(type.tsym.toString()),
-                      state.getTypeFromString(other.tsym.toString()),
-                      state);
-
-              return subtype;
+//              Type other = afterTemplateType();
+              afterTemplateType().unify(type, unifier).condition(x -> {
+                return false;
+              });
+//              boolean b = ASTHelpers.isSubtype(type, other, state);
+//              boolean b2 = ASTHelpers.isSubtype(other, type, state);
+//              boolean convertible = success.types().isConvertible(type, other);
+//              boolean convertible1 = success.types().isConvertible(other, type);
+//              boolean equals =
+//                  other.tsym.toString().equals(success.types().supertype(type).tsym.toString());
+//              boolean subtype =
+//                  ASTHelpers.isSubtype(
+//                      state.getTypeFromString(type.tsym.toString()),
+//                      state.getTypeFromString(other.tsym.toString()),
+//                      state);
+//
+//              return subtype;
+              return false;
             });
   }
 
@@ -121,17 +126,18 @@ abstract class UCanBeTransformed extends UExpression {
 
 
 
-    ImmutableSet<Type> thrownExceptions =
-        ASTHelpers.getThrownExceptions(((LambdaExpressionTree) tree).getBody(), state);
-    List<Type> thrownTypesTargetExpression = afterTemplateType().baseType().getThrownTypes();
-
-
-    Type returnTypeLambda = state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
-    Type returnTypeTarget =
-            state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
-    boolean returnTypeMatches = ASTHelpers.isSubtype(returnTypeLambda, returnTypeTarget, state);
-
-    return paramsMatch && returnTypeMatches;
+//    ImmutableSet<Type> thrownExceptions =
+//        ASTHelpers.getThrownExceptions(((LambdaExpressionTree) tree).getBody(), state);
+//    List<Type> thrownTypesTargetExpression = afterTemplateType().baseType().getThrownTypes();
+//
+//
+//    Type returnTypeLambda = state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
+//    Type returnTypeTarget =
+//            state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
+//    boolean returnTypeMatches = ASTHelpers.isSubtype(returnTypeLambda, returnTypeTarget, state);
+//
+//    return paramsMatch && returnTypeMatches;
+    return false;
   }
 
   private ImmutableList<Type> getParameterTypesOfLambda(LambdaExpressionTree tree) {
