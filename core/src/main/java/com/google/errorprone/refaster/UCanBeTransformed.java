@@ -17,12 +17,11 @@
 package com.google.errorprone.refaster;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.bugpatterns.SystemOut;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.Tree;
@@ -33,7 +32,6 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.util.Context;
 import javax.annotation.Nullable;
-import javax.lang.model.type.TypeKind;
 
 import java.util.List;
 
@@ -85,22 +83,11 @@ abstract class UCanBeTransformed extends UExpression {
         .condition(
             (Unifier success) -> {
               if (tree instanceof LambdaExpressionTree) {
-                ImmutableList<Type> params = getParameterTypesOfLambda((LambdaExpressionTree) tree);
-                ImmutableSet<Type> thrownExceptions =
-                    ASTHelpers.getThrownExceptions(((LambdaExpressionTree) tree).getBody(), state);
-                Type returnType =
-                    state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
+                Preconditions.checkState(
+                    success.types().isFunctionalInterface(afterTemplateType),
+                    "Lambda should be functional interface");
 
-                // XXX: How get the returnType from the afterTemplateType? How we know it is T
-                // afterTemplateType().tsym.getTypeParameters().get(0).type.getUpperBound() // -> java.lang.Object, perhaps to get parameter type.
-                // XXX: How do we know whether afterTemplate types signature matches?
-                List<Type> thrownTypesTargetExpression = afterTemplateType().baseType().getThrownTypes();
-
-                boolean isFunctionalInterface = success.types().isFunctionalInterface(afterTemplateType);
-                List<Type> parameterTypes = success.types().findDescriptorType(afterTemplateType).getParameterTypes();
-                List<Type> bounds = success.types().getBounds((Type.TypeVar) parameterTypes.get(0));
-                Type returnTypeFunctionalInterface = state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
-                afterTemplateType();
+                boolean canBeTransformed = canLambdaBeTransformed(tree, state, afterTemplateType, success);
               } else if (tree instanceof MemberReferenceTree) {
 
               }
@@ -121,6 +108,30 @@ abstract class UCanBeTransformed extends UExpression {
 
               return subtype;
             });
+  }
+
+  private boolean canLambdaBeTransformed(
+      Tree tree, VisitorState state, Type afterTemplateType, Unifier success) {
+
+    ImmutableList<Type> params = getParameterTypesOfLambda((LambdaExpressionTree) tree);
+    List<Type> parameterTypesTarget =
+            success.types().findDescriptorType(afterTemplateType).getParameterTypes();
+    List<Type> bounds = success.types().getBounds((Type.TypeVar) parameterTypesTarget.get(0));
+    boolean paramsMatch = hasMatchingParameters(params, ImmutableList.of(bounds.get(0)), state);
+
+
+
+    ImmutableSet<Type> thrownExceptions =
+        ASTHelpers.getThrownExceptions(((LambdaExpressionTree) tree).getBody(), state);
+    List<Type> thrownTypesTargetExpression = afterTemplateType().baseType().getThrownTypes();
+
+
+    Type returnTypeLambda = state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
+    Type returnTypeTarget =
+            state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
+    boolean returnTypeMatches = ASTHelpers.isSubtype(returnTypeLambda, returnTypeTarget, state);
+
+    return paramsMatch && returnTypeMatches;
   }
 
   private ImmutableList<Type> getParameterTypesOfLambda(LambdaExpressionTree tree) {
@@ -155,6 +166,11 @@ abstract class UCanBeTransformed extends UExpression {
     }
 
     for (int i = 0; i < params.size(); i++) {
+      // XXX: For debugging purposes with Stephan:
+      ImmutableList<Type> debugList = ImmutableList.of(params.get(i), parameterTargetTypes.get(i));
+      // XXX: This does work though....
+      // ASTHelpers.isSubtype(state.getTypeFromString(params.get(i).tsym.toString()),
+      // state.getTypeFromString(parameterTargetTypes.get(i).tsym.toString()), state)
       if (!state.getTypes().isConvertible(params.get(i), parameterTargetTypes.get(i))) {
         return false;
       }
