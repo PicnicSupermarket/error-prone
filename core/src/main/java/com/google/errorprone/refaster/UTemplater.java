@@ -637,8 +637,6 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
-        // XXX: Instead get the expression type.
-        Type beforeTemplateType = ((JCTree) tree).type;
         Type afterTemplateType = getType((UClassType) targetType);
         ident = UCanBeTransformed.create(ident, afterTemplateType);
       }

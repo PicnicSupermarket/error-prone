@@ -36,10 +36,6 @@ abstract class UCanBeTransformed extends UExpression {
 
   abstract UExpression expression();
 
-  // XXX: Review whether we can infer this from `expression()`.
-  // XXX: Nope, this should go. Need to infer after unification.
-  //  abstract Type beforeTemplateType();
-
   abstract Type afterTemplateType();
 
   @Override
@@ -64,18 +60,13 @@ abstract class UCanBeTransformed extends UExpression {
 
   @Override
   protected Choice<Unifier> defaultAction(Tree tree, Unifier unifier) {
-    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
     final Type afterTemplateType = afterTemplateType();
-    UExpression expression = expression();
     final VisitorState state = makeVisitorState(tree, unifier);
-    //    // XXX: Use.
-    ASTHelpers.isSubtype(afterTemplateType, afterTemplateType, state);
-
     String bindingName = ((UFreeIdent) expression()).getName().contents();
-    //    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
-    //    return expression().unify(exprTarget,unifier)
-    //            .condition(true);
-    //    return expression().unify(tree, unifier);
+
+    final Tree exprTarget = ASTHelpers.stripParentheses(tree);
+    UExpression expression = expression();
+
     return expression()
         .unify(tree, unifier)
         .condition(
