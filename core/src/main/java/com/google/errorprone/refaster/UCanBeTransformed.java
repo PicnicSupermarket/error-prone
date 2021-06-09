@@ -84,7 +84,6 @@ abstract class UCanBeTransformed extends UExpression {
 //              }
 
               Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
-//            Type other = afterTemplateType();
               boolean present = afterTemplateType()
                       .unify(tree, unifier).first().isPresent();
 

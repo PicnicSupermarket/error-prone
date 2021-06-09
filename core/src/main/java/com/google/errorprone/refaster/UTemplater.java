@@ -639,7 +639,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
         if (targetType instanceof UClassType) {
-          CType ctype = CType.create(((UClassType) targetType).fullyQualifiedClass().contents(), ((UClassType) targetType).typeArguments());
+          CType ctype = CType.create(((UClassType) targetType).fullyQualifiedClass().contents(), ((UClassType) targetType).typeArguments(), name);
           ident = UCanBeTransformed.create(ident, ctype);
 
           // XXX: get the tree here? So we can then get the returntype later on?
