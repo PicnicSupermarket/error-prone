@@ -40,13 +40,13 @@ import static com.google.errorprone.util.ASTHelpers.getType;
 
 @AutoValue
 abstract class UCanBeTransformed extends UExpression {
-  public static UCanBeTransformed create(UExpression expression, UType afterTemplateType) {
+  public static UCanBeTransformed create(UExpression expression, CType afterTemplateType) {
     return new AutoValue_UCanBeTransformed(expression, afterTemplateType);
   }
 
   abstract UExpression expression();
 
-  abstract UType afterTemplateType();
+  abstract CType afterTemplateType();
 
   @Override
   public JCExpression inline(Inliner inliner) throws CouldNotResolveImportException {
@@ -91,22 +91,10 @@ abstract class UCanBeTransformed extends UExpression {
 
               Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
               //              Type other = afterTemplateType();
-              afterTemplateType()
-                  .unify(type, unifier)
-                  .condition(
-                      x -> {
-                        return false;
-                      });
+              boolean present = afterTemplateType()
+                      .unify(type, unifier).first().isPresent();
 
-              // This one works ...
-              //              boolean subtype =
-              //                  ASTHelpers.isSubtype(
-              //                      state.getTypeFromString(type.tsym.toString()),
-              //                      state.getTypeFromString(other.tsym.toString()),
-              //                      state);
-              //
-              //              return subtype;
-              return false;
+              return present;
             });
   }
 

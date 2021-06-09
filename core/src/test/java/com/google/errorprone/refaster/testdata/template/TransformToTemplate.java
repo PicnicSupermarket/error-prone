@@ -23,12 +23,12 @@ import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 /** Example */
 public class TransformToTemplate {
   @BeforeTemplate
-  public Object before(@CanTransformToTargetType Object num) {
+  public Object before(@CanTransformToTargetType Number num) {
     return num.toString();
   }
 
   @AfterTemplate
-  public Object after(Number num) {
+  public Object after(Integer num) {
     return String.valueOf(num);
   }
 }
