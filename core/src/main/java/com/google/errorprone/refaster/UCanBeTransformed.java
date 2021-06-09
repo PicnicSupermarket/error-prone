@@ -77,17 +77,11 @@ abstract class UCanBeTransformed extends UExpression {
         .unify(tree, unifier)
         .condition(
             (Unifier success) -> {
-              if (tree instanceof LambdaExpressionTree) {
-                Type afterTemplateType = state.getTypeFromString("java.util.function.Function");
-                Preconditions.checkState(
-                    success.types().isFunctionalInterface(afterTemplateType),
-                    "Lambda should be functional interface");
-
-                boolean canBeTransformed =
-                    canLambdaBeTransformed(tree, state, afterTemplateType, success);
-              } else if (tree instanceof MemberReferenceTree) {
-
-              }
+//              if (tree instanceof LambdaExpressionTree) {
+//                Type afterTemplateType = state.getTypeFromString("java.util.function.Function");
+//                boolean canBeTransformed =
+//                    canLambdaBeTransformed(tree, state, afterTemplateType, success);
+//              }
 
               Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
 //            Type other = afterTemplateType();
