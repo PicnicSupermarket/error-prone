@@ -31,13 +31,15 @@ import javax.annotation.Nullable;
 public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier>
     implements Unifiable<Tree> {
 
-  public static CType create(String fullyQualifiedClass, ImmutableList<UType> typeArguments) {
-    return new AutoValue_CType(fullyQualifiedClass, typeArguments);
+  public static CType create(String fullyQualifiedClass, ImmutableList<UType> typeArguments, String name) {
+    return new AutoValue_CType(fullyQualifiedClass, typeArguments, name);
   }
 
   abstract String fullyQualifiedClass();
 
   abstract ImmutableList<UType> typeArguments();
+
+  abstract String name();
 
   @Override
   @Nullable
@@ -47,20 +49,24 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   @Override
   public Choice<Unifier> unify(Tree target, Unifier unifier) {
+    Type expressionType = unifier.getBinding(new UFreeIdent.Key(name())).type;
+
     VisitorState state = new VisitorState(unifier.getContext());
     Type typeFromString = state.getTypeFromString(fullyQualifiedClass());
 
-    Type type = ASTHelpers.getType(target);
+//    Type type = ASTHelpers.getType(target);
+//    Type targetType = ASTHelpers.getType(target);
 
-    Type targetType = ASTHelpers.getType(target);
-    if (unifier.types().isFunctionalInterface(targetType)) {
+    if (unifier.types().isFunctionalInterface(expressionType)) {
       if (target instanceof LambdaExpressionTree) {
-        Type lambdaReturnType = state.getTypes().findDescriptorType(targetType).getReturnType();
+        Type lambdaReturnType = state.getTypes().findDescriptorType(expressionType).getReturnType();
+        Type targetReturnType = unifier.types().findDescriptorType(typeFromString).getReturnType();
+        boolean convertible = unifier.types().isConvertible(lambdaReturnType, targetReturnType);
         // XXX: Here we can use state.getTypes().findDescriptorType(targetType) #args and #throws.
       }
 
     }
 
-    return Choice.condition(unifier.types().isConvertible(type, typeFromString), unifier);
+    return Choice.condition(unifier.types().isConvertible(expressionType, typeFromString), unifier);
   }
 }
