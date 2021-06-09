@@ -19,7 +19,12 @@ package com.google.errorprone.refaster.testdata;
 /** Example */
 public class TransformToTemplateExample {
 
-  public String test() {
+  public String negative() {
+    Number n = (Number) 1;
+    return n.toString();
+  }
+
+  public String positive() {
     Integer n = (Integer) 1;
     return String.valueOf(n);
   }

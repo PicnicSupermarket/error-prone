@@ -639,8 +639,12 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
-        //        Type afterTemplateType = getType((UClassType) targetType);
-        ident = UCanBeTransformed.create(ident, targetType);
+        if (targetType instanceof UClassType) {
+          CType ctype = CType.create(((UClassType) targetType).fullyQualifiedClass().contents());
+          ident = UCanBeTransformed.create(ident, ctype);
+        } else {
+          throw new IllegalStateException("NOT YET IMPLEMENTED");
+        }
       }
       // @Repeated annotations need to be checked last.
       Repeated repeated = ASTHelpers.getAnnotation(symbol, Repeated.class);
