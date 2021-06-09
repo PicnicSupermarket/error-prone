@@ -641,6 +641,8 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         if (targetType instanceof UClassType) {
           CType ctype = CType.create(((UClassType) targetType).fullyQualifiedClass().contents());
           ident = UCanBeTransformed.create(ident, ctype);
+
+          // XXX: get the tree here? So we can then get the returntype later on?
         } else {
           throw new IllegalStateException("NOT YET IMPLEMENTED");
         }

@@ -19,6 +19,7 @@ package com.google.errorprone.refaster;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -57,8 +58,20 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   @Override
   public Choice<Unifier> unify(Type target, Unifier unifier) {
-    VisitorState visitorState = new VisitorState(unifier.getContext());
-    Type typeFromString = visitorState.getTypeFromString(fullyQualifiedClass());
+    VisitorState state = new VisitorState(unifier.getContext());
+    Type typeFromString = state.getTypeFromString(fullyQualifiedClass());
+
+    if (unifier.types().isFunctionalInterface(target)) {
+      Type returnType = target.getReturnType();
+      Type otherReturnType = typeFromString.getReturnType();
+//          Type returnTypeLambda =
+//       state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
+//          Type returnTypeTarget =
+//                  state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
+//          boolean returnTypeMatches = ASTHelpers.isSubtype(returnTypeLambda, returnTypeTarget,
+//       state);
+    }
+
     return Choice.condition(unifier.types().isConvertible(target, typeFromString), unifier);
   }
 }
