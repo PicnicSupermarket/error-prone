@@ -56,19 +56,10 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     if (unifier.types().isFunctionalInterface(targetType)) {
       if (target instanceof LambdaExpressionTree) {
         Type lambdaReturnType = state.getTypes().findDescriptorType(targetType).getReturnType();
-        // Here we can use state.getTypes().findDescriptorType(targetType) #args and #throws.
+        // XXX: Here we can use state.getTypes().findDescriptorType(targetType) #args and #throws.
       }
 
     }
-//      Type returnType = state.getTypes().findDescriptorType(target).getReturnType();
-//      Type otherReturnType = typeFromString.getReturnType();
-//          Type returnTypeLambda =
-//       state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
-//          Type returnTypeTarget =
-//                  state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
-//          boolean returnTypeMatches = ASTHelpers.isSubtype(returnTypeLambda, returnTypeTarget,
-//       state);
-//    }
 
     return Choice.condition(unifier.types().isConvertible(type, typeFromString), unifier);
   }
