@@ -158,6 +158,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         ImmutableMap.copyOf(
             Maps.transformValues(
                 freeExpressionVars, (VarSymbol sym) -> templater.template(sym.type)));
+    // See why we don't do this for the freeExprlVars
 
     UType genericType = templater.template(declSym.type);
     ImmutableList<UTypeVar> typeParameters;
@@ -638,7 +639,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
       if (canTransformToTargetType != null && freeVariableTargetTypes != null) {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
-//        Type afterTemplateType = getType((UClassType) targetType);
+        //        Type afterTemplateType = getType((UClassType) targetType);
         ident = UCanBeTransformed.create(ident, targetType);
       }
       // @Repeated annotations need to be checked last.
@@ -922,6 +923,9 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
 
         @Override
         public UType visitClassType(ClassType type, Void v) {
+          // Can we find out whether it has an annotation?
+          CanTransformToTargetType annotation =
+              ASTHelpers.getAnnotation(type.tsym, CanTransformToTargetType.class);
           if (type instanceof IntersectionClassType) {
             return UIntersectionClassType.create(
                 templateTypes(((IntersectionClassType) type).getComponents()));
