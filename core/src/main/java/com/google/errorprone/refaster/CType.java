@@ -35,7 +35,6 @@ import com.sun.tools.javac.code.Types;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 @AutoValue
@@ -91,12 +90,12 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
         ImmutableList<Type> params =
             lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
-        boolean paramsWithinBounds = areParamsWithinBounds(state, params, targetType);
+        boolean paramsWithinBounds =
+            areParamsWithinBounds(
+                types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
 
         // XXX: Rename
-        // XXX: Don't pass in the *return* type.
-        boolean throwsSignatureMatches =
-            doesThrowSignatureMatch(state, targetReturnType, lambdaBody);
+        boolean throwsSignatureMatches = doesThrowSignatureMatch(state, targetType, lambdaBody);
 
         // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
         // separate method (early returns).
@@ -110,7 +109,9 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             methodReferenceSymbol.getParameters().stream()
                 .map(param -> param.type)
                 .collect(toImmutableList());
-        boolean paramsWithinBounds = areParamsWithinBounds(state, params, targetType);
+        boolean paramsWithinBounds =
+            areParamsWithinBounds(
+                types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
 
         Type methodReferenceReturnType = methodReferenceSymbol.getReturnType();
         boolean isReturnTypeConvertible =
@@ -124,9 +125,9 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
   }
 
-  private boolean doesThrowSignatureMatch(VisitorState state, Type targetReturnType, Tree tree) {
+  private boolean doesThrowSignatureMatch(VisitorState state, Type targetType, Tree tree) {
     // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
-    List<Type> targetThrownTypes = targetReturnType.getThrownTypes();
+    List<Type> targetThrownTypes = targetType.getThrownTypes();
     ImmutableSet<Type> thrownExceptions = ASTHelpers.getThrownExceptions(tree, state);
     // XXX: Check: might be the other way around.
     return targetThrownTypes.stream()
@@ -136,26 +137,19 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                     .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
   }
 
-  // XXX: Make `VisitorState` last param in all cases?
-  // XXX: Pass in just `Types`?
-  // XXX: Pass in `targetParameterTypes`.
   private boolean areParamsWithinBounds(
-      VisitorState state, ImmutableList<Type> parameterTypes, Type targetType) {
-    List<Type> targetParameterTypes =
-        state.getTypes().findDescriptorType(targetType).getParameterTypes();
+      List<Type> targetParameterTypes, ImmutableList<Type> parameterTypes, Types types) {
 
     if (parameterTypes.size() != targetParameterTypes.size()) {
       return false;
     }
 
     for (int i = 0; i < parameterTypes.size(); i++) {
-      Type boxedParamTypeOrType = state.getTypes().boxedTypeOrType(parameterTypes.get(i));
+      Type boxedParamTypeOrType = types.boxedTypeOrType(parameterTypes.get(i));
       Type targetParamType = targetParameterTypes.get(i);
 
-      if (!state.getTypes().isConvertible(targetParamType.getLowerBound(), boxedParamTypeOrType)
-          || !state
-              .getTypes()
-              .isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
+      if (!types.isConvertible(targetParamType.getLowerBound(), boxedParamTypeOrType)
+          && !types.isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
         return false;
       }
     }
