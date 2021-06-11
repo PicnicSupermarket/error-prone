@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Type;
@@ -56,52 +57,58 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   @Override
   public Choice<Unifier> unify(Tree target, Unifier unifier) {
     VisitorState state = new VisitorState(unifier.getContext());
-    Type typeFromString = state.getTypeFromString(fullyQualifiedClass());
+    Types types = unifier.types();
+    Type targetType = state.getTypeFromString(fullyQualifiedClass());
 
     Type expressionType = unifier.getBinding(new UFreeIdent.Key(targetTypeParamName())).type;
 
-    if (unifier.types().isFunctionalInterface(expressionType)) {
+    if (types.isFunctionalInterface(expressionType)) {
       if (target instanceof LambdaExpressionTree) {
-        Type lambdaReturnType = state.getTypes().findDescriptorType(expressionType).getReturnType();
-        Type targetReturnType = unifier.types().findDescriptorType(typeFromString).getReturnType();
-        boolean isReturnTypeConvertible =
-            unifier.types().isConvertible(lambdaReturnType, targetReturnType);
+        Type lambdaReturnType = types.findDescriptorType(expressionType).getReturnType();
+        Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
+        boolean isReturnTypeConvertible = types.isConvertible(lambdaReturnType, targetReturnType);
 
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) target;
-        List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
-        List<Type> targetParameterTypes =
-            unifier.types().findDescriptorType(typeFromString).getParameterTypes();
-        boolean paramsWithinBounds =
-            areParamsWithinTargetTypeBounds(lambdaParameters, targetParameterTypes, state);
+        boolean paramsWithinBounds = isParamsWithinBounds(state, lambdaTree, targetType);
 
-        // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
-        List<Type> targetThrownTypes = targetReturnType.getThrownTypes();
-        ImmutableSet<Type> thrownExceptions =
-            ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
-        boolean throwsSignatureMatches =
-            targetThrownTypes.stream()
-                .allMatch(
-                    targetThrows ->
-                        thrownExceptions.stream()
-                            .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
+        boolean throwsSignatureMatches = doesSignatureMatch(state, targetReturnType, lambdaTree);
 
         return Choice.condition(
             isReturnTypeConvertible && paramsWithinBounds && throwsSignatureMatches, unifier);
+      } else if (target instanceof MemberReferenceTree) {
+
       }
     }
 
-    return Choice.condition(unifier.types().isConvertible(expressionType, typeFromString), unifier);
+    return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
   }
 
-  private boolean areParamsWithinTargetTypeBounds(
-      List<? extends VariableTree> params, List<Type> parameterTargetTypes, VisitorState state) {
-    if (params.size() != parameterTargetTypes.size()) {
+  private boolean doesSignatureMatch(
+      VisitorState state, Type targetReturnType, LambdaExpressionTree lambdaTree) {
+    // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
+    List<Type> targetThrownTypes = targetReturnType.getThrownTypes();
+    ImmutableSet<Type> thrownExceptions =
+        ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
+    return targetThrownTypes.stream()
+        .allMatch(
+            targetThrows ->
+                thrownExceptions.stream()
+                    .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
+  }
+
+  private boolean isParamsWithinBounds(
+      VisitorState state, LambdaExpressionTree lambdaTree, Type targetType) {
+    List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
+    List<Type> targetParameterTypes =
+        state.getTypes().findDescriptorType(targetType).getParameterTypes();
+
+    if (lambdaParameters.size() != targetParameterTypes.size()) {
       return false;
     }
 
-    for (int i = 0; i < params.size(); i++) {
-      Type paramType = ((JCTree.JCVariableDecl) params.get(i)).getType().type;
-      Type targetParamType = parameterTargetTypes.get(i);
+    for (int i = 0; i < lambdaParameters.size(); i++) {
+      Type paramType = ((JCTree.JCVariableDecl) lambdaParameters.get(i)).getType().type;
+      Type targetParamType = targetParameterTypes.get(i);
 
       if (!state.getTypes().isConvertible(targetParamType.getLowerBound(), paramType)
           && state.getTypes().isConvertible(paramType, targetParamType.getUpperBound())) {
