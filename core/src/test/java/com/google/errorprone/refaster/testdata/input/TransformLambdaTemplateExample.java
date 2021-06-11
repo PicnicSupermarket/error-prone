@@ -31,7 +31,7 @@ public class TransformLambdaTemplateExample {
         .map(
             y -> {
               if (false) {
-                return (Object) y ;
+                return (int) y ;
               } else {
                 return (int)y;
               }

@@ -26,14 +26,14 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /** Example */
-public class TransformLambdaTemplate<T, R extends T> {
+public class TransformLambdaTemplate<T, R, S extends Integer> {
   @BeforeTemplate
   public Stream<R> before(Stream<T> stream, @CanTransformToTargetType Function<T, R> function) {
     return stream.map(function);
   }
 
   @AfterTemplate
-  public IntStream after(Stream<T> stream, ToIntFunction<T> function) {
-    return stream.mapToInt(function);
+  public Stream<T> after(Stream<T> stream, ToIntFunction<S> function) {
+    return stream;
   }
 }

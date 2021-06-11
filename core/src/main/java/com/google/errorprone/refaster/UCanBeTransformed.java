@@ -83,7 +83,7 @@ abstract class UCanBeTransformed extends UExpression {
 //                    canLambdaBeTransformed(tree, state, afterTemplateType, success);
 //              }
 
-              Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
+//              Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
               boolean present = afterTemplateType()
                       .unify(tree, unifier).first().isPresent();
 
