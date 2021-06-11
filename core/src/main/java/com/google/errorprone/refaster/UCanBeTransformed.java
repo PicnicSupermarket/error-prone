@@ -71,7 +71,6 @@ abstract class UCanBeTransformed extends UExpression {
   @Override
   protected Choice<Unifier> defaultAction(Tree tree, Unifier unifier) {
     final VisitorState state = makeVisitorState(tree, unifier);
-    String bindingName = ((UFreeIdent) expression()).getName().contents();
 
     return expression()
         .unify(tree, unifier)

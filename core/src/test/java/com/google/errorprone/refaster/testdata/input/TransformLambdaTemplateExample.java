@@ -31,10 +31,17 @@ public class TransformLambdaTemplateExample {
         .map(
             y -> {
               if (false) {
-                return (int) y ;
-              } else {
-                return (int)y;
+                return (Object) y;
               }
+              return (int) y;
+            });
+    ImmutableList.of(4).stream()
+        .map(
+            y -> {
+              if (false) {
+                return (int) y;
+              }
+              return (int) y;
             });
 
     return null;
