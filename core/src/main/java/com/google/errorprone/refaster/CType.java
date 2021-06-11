@@ -44,7 +44,8 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   abstract ImmutableList<UType> typeArguments();
 
-  abstract String name();
+  // XXX: Show this to Stephan
+  abstract String targetTypeParamName();
 
   @Override
   @Nullable
@@ -57,15 +58,14 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     VisitorState state = new VisitorState(unifier.getContext());
     Type typeFromString = state.getTypeFromString(fullyQualifiedClass());
 
-    Type expressionType = unifier.getBinding(new UFreeIdent.Key(name())).type;
-    //    Type type = ASTHelpers.getType(target);
-    //    Type targetType = ASTHelpers.getType(target);
+    Type expressionType = unifier.getBinding(new UFreeIdent.Key(targetTypeParamName())).type;
 
     if (unifier.types().isFunctionalInterface(expressionType)) {
       if (target instanceof LambdaExpressionTree) {
         Type lambdaReturnType = state.getTypes().findDescriptorType(expressionType).getReturnType();
         Type targetReturnType = unifier.types().findDescriptorType(typeFromString).getReturnType();
-        boolean isReturnTypeConvertible = unifier.types().isConvertible(lambdaReturnType, targetReturnType);
+        boolean isReturnTypeConvertible =
+            unifier.types().isConvertible(lambdaReturnType, targetReturnType);
 
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) target;
         List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
