@@ -34,6 +34,6 @@ public class TransformLambdaTemplate<T, R extends T> {
 
   @AfterTemplate
   public IntStream after(Stream<T> stream, ToIntFunction<T> function) {
-    return stream.mapToInt(function).filter(x -> x != 0);
+    return stream.mapToInt(function);
   }
 }
