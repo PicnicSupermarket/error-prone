@@ -26,14 +26,16 @@ public class TransformLambdaTemplateExample {
   public Stream<Integer> test() {
     ImmutableList.of(1).stream().map(i -> i * 2);
     ImmutableList.of(2).stream().map(x -> Integer.valueOf(x));
-    return ImmutableList.of(3).stream()
+    ImmutableList.of(3).stream()
         .map(
             y -> {
               if (false) {
-                return (Integer) 6;
+                return (Object) y ;
               } else {
-                return (int)5;
+                return (int)y;
               }
             });
+
+    return null;
   }
 }

@@ -35,7 +35,8 @@ import java.util.List;
 public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier>
     implements Unifiable<Tree> {
 
-  public static CType create(String fullyQualifiedClass, ImmutableList<UType> typeArguments, String name) {
+  public static CType create(
+      String fullyQualifiedClass, ImmutableList<UType> typeArguments, String name) {
     return new AutoValue_CType(fullyQualifiedClass, typeArguments, name);
   }
 
@@ -57,43 +58,55 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type typeFromString = state.getTypeFromString(fullyQualifiedClass());
 
     Type expressionType = unifier.getBinding(new UFreeIdent.Key(name())).type;
-//    Type type = ASTHelpers.getType(target);
-//    Type targetType = ASTHelpers.getType(target);
+    //    Type type = ASTHelpers.getType(target);
+    //    Type targetType = ASTHelpers.getType(target);
 
     if (unifier.types().isFunctionalInterface(expressionType)) {
       if (target instanceof LambdaExpressionTree) {
         Type lambdaReturnType = state.getTypes().findDescriptorType(expressionType).getReturnType();
         Type targetReturnType = unifier.types().findDescriptorType(typeFromString).getReturnType();
-        boolean convertible = unifier.types().isConvertible(lambdaReturnType, targetReturnType);
-        // XXX: Here we can use state.getTypes().findDescriptorType(targetType) #args and #throws.
+        boolean isReturnTypeConvertible = unifier.types().isConvertible(lambdaReturnType, targetReturnType);
 
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) target;
-
         List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
-        List<Type> targetParameterTypes = unifier.types().findDescriptorType(typeFromString).getParameterTypes();
-        hasMatchingParameters(lambdaParameters, targetParameterTypes, state);
+        List<Type> targetParameterTypes =
+            unifier.types().findDescriptorType(typeFromString).getParameterTypes();
+        boolean paramsWithinBounds =
+            areParamsWithinTargetTypeBounds(lambdaParameters, targetParameterTypes, state);
 
+        // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
+        List<Type> targetThrownTypes = targetReturnType.getThrownTypes();
+        ImmutableSet<Type> thrownExceptions =
+            ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
+        boolean throwsSignatureMatches =
+            targetThrownTypes.stream()
+                .allMatch(
+                    targetThrows ->
+                        thrownExceptions.stream()
+                            .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
 
-        ImmutableSet<Type> thrownExceptions = ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
+        return Choice.condition(
+            isReturnTypeConvertible && paramsWithinBounds && throwsSignatureMatches, unifier);
       }
-
     }
 
     return Choice.condition(unifier.types().isConvertible(expressionType, typeFromString), unifier);
   }
 
-
-  private boolean hasMatchingParameters(
-          List<? extends VariableTree> params, List<Type> parameterTargetTypes, VisitorState state) {
+  private boolean areParamsWithinTargetTypeBounds(
+      List<? extends VariableTree> params, List<Type> parameterTargetTypes, VisitorState state) {
     if (params.size() != parameterTargetTypes.size()) {
       return false;
     }
 
     for (int i = 0; i < params.size(); i++) {
+      Type paramType = ((JCTree.JCVariableDecl) params.get(i)).getType().type;
+      Type targetParamType = parameterTargetTypes.get(i);
 
-//      if (!state.getTypes().isConvertible(((JCTree.JCVariableDecl) params.get(0)).getType().type, parameterTargetTypes.get(i))) {
-//        return false;
-//      }
+      if (!state.getTypes().isConvertible(targetParamType.getLowerBound(), paramType)
+          && state.getTypes().isConvertible(paramType, targetParamType.getUpperBound())) {
+        return false;
+      }
     }
 
     return true;
