@@ -36,7 +36,7 @@ import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
- * Logical utility methods to answer the question: Are these two types "compatible" with eachother,
+ * Logical utility methods to answer the question: Are these two types "compatible" with each other,
  * in the context of an equality check.
  *
  * <p>i.e.: It is possible that an object of one type could be equal to an object of the other type.
@@ -99,7 +99,7 @@ public final class TypeCompatibilityUtils {
         // (other then java.lang.Object or java.lang.Enum) or interface
         // with the receiver that implements an override of java.lang.Object.equals().
 
-        // These should be compatible, but check any generic types for their compatbilities.
+        // These should be compatible, but check any generic types for their compatibilities.
         return leastUpperBoundGenericMismatch(
             receiverType, argumentType, previousReceiverTypes, previousArgumentTypes, state);
       }
@@ -141,7 +141,7 @@ public final class TypeCompatibilityUtils {
     // class Super<T> (with an equals() override)
     // class Bar extends Super<String>
     // class Foo extends Super<Integer>
-    // Bar and Foo would least-upper-bound to Super, and we compare String and Integer to eachother
+    // Bar and Foo would least-upper-bound to Super, and we compare String and Integer to each other
     Type lub = state.getTypes().lub(argumentType, receiverType);
     // primitives, etc. can't have a common superclass.
     if (lub.getTag().equals(TypeTag.BOT) || lub.getTag().equals(TypeTag.ERROR)) {

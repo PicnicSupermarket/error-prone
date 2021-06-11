@@ -18,14 +18,18 @@ package com.google.errorprone.refaster;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.tree.JCTree;
 
 import javax.annotation.Nullable;
+import java.util.List;
 
 @AutoValue
 public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier>
@@ -49,11 +53,10 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   @Override
   public Choice<Unifier> unify(Tree target, Unifier unifier) {
-    Type expressionType = unifier.getBinding(new UFreeIdent.Key(name())).type;
-
     VisitorState state = new VisitorState(unifier.getContext());
     Type typeFromString = state.getTypeFromString(fullyQualifiedClass());
 
+    Type expressionType = unifier.getBinding(new UFreeIdent.Key(name())).type;
 //    Type type = ASTHelpers.getType(target);
 //    Type targetType = ASTHelpers.getType(target);
 
@@ -63,10 +66,36 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         Type targetReturnType = unifier.types().findDescriptorType(typeFromString).getReturnType();
         boolean convertible = unifier.types().isConvertible(lambdaReturnType, targetReturnType);
         // XXX: Here we can use state.getTypes().findDescriptorType(targetType) #args and #throws.
+
+        LambdaExpressionTree lambdaTree = (LambdaExpressionTree) target;
+
+        List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
+        List<Type> targetParameterTypes = unifier.types().findDescriptorType(typeFromString).getParameterTypes();
+        hasMatchingParameters(lambdaParameters, targetParameterTypes, state);
+
+
+        ImmutableSet<Type> thrownExceptions = ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
       }
 
     }
 
     return Choice.condition(unifier.types().isConvertible(expressionType, typeFromString), unifier);
+  }
+
+
+  private boolean hasMatchingParameters(
+          List<? extends VariableTree> params, List<Type> parameterTargetTypes, VisitorState state) {
+    if (params.size() != parameterTargetTypes.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < params.size(); i++) {
+
+//      if (!state.getTypes().isConvertible(((JCTree.JCVariableDecl) params.get(0)).getType().type, parameterTargetTypes.get(i))) {
+//        return false;
+//      }
+    }
+
+    return true;
   }
 }
