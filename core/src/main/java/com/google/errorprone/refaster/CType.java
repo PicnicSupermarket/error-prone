@@ -25,12 +25,14 @@ import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @AutoValue
 public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier>
@@ -61,21 +63,34 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type targetType = state.getTypeFromString(fullyQualifiedClass());
 
     Type expressionType = unifier.getBinding(new UFreeIdent.Key(targetTypeParamName())).type;
+    Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
 
     if (types.isFunctionalInterface(expressionType)) {
       if (target instanceof LambdaExpressionTree) {
         Type lambdaReturnType = types.findDescriptorType(expressionType).getReturnType();
-        Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
         boolean isReturnTypeConvertible = types.isConvertible(lambdaReturnType, targetReturnType);
 
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) target;
-        boolean paramsWithinBounds = isParamsWithinBounds(state, lambdaTree, targetType);
+        boolean paramsWithinBounds = areParamsWithinBounds(state, lambdaTree, targetType);
 
         boolean throwsSignatureMatches = doesSignatureMatch(state, targetReturnType, lambdaTree);
 
         return Choice.condition(
             isReturnTypeConvertible && paramsWithinBounds && throwsSignatureMatches, unifier);
       } else if (target instanceof MemberReferenceTree) {
+        MemberReferenceTree memberReferenceTree = (MemberReferenceTree) target;
+//        List<Type> parameterTypes =
+//            ((JCTree.JCMemberReference) memberReferenceTree).referentType.getParameterTypes();
+//        Type returnType =
+//            ((JCTree.JCMemberReference) memberReferenceTree).referentType.getReturnType();
+
+        Symbol.MethodSymbol methodReferenceSymbol = ASTHelpers.getSymbol(memberReferenceTree);
+        List<Type> parameters =
+            methodReferenceSymbol.getParameters().stream()
+                .map(param -> param.type)
+                .collect(Collectors.toList());
+        Type methodReferenceReturnType = methodReferenceSymbol.getReturnType();
+        boolean isReturnTypeConvertible = types.isConvertible(methodReferenceReturnType, targetReturnType);
 
       }
     }
@@ -96,7 +111,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                     .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
   }
 
-  private boolean isParamsWithinBounds(
+  private boolean areParamsWithinBounds(
       VisitorState state, LambdaExpressionTree lambdaTree, Type targetType) {
     List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
     List<Type> targetParameterTypes =

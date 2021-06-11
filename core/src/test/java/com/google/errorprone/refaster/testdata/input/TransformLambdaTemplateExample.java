@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 public class TransformLambdaTemplateExample {
 
   public Stream<Integer> test() {
+    ImmutableList.of(0).stream().map(Integer::valueOf);
     ImmutableList.of(1).stream().map(i -> i * 2);
     ImmutableList.of(2).stream().map(x -> Integer.valueOf(x));
     ImmutableList.of(3).stream()
