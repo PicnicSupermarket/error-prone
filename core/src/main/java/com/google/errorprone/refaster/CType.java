@@ -23,32 +23,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 @AutoValue
 public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier>
     implements Unifiable<Tree> {
-  public static CType create(
-      String fullyQualifiedClass, ImmutableList<UType> typeArguments, String name) {
-    return new AutoValue_CType(fullyQualifiedClass, typeArguments, name);
+  public static CType create(String fullyQualifiedClass, ImmutableList<UType> typeArguments) {
+    return new AutoValue_CType(fullyQualifiedClass, typeArguments);
   }
 
   abstract String fullyQualifiedClass();
 
   abstract ImmutableList<UType> typeArguments();
-
-  // XXX: Show this to Stephan
-  abstract String targetTypeParamName();
 
   @Override
   @Nullable
@@ -62,9 +61,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Types types = unifier.types();
     Type targetType = state.getTypeFromString(fullyQualifiedClass());
 
-    Type expressionType =
-        ASTHelpers.getType(
-            tree); // .unifier.getBinding(new UFreeIdent.Key(targetTypeParamName())).type;
+    Type expressionType = ASTHelpers.getType(tree);
     Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
 
     if (types.isFunctionalInterface(expressionType)) {
@@ -78,18 +75,14 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             x = ASTHelpers.getType(lambdaBody);
             break;
           case STATEMENT:
+            ReturnTypeScanner returnTypeScanner = new ReturnTypeScanner();
+            returnTypeScanner.scan(lambdaBody, null);
             // XXX: get LUB of these types.
-            x =
-                state
-                    .getTypes()
-                    .lub(
-                        ((BlockTree) lambdaBody)
-                            .getStatements().stream()
-                                .filter(ReturnTree.class::isInstance)
-                                .map(ReturnTree.class::cast)
-                                .map(ReturnTree::getExpression)
-                                .map(ASTHelpers::getType)
-                                .toArray(Type[]::new));
+            List<Type> returnTypes = returnTypeScanner.getReturnTypesOfLambda();
+            // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
+            x = state.getTypes().glb(com.sun.tools.javac.util.List.from(returnTypes));
+            x = state.getTypes().lub(com.sun.tools.javac.util.List.from(returnTypes));
+            Type x1 = x;
         }
 
         Type lambdaReturnType = types.findDescriptorType(expressionType).getReturnType();
@@ -102,7 +95,8 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
         // XXX: Rename
         // XXX: Don't pass in the *return* type.
-        boolean throwsSignatureMatches = doesSignatureMatch(state, targetReturnType, lambdaBody);
+        boolean throwsSignatureMatches =
+            doesThrowSignatureMatch(state, targetReturnType, lambdaBody);
 
         // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
         // separate method (early returns).
@@ -123,14 +117,14 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             types.isConvertible(methodReferenceReturnType, targetReturnType);
 
         boolean throwsSignatureMatches =
-            doesSignatureMatch(state, targetReturnType, memberReferenceTree);
+            doesThrowSignatureMatch(state, targetReturnType, memberReferenceTree);
       }
     }
 
     return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
   }
 
-  private boolean doesSignatureMatch(VisitorState state, Type targetReturnType, Tree tree) {
+  private boolean doesThrowSignatureMatch(VisitorState state, Type targetReturnType, Tree tree) {
     // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
     List<Type> targetThrownTypes = targetReturnType.getThrownTypes();
     ImmutableSet<Type> thrownExceptions = ASTHelpers.getThrownExceptions(tree, state);
@@ -167,5 +161,19 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     }
 
     return true;
+  }
+
+  private static final class ReturnTypeScanner extends TreeScanner<Void, Void> {
+    List<Type> returnTypes = new ArrayList<>();
+
+    public List<Type> getReturnTypesOfLambda() {
+      return returnTypes;
+    }
+
+    @Override
+    public Void visitReturn(ReturnTree node, Void unused) {
+      returnTypes.add(ASTHelpers.getType(node.getExpression()));
+      return super.visitReturn(node, unused);
+    }
   }
 }
