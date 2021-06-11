@@ -80,7 +80,8 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                 .collect(toImmutableList());
         boolean paramsWithinBounds = areParamsWithinBounds(state, params, targetType);
 
-        boolean throwsSignatureMatches = doesSignatureMatch(state, targetReturnType, lambdaTree);
+        boolean throwsSignatureMatches =
+            doesSignatureMatch(state, targetReturnType, lambdaTree.getBody());
 
         return Choice.condition(
             isReturnTypeConvertible && paramsWithinBounds && throwsSignatureMatches, unifier);
@@ -97,18 +98,19 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         Type methodReferenceReturnType = methodReferenceSymbol.getReturnType();
         boolean isReturnTypeConvertible =
             types.isConvertible(methodReferenceReturnType, targetReturnType);
+
+        boolean throwsSignatureMatches =
+            doesSignatureMatch(state, targetReturnType, memberReferenceTree);
       }
     }
 
     return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
   }
 
-  private boolean doesSignatureMatch(
-      VisitorState state, Type targetReturnType, LambdaExpressionTree lambdaTree) {
+  private boolean doesSignatureMatch(VisitorState state, Type targetReturnType, Tree tree) {
     // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
     List<Type> targetThrownTypes = targetReturnType.getThrownTypes();
-    ImmutableSet<Type> thrownExceptions =
-        ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
+    ImmutableSet<Type> thrownExceptions = ASTHelpers.getThrownExceptions(tree, state);
     return targetThrownTypes.stream()
         .allMatch(
             targetThrows ->
@@ -116,7 +118,8 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                     .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
   }
 
-  private boolean areParamsWithinBounds(VisitorState state, ImmutableList<Type> types, Type targetType) {
+  private boolean areParamsWithinBounds(
+      VisitorState state, ImmutableList<Type> types, Type targetType) {
     List<Type> targetParameterTypes =
         state.getTypes().findDescriptorType(targetType).getParameterTypes();
 
@@ -129,7 +132,9 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       Type targetParamType = targetParameterTypes.get(i);
 
       if (!state.getTypes().isConvertible(targetParamType.getLowerBound(), boxedParamTypeOrType)
-          && state.getTypes().isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
+          && state
+              .getTypes()
+              .isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
         return false;
       }
     }
