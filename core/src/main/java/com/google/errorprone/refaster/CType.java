@@ -34,6 +34,8 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 @AutoValue
 public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier>
     implements Unifiable<Tree> {
@@ -71,7 +73,12 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         boolean isReturnTypeConvertible = types.isConvertible(lambdaReturnType, targetReturnType);
 
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) target;
-        boolean paramsWithinBounds = areParamsWithinBounds(state, lambdaTree, targetType);
+        List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
+        ImmutableList<Type> params =
+            lambdaParameters.stream()
+                .map(param -> ASTHelpers.getSymbol(param).type)
+                .collect(toImmutableList());
+        boolean paramsWithinBounds = areParamsWithinBounds(state, params, targetType);
 
         boolean throwsSignatureMatches = doesSignatureMatch(state, targetReturnType, lambdaTree);
 
@@ -79,19 +86,17 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             isReturnTypeConvertible && paramsWithinBounds && throwsSignatureMatches, unifier);
       } else if (target instanceof MemberReferenceTree) {
         MemberReferenceTree memberReferenceTree = (MemberReferenceTree) target;
-//        List<Type> parameterTypes =
-//            ((JCTree.JCMemberReference) memberReferenceTree).referentType.getParameterTypes();
-//        Type returnType =
-//            ((JCTree.JCMemberReference) memberReferenceTree).referentType.getReturnType();
 
         Symbol.MethodSymbol methodReferenceSymbol = ASTHelpers.getSymbol(memberReferenceTree);
-        List<Type> parameters =
+        ImmutableList<Type> params =
             methodReferenceSymbol.getParameters().stream()
                 .map(param -> param.type)
-                .collect(Collectors.toList());
-        Type methodReferenceReturnType = methodReferenceSymbol.getReturnType();
-        boolean isReturnTypeConvertible = types.isConvertible(methodReferenceReturnType, targetReturnType);
+                .collect(toImmutableList());
+        boolean paramsWithinBounds = areParamsWithinBounds(state, params, targetType);
 
+        Type methodReferenceReturnType = methodReferenceSymbol.getReturnType();
+        boolean isReturnTypeConvertible =
+            types.isConvertible(methodReferenceReturnType, targetReturnType);
       }
     }
 
@@ -111,22 +116,20 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                     .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
   }
 
-  private boolean areParamsWithinBounds(
-      VisitorState state, LambdaExpressionTree lambdaTree, Type targetType) {
-    List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
+  private boolean areParamsWithinBounds(VisitorState state, ImmutableList<Type> types, Type targetType) {
     List<Type> targetParameterTypes =
         state.getTypes().findDescriptorType(targetType).getParameterTypes();
 
-    if (lambdaParameters.size() != targetParameterTypes.size()) {
+    if (types.size() != targetParameterTypes.size()) {
       return false;
     }
 
-    for (int i = 0; i < lambdaParameters.size(); i++) {
-      Type paramType = ((JCTree.JCVariableDecl) lambdaParameters.get(i)).getType().type;
+    for (int i = 0; i < types.size(); i++) {
+      Type boxedParamTypeOrType = state.getTypes().boxedTypeOrType(types.get(i));
       Type targetParamType = targetParameterTypes.get(i);
 
-      if (!state.getTypes().isConvertible(targetParamType.getLowerBound(), paramType)
-          && state.getTypes().isConvertible(paramType, targetParamType.getUpperBound())) {
+      if (!state.getTypes().isConvertible(targetParamType.getLowerBound(), boxedParamTypeOrType)
+          && state.getTypes().isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
         return false;
       }
     }
