@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The Error Prone Authors.
+ * Copyright 2021 The Error Prone Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,23 @@
  * limitations under the License.
  */
 
-package com.google.errorprone.refaster.testdata;
+package com.google.errorprone.refaster.testdata.template;
 
-import com.google.common.collect.ImmutableList;
+import com.google.errorprone.refaster.annotation.AfterTemplate;
+import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 /** Example */
-public class TransformFunctionTemplateExample {
+public class TransformMethodReferenceTemplate<T, R> {
+  @BeforeTemplate
+  public Object before(@CanTransformToTargetType Function<T, R> function) {
+    return function.getClass();
+  }
 
-  public void test() {
-    ImmutableList.of(1).stream().map(Integer::valueOf).getClass();
+  @AfterTemplate
+  public Object after(Function<T, R> function) {
+    return function.getClass().getClass();
   }
 }

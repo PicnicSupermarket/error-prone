@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package com.google.errorprone.refaster.testdata;
+package com.google.errorprone.refaster.testdata.output;
 
 import com.google.common.collect.ImmutableList;
 
 import java.util.stream.Stream;
 
 /** Example */
-public class TransformLambdaTemplateExample {
+public class TransformWithGenericsTemplateExample {
 
   public Stream<Integer> test() {
-    ImmutableList.of(0).stream().mapToInt(Integer::valueOf);
-    ImmutableList.of(1).stream().mapToInt(i -> i * 2);
-    ImmutableList.of(2).stream().mapToInt(x -> Integer.valueOf(x));
-    ImmutableList.of(3).stream()
+    ImmutableList.of(1).stream();
+    ImmutableList.of(2).stream()
             .map(
                     y -> {
                       if (false) {
@@ -35,15 +33,8 @@ public class TransformLambdaTemplateExample {
                       }
                       return (int) y;
                     });
-    ImmutableList.of(4).stream()
-            .mapToInt(
-                    y -> {
-                      if (false) {
-                        return (int) y;
-                      }
-                      return (int) y;
-                    });
-
+    ImmutableList.of(4).stream();
+    
     return null;
   }
 }
