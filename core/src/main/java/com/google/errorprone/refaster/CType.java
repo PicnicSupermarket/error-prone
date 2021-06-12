@@ -17,6 +17,8 @@
 package com.google.errorprone.refaster;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.sun.source.tree.LambdaExpressionTree.BodyKind.EXPRESSION;
+import static com.sun.source.tree.LambdaExpressionTree.BodyKind.STATEMENT;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +37,7 @@ import com.sun.tools.javac.code.Types;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 @AutoValue
@@ -67,25 +70,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       if (tree instanceof LambdaExpressionTree) {
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) tree;
 
-        Tree lambdaBody = lambdaTree.getBody();
-        Type x = null;
-        switch (lambdaTree.getBodyKind()) {
-          case EXPRESSION:
-            x = ASTHelpers.getType(lambdaBody);
-            break;
-          case STATEMENT:
-            ReturnTypeScanner returnTypeScanner = new ReturnTypeScanner();
-            returnTypeScanner.scan(lambdaBody, null);
-            // XXX: get LUB of these types.
-            List<Type> returnTypes = returnTypeScanner.getReturnTypesOfLambda();
-            // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
-            x = state.getTypes().glb(com.sun.tools.javac.util.List.from(returnTypes));
-            x = state.getTypes().lub(com.sun.tools.javac.util.List.from(returnTypes));
-            Type x1 = x;
-        }
-
-        Type lambdaReturnType = types.findDescriptorType(expressionType).getReturnType();
-        boolean isReturnTypeConvertible = types.isConvertible(lambdaReturnType, targetReturnType);
+        boolean doesReturnTypeMatch = doesReturnTypeOfLambdaMatch(lambdaTree, targetReturnType,types);
 
         List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
         ImmutableList<Type> params =
@@ -94,13 +79,12 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             areParamsWithinBounds(
                 types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
 
-        // XXX: Rename
-        boolean throwsSignatureMatches = doesThrowSignatureMatch(state, targetType, lambdaBody);
+        boolean methodThrowsMatches = doesMethodThrowsMatches(lambdaTree.getBody(), targetType, state);
 
         // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
         // separate method (early returns).
         return Choice.condition(
-            isReturnTypeConvertible && paramsWithinBounds && throwsSignatureMatches, unifier);
+            doesReturnTypeMatch && paramsWithinBounds && methodThrowsMatches, unifier);
       } else if (tree instanceof MemberReferenceTree) {
         MemberReferenceTree memberReferenceTree = (MemberReferenceTree) tree;
 
@@ -118,14 +102,40 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             types.isConvertible(methodReferenceReturnType, targetReturnType);
 
         boolean throwsSignatureMatches =
-            doesThrowSignatureMatch(state, targetReturnType, memberReferenceTree);
+            doesMethodThrowsMatches(memberReferenceTree, targetReturnType, state);
       }
     }
 
     return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
   }
 
-  private boolean doesThrowSignatureMatch(VisitorState state, Type targetType, Tree tree) {
+  private boolean doesReturnTypeOfLambdaMatch(
+      LambdaExpressionTree lambdaTree, Type targetReturnType, Types types) {
+    Tree lambdaBody = lambdaTree.getBody();
+    Type lambdaReturnType = null;
+    switch (lambdaTree.getBodyKind()) {
+      case EXPRESSION:
+        lambdaReturnType = ASTHelpers.getType(lambdaBody);
+        break;
+      case STATEMENT:
+        ReturnTypeScanner returnTypeScanner = new ReturnTypeScanner();
+        returnTypeScanner.scan(lambdaBody, null);
+        List<Type> returnTypes =
+            returnTypeScanner.getReturnTypesOfTree().stream()
+                .map(types::boxedTypeOrType)
+                .collect(Collectors.toList());
+
+        // XXX: Should we write own logic for this? Or do we decide to go for boxed types?
+        // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
+        lambdaReturnType = types.glb(com.sun.tools.javac.util.List.from(returnTypes));
+        lambdaReturnType = types.lub(com.sun.tools.javac.util.List.from(returnTypes));
+        lambdaReturnType = returnTypes.get(0);
+    }
+
+    return types.isConvertible(lambdaReturnType, targetReturnType);
+  }
+
+  private boolean doesMethodThrowsMatches(Tree tree, Type targetType, VisitorState state) {
     // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
     List<Type> targetThrownTypes = targetType.getThrownTypes();
     ImmutableSet<Type> thrownExceptions = ASTHelpers.getThrownExceptions(tree, state);
@@ -148,6 +158,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       Type boxedParamTypeOrType = types.boxedTypeOrType(parameterTypes.get(i));
       Type targetParamType = targetParameterTypes.get(i);
 
+      // XXX: Here we should look at the paramtypes of the generics.
       if (!types.isConvertible(targetParamType.getLowerBound(), boxedParamTypeOrType)
           && !types.isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
         return false;
@@ -160,14 +171,14 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   private static final class ReturnTypeScanner extends TreeScanner<Void, Void> {
     List<Type> returnTypes = new ArrayList<>();
 
-    public List<Type> getReturnTypesOfLambda() {
+    public List<Type> getReturnTypesOfTree() {
       return returnTypes;
     }
 
     @Override
-    public Void visitReturn(ReturnTree node, Void unused) {
-      returnTypes.add(ASTHelpers.getType(node.getExpression()));
-      return super.visitReturn(node, unused);
+    public Void visitReturn(ReturnTree tree, Void unused) {
+      returnTypes.add(ASTHelpers.getType(tree.getExpression()));
+      return super.visitReturn(tree, unused);
     }
   }
 }
