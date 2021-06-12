@@ -372,11 +372,16 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
 
   @Test
   public void transformFunction() throws IOException {
-    runTest("TransformFunctionTemplate");
+    runTest("TransformMethodReferenceTemplate");
   }
 
   @Test
   public void transformLambda() throws IOException {
     runTest("TransformLambdaTemplate");
+  }
+
+  @Test
+  public void transformWithSpecificGenerics() throws IOException {
+    runTest("TransformWithGenericsTemplate");
   }
 }
