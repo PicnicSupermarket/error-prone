@@ -927,9 +927,6 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
 
         @Override
         public UType visitClassType(ClassType type, Void v) {
-          // Can we find out whether it has an annotation?
-          CanTransformToTargetType annotation =
-              ASTHelpers.getAnnotation(type.tsym, CanTransformToTargetType.class);
           if (type instanceof IntersectionClassType) {
             return UIntersectionClassType.create(
                 templateTypes(((IntersectionClassType) type).getComponents()));
