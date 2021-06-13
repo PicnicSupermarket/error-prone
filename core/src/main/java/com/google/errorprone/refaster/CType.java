@@ -19,6 +19,7 @@ package com.google.errorprone.refaster;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.sun.source.tree.LambdaExpressionTree.BodyKind.EXPRESSION;
 import static com.sun.source.tree.LambdaExpressionTree.BodyKind.STATEMENT;
+import static com.sun.tools.javac.code.Symbol.*;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +32,6 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreeScanner;
-import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 
@@ -62,6 +62,9 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     VisitorState state = new VisitorState(unifier.getContext());
     Types types = unifier.types();
     Type targetType = state.getTypeFromString(fullyQualifiedClass());
+    if (targetType == null) {
+      return Choice.none();
+    }
 
     Type expressionType = ASTHelpers.getType(tree);
     Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
@@ -70,7 +73,8 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       if (tree instanceof LambdaExpressionTree) {
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) tree;
 
-        boolean doesReturnTypeMatch = doesReturnTypeOfLambdaMatch(lambdaTree, targetReturnType,types);
+        boolean doesReturnTypeMatch =
+            doesReturnTypeOfLambdaMatch(lambdaTree, targetReturnType, types);
 
         List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
         ImmutableList<Type> params =
@@ -79,7 +83,10 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             areParamsWithinBounds(
                 types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
 
-        boolean methodThrowsMatches = doesMethodThrowsMatches(lambdaTree.getBody(), targetType, state);
+        ImmutableSet<Type> thrownExceptions =
+            ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
+        boolean methodThrowsMatches =
+            doesMethodThrowsMatches(thrownExceptions.asList(), targetType.getThrownTypes(), state);
 
         // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
         // separate method (early returns).
@@ -87,8 +94,14 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             doesReturnTypeMatch && paramsWithinBounds && methodThrowsMatches, unifier);
       } else if (tree instanceof MemberReferenceTree) {
         MemberReferenceTree memberReferenceTree = (MemberReferenceTree) tree;
+        MethodSymbol methodReferenceSymbol = ASTHelpers.getSymbol(memberReferenceTree);
+        if (methodReferenceSymbol == null) {
+          return Choice.none();
+        }
 
-        Symbol.MethodSymbol methodReferenceSymbol = ASTHelpers.getSymbol(memberReferenceTree);
+        boolean doesReturnTypeMatch =
+            types.isConvertible(methodReferenceSymbol.getReturnType(), targetReturnType);
+
         ImmutableList<Type> params =
             methodReferenceSymbol.getParameters().stream()
                 .map(param -> param.type)
@@ -97,12 +110,12 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             areParamsWithinBounds(
                 types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
 
-        Type methodReferenceReturnType = methodReferenceSymbol.getReturnType();
-        boolean isReturnTypeConvertible =
-            types.isConvertible(methodReferenceReturnType, targetReturnType);
-
         boolean throwsSignatureMatches =
-            doesMethodThrowsMatches(memberReferenceTree, targetReturnType, state);
+            doesMethodThrowsMatches(
+                methodReferenceSymbol.getThrownTypes(), targetType.getThrownTypes(), state);
+
+        return Choice.condition(
+            doesReturnTypeMatch && paramsWithinBounds && throwsSignatureMatches, unifier);
       }
     }
 
@@ -135,21 +148,20 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     return types.isConvertible(lambdaReturnType, targetReturnType);
   }
 
-  private boolean doesMethodThrowsMatches(Tree tree, Type targetType, VisitorState state) {
-    // XXX: Discuss with Stephan, the first is a set, and the other isn't. How to handle this?
-    List<Type> targetThrownTypes = targetType.getThrownTypes();
-    ImmutableSet<Type> thrownExceptions = ASTHelpers.getThrownExceptions(tree, state);
-    // XXX: Check: might be the other way around.
-    return targetThrownTypes.stream()
+  private boolean doesMethodThrowsMatches(
+      List<Type> thrownExceptions, List<Type> targetThrownTypes, VisitorState state) {
+
+    return thrownExceptions.stream()
         .allMatch(
-            targetThrows ->
-                thrownExceptions.stream()
-                    .anyMatch(t -> ASTHelpers.isSubtype(targetThrows, t, state)));
+            thrownException ->
+                targetThrownTypes.stream()
+                    .anyMatch(
+                        targetException ->
+                            ASTHelpers.isSubtype(thrownException, targetException, state)));
   }
 
   private boolean areParamsWithinBounds(
       List<Type> targetParameterTypes, ImmutableList<Type> parameterTypes, Types types) {
-
     if (parameterTypes.size() != targetParameterTypes.size()) {
       return false;
     }
