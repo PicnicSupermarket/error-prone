@@ -28,21 +28,19 @@ public class TransformLambdaTemplateExample {
     ImmutableList.of(1).stream().mapToInt(i -> i * 2);
     ImmutableList.of(2).stream().mapToInt(x -> Integer.valueOf(x));
     ImmutableList.of(3).stream()
-            .map(
-                    y -> {
-                      if (false) {
-                        return (Object) y;
-                      }
-                      return (int) y;
-                    });
-    ImmutableList.of(4).stream()
-            .mapToInt(
-                    y -> {
-                      if (false) {
-                        return (int) y;
-                      }
-                      return (int) y;
-                    });
+        .map(
+            y -> {
+              if (false) {
+                return (Object) y;
+              }
+              return (int) y;
+            });
+    ImmutableList.of(4).stream().mapToInt(y -> {
+              if (false) {
+                return (int) y;
+              }
+              return (int) y;
+            });
 
     return null;
   }

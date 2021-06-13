@@ -99,6 +99,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
           return Choice.none();
         }
 
+        // XXX: Discuss with Stephan, how do we want to handle primitive for now?
         boolean doesReturnTypeMatch =
             types.isConvertible(methodReferenceSymbol.getReturnType(), targetReturnType);
 
@@ -108,7 +109,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                 .collect(toImmutableList());
         boolean paramsWithinBounds =
             areParamsWithinBounds(
-                types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
+                types.findDescriptorType(targetType).getParameterTypes(), params, types);
 
         boolean throwsSignatureMatches =
             doesMethodThrowsMatches(
