@@ -16,13 +16,17 @@
 
 package com.google.errorprone.refaster.testdata;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.function.Function;
 
 /** Example */
 public class TransformMethodReferenceTemplateExample {
 
-  public Object test() {
+  public void test() {
+    ImmutableList.of(1).stream().map(Integer::valueOf).getClass();
+
     Function<Integer, Integer> intFunction = (Integer i) -> i + i;
-    return intFunction.getClass().getClass();
+    intFunction.getClass().getClass();
   }
 }
