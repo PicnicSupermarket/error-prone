@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.errorprone.refaster.testdata.output;
+package com.google.errorprone.refaster.testdata;
 
 import com.google.common.collect.ImmutableList;
 

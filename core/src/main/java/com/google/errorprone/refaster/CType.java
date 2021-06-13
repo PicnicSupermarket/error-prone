@@ -17,9 +17,6 @@
 package com.google.errorprone.refaster;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.sun.source.tree.LambdaExpressionTree.BodyKind.EXPRESSION;
-import static com.sun.source.tree.LambdaExpressionTree.BodyKind.STATEMENT;
-import static com.sun.tools.javac.code.Symbol.*;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +29,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreeScanner;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 
