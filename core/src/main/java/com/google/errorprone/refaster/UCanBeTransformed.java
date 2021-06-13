@@ -70,19 +70,10 @@ abstract class UCanBeTransformed extends UExpression {
 
   @Override
   protected Choice<Unifier> defaultAction(Tree tree, Unifier unifier) {
-    final VisitorState state = makeVisitorState(tree, unifier);
-
     return expression()
         .unify(tree, unifier)
         .condition(
             (Unifier success) -> {
-//              if (tree instanceof LambdaExpressionTree) {
-//                Type afterTemplateType = state.getTypeFromString("java.util.function.Function");
-//                boolean canBeTransformed =
-//                    canLambdaBeTransformed(tree, state, afterTemplateType, success);
-//              }
-
-//              Type type = success.getBinding(new UFreeIdent.Key(bindingName)).type;
               boolean present = afterTemplateType()
                       .unify(tree, unifier).first().isPresent();
 
@@ -90,61 +81,10 @@ abstract class UCanBeTransformed extends UExpression {
             });
   }
 
-  private boolean canLambdaBeTransformed(
-      Tree tree, VisitorState state, Type afterTemplateType, Unifier success) {
-
-    ImmutableList<Type> params = getParameterTypesOfLambda((LambdaExpressionTree) tree);
-    List<Type> parameterTypesTarget =
-        success.types().findDescriptorType(afterTemplateType).getParameterTypes();
-    List<Type> bounds = success.types().getBounds((Type.TypeVar) parameterTypesTarget.get(0));
-    boolean paramsMatch = hasMatchingParameters(params, ImmutableList.of(bounds.get(0)), state);
-
-    //    ImmutableSet<Type> thrownExceptions =
-    //        ASTHelpers.getThrownExceptions(((LambdaExpressionTree) tree).getBody(), state);
-    //    List<Type> thrownTypesTargetExpression = afterTemplateType().baseType().getThrownTypes();
-    //
-    //
-    //    Type returnTypeLambda =
-    // state.getTypes().findDescriptorType(ASTHelpers.getType(tree)).getReturnType();
-    //    Type returnTypeTarget =
-    //            state.getTypes().findDescriptorType(afterTemplateType).getReturnType();
-    //    boolean returnTypeMatches = ASTHelpers.isSubtype(returnTypeLambda, returnTypeTarget,
-    // state);
-    //
-    //    return paramsMatch && returnTypeMatches;
-    return false;
-  }
-
-  private ImmutableList<Type> getParameterTypesOfLambda(LambdaExpressionTree tree) {
-    return tree.getParameters().stream()
-        .map(param -> ASTHelpers.getSymbol(param).type)
-        .collect(toImmutableList());
-  }
-
   // XXX: Move!
   static VisitorState makeVisitorState(Tree target, Unifier unifier) {
     Context context = unifier.getContext();
     TreePath path = TreePath.getPath(context.get(JCCompilationUnit.class), target);
     return new VisitorState(context).withPath(path);
-  }
-
-  private boolean hasMatchingParameters(
-      List<Type> params, List<Type> parameterTargetTypes, VisitorState state) {
-    if (params.size() != parameterTargetTypes.size()) {
-      return false;
-    }
-
-    for (int i = 0; i < params.size(); i++) {
-      // XXX: For debugging purposes with Stephan:
-      ImmutableList<Type> debugList = ImmutableList.of(params.get(i), parameterTargetTypes.get(i));
-      // XXX: This does work though....
-      // ASTHelpers.isSubtype(state.getTypeFromString(params.get(i).tsym.toString()),
-      // state.getTypeFromString(parameterTargetTypes.get(i).tsym.toString()), state)
-      if (!state.getTypes().isConvertible(params.get(i), parameterTargetTypes.get(i))) {
-        return false;
-      }
-    }
-
-    return true;
   }
 }
