@@ -131,8 +131,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       }
     }
 
-    // XXX: This one doesnt make any sense?
-    return Choice.condition(types.isConvertible(expressionType, improvedTargetType), unifier);
+    return Choice.none();
   }
 
   private Type toType(UType utype, Inliner inliner) {
@@ -160,16 +159,11 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                 .map(types::boxedTypeOrType)
                 .collect(Collectors.toList());
 
-        // XXX: Should we write own logic for this? Or do we decide to go for boxed types?
-        // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
         lambdaReturnType = types.lub(com.sun.tools.javac.util.List.from(returnTypes));
-        //        lambdaReturnType = returnTypes.get(0);
     }
 
     return types.isSubtype(targetReturnType.getLowerBound(), lambdaReturnType)
         && types.isSubtype(lambdaReturnType, targetReturnType.getUpperBound());
-
-    //    return types.isConvertible(lambdaReturnType, targetReturnType);
   }
 
   private boolean doesMethodThrowsMatches(
