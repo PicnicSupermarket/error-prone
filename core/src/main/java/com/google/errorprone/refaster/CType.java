@@ -58,6 +58,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   @Override
   public Choice<Unifier> unify(Tree tree, Unifier unifier) {
+    // Look at the non(?)-deprecated way of retrieving the VisitorState.
     VisitorState state = new VisitorState(unifier.getContext());
     Types types = unifier.types();
     Type targetType = state.getTypeFromString(fullyQualifiedClass());
@@ -66,17 +67,16 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     }
 
     Type expressionType = ASTHelpers.getType(tree);
-    Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
 
     Inliner inliner = unifier.createInliner();
-    ImmutableList<Type> inlinedTargetArguments =
+    ImmutableList<Type> inlinedTargetTypeArguments =
         typeArguments().stream().map(t -> toType(t, inliner)).collect(toImmutableList());
 
     Type improvedTargetType =
         types.subst(
             targetType,
             targetType.getTypeArguments(),
-            com.sun.tools.javac.util.List.from(inlinedTargetArguments));
+            com.sun.tools.javac.util.List.from(inlinedTargetTypeArguments));
     Type improvedTargetTypeDescriptorType = types.findDescriptorType(improvedTargetType);
 
     if (types.isFunctionalInterface(expressionType)) {
@@ -92,12 +92,12 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
         boolean paramsWithinBounds =
             areParamsWithinBounds(
-                types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
+                improvedTargetTypeDescriptorType.getParameterTypes(), params, state.getTypes());
 
         ImmutableSet<Type> thrownExceptions =
             ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
         boolean methodThrowsMatches =
-            doesMethodThrowsMatches(thrownExceptions.asList(), targetType.getThrownTypes(), state);
+            doesMethodThrowsMatches(thrownExceptions.asList(), improvedTargetType.getThrownTypes(), state);
 
         // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
         // separate method (early returns).
@@ -110,9 +110,9 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
           return Choice.none();
         }
 
-        // XXX: Discuss with Stephan, how do we want to handle primitive for now?
+        // XXX: Discuss with Stephan, how do we want to handle primitive for now? -> Allow autoboxing, more "default" way of thinking for people.
         boolean doesReturnTypeMatch =
-            types.isConvertible(methodReferenceSymbol.getReturnType(), targetReturnType);
+            types.isConvertible(methodReferenceSymbol.getReturnType(), improvedTargetTypeDescriptorType.getReturnType());
 
         ImmutableList<Type> params =
             methodReferenceSymbol.getParameters().stream()
@@ -120,18 +120,19 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                 .collect(toImmutableList());
         boolean paramsWithinBounds =
             areParamsWithinBounds(
-                types.findDescriptorType(targetType).getParameterTypes(), params, types);
+                improvedTargetType.getParameterTypes(), params, types);
 
         boolean throwsSignatureMatches =
             doesMethodThrowsMatches(
-                methodReferenceSymbol.getThrownTypes(), targetType.getThrownTypes(), state);
+                methodReferenceSymbol.getThrownTypes(), improvedTargetTypeDescriptorType.getThrownTypes(), state);
 
         return Choice.condition(
             doesReturnTypeMatch && paramsWithinBounds && throwsSignatureMatches, unifier);
       }
     }
 
-    return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
+    // XXX: This one doesnt make any sense?
+    return Choice.condition(types.isConvertible(expressionType, improvedTargetType), unifier);
   }
 
   private Type toType(UType utype, Inliner inliner) {
@@ -161,15 +162,14 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
         // XXX: Should we write own logic for this? Or do we decide to go for boxed types?
         // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
-//        lambdaReturnType = types.glb(com.sun.tools.javac.util.List.from(returnTypes));
         lambdaReturnType = types.lub(com.sun.tools.javac.util.List.from(returnTypes));
-//        lambdaReturnType = returnTypes.get(0);
+        //        lambdaReturnType = returnTypes.get(0);
     }
 
     return types.isSubtype(targetReturnType.getLowerBound(), lambdaReturnType)
-            && types.isSubtype(lambdaReturnType, targetReturnType.getUpperBound());
+        && types.isSubtype(lambdaReturnType, targetReturnType.getUpperBound());
 
-//    return types.isConvertible(lambdaReturnType, targetReturnType);
+    //    return types.isConvertible(lambdaReturnType, targetReturnType);
   }
 
   private boolean doesMethodThrowsMatches(
