@@ -35,7 +35,6 @@ import com.sun.tools.javac.code.Types;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -65,10 +64,6 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       return Choice.none();
     }
 
-    Inliner inliner = unifier.createInliner();
-    ImmutableList<Type> inlinedTargetArguments =
-        typeArguments().stream().map(t -> toType(t, inliner)).collect(toImmutableList());
-
     Type expressionType = ASTHelpers.getType(tree);
     Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
 
@@ -76,20 +71,15 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       if (tree instanceof LambdaExpressionTree) {
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) tree;
 
-        Type lambdaReturnType = targetReturnType;
-        if (lambdaTree.getParameters().size() < inlinedTargetArguments.size()) {
-          lambdaReturnType = inlinedTargetArguments.get(inlinedTargetArguments.size() - 1);
-        }
         boolean doesReturnTypeMatch =
-            doesReturnTypeOfLambdaMatch(lambdaTree, lambdaReturnType, types);
+            doesReturnTypeOfLambdaMatch(lambdaTree, targetReturnType, types);
 
         List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
-        int size = types.findDescriptorType(targetType).getParameterTypes().size();
         ImmutableList<Type> params =
             lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
         boolean paramsWithinBounds =
             areParamsWithinBounds(
-                inlinedTargetArguments.subList(0, size), params, types, unifier.createInliner());
+                types.findDescriptorType(targetType).getParameterTypes(), params, state.getTypes());
 
         ImmutableSet<Type> thrownExceptions =
             ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
@@ -107,8 +97,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
           return Choice.none();
         }
 
-        // XXX: Discuss with Stephan, how do we want to handle primitive for now? -> look for
-        // `allTypesPrimitive`
+        // XXX: Discuss with Stephan, how do we want to handle primitive for now?
         boolean doesReturnTypeMatch =
             types.isConvertible(methodReferenceSymbol.getReturnType(), targetReturnType);
 
@@ -116,13 +105,9 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             methodReferenceSymbol.getParameters().stream()
                 .map(param -> param.type)
                 .collect(toImmutableList());
-
         boolean paramsWithinBounds =
             areParamsWithinBounds(
-                types.findDescriptorType(targetType).getParameterTypes(),
-                params,
-                types,
-                unifier.createInliner());
+                types.findDescriptorType(targetType).getParameterTypes(), params, types);
 
         boolean throwsSignatureMatches =
             doesMethodThrowsMatches(
@@ -136,15 +121,6 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
   }
 
-  private Type toType(UType utype, Inliner inliner) {
-    try {
-      return utype.inline(inliner);
-    } catch (CouldNotResolveImportException e) {
-      // XXX: Fix this
-      throw new RuntimeException();
-    }
-  }
-
   private boolean doesReturnTypeOfLambdaMatch(
       LambdaExpressionTree lambdaTree, Type targetReturnType, Types types) {
     Tree lambdaBody = lambdaTree.getBody();
@@ -156,39 +132,19 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       case STATEMENT:
         ReturnTypeScanner returnTypeScanner = new ReturnTypeScanner();
         returnTypeScanner.scan(lambdaBody, null);
+        List<Type> returnTypes =
+            returnTypeScanner.getReturnTypesOfTree().stream()
+                .map(types::boxedTypeOrType)
+                .collect(Collectors.toList());
 
-        boolean allTypesPrimitive =
-            returnTypeScanner.getReturnTypesOfTree().stream().allMatch(Type::isPrimitive);
-        if (allTypesPrimitive) {
-          // If are all primitive types: JLS 4.10.1. Subtyping among Primitive Types
-          Optional<Type> reduced =
-              returnTypeScanner.getReturnTypesOfTree().stream()
-                  .reduce((Type a, Type b) -> types.isSubtype(a, b) ? b : a);
-          lambdaReturnType = reduced.get();
-        } else {
-
-          // XXX: Should we write own logic for this? Or do we decide to go for boxed types?
-          // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
-          ImmutableList<Type> returnTypes =
-              returnTypeScanner.getReturnTypesOfTree().stream()
-                  .map(types::boxedTypeOrType)
-                  .collect(toImmutableList());
-          lambdaReturnType = types.lub(com.sun.tools.javac.util.List.from(returnTypes));
-        }
+        // XXX: Should we write own logic for this? Or do we decide to go for boxed types?
+        // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
+        lambdaReturnType = types.glb(com.sun.tools.javac.util.List.from(returnTypes));
+        lambdaReturnType = types.lub(com.sun.tools.javac.util.List.from(returnTypes));
+        lambdaReturnType = returnTypes.get(0);
     }
 
-    boolean b;
-    if (targetReturnType
-        .isPrimitive()) { // XXX: Perhaps add a case where both are primitive, and one case where
-                          // only one is and they are convertible. Perhaps look in JLS?
-      b = types.isSubtype(lambdaReturnType, targetReturnType);
-    } else {
-      b =
-          types.isSubtype(targetReturnType.getLowerBound(), lambdaReturnType)
-              && types.isSubtype(lambdaReturnType, targetReturnType.getUpperBound());
-    }
-
-    return b;
+    return types.isConvertible(lambdaReturnType, targetReturnType);
   }
 
   private boolean doesMethodThrowsMatches(
@@ -204,10 +160,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   }
 
   private boolean areParamsWithinBounds(
-      List<Type> targetParameterTypes,
-      ImmutableList<Type> parameterTypes,
-      Types types,
-      Inliner inliner) {
+      List<Type> targetParameterTypes, ImmutableList<Type> parameterTypes, Types types) {
     if (parameterTypes.size() != targetParameterTypes.size()) {
       return false;
     }
@@ -216,12 +169,6 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
       Type boxedParamTypeOrType = types.boxedTypeOrType(parameterTypes.get(i));
       Type targetParamType = targetParameterTypes.get(i);
 
-      //      Type type = null;
-      //      try {
-      //        type = typeArguments().get(0).inline(inliner);
-      //      } catch (CouldNotResolveImportException e) {
-      //        e.printStackTrace();
-      //      }
       // XXX: Here we should look at the paramtypes of the generics.
       if (!types.isConvertible(targetParamType.getLowerBound(), boxedParamTypeOrType)
           && !types.isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
@@ -233,7 +180,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   }
 
   private static final class ReturnTypeScanner extends TreeScanner<Void, Void> {
-    private final List<Type> returnTypes = new ArrayList<>();
+    List<Type> returnTypes = new ArrayList<>();
 
     public List<Type> getReturnTypesOfTree() {
       return returnTypes;
