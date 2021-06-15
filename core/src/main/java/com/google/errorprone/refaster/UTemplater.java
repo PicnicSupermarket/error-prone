@@ -158,7 +158,11 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         ImmutableMap.copyOf(
             Maps.transformValues(
                 freeExpressionVars, (VarSymbol sym) -> templater.template(sym.type)));
-    // See why we don't do this for the freeExprlVars
+
+    if (afterTemplateMethods != null) {
+      MethodSymbol symbol = ASTHelpers.getSymbol(afterTemplateMethods.get(0));
+      UType genericType2 = templater.template(symbol.type);
+    }
 
     UType genericType = templater.template(declSym.type);
     List<UTypeVar> typeParameters;
@@ -639,7 +643,10 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
         UType targetType = freeVariableTargetTypes.get(name);
         checkState(targetType != null, "No @AfterTemplate parameter named '%s'", name);
         if (targetType instanceof UClassType) {
-          CType ctype = CType.create(((UClassType) targetType).fullyQualifiedClass().contents(), ((UClassType) targetType).typeArguments());
+          CType ctype =
+              CType.create(
+                  ((UClassType) targetType).fullyQualifiedClass().contents(),
+                  ((UClassType) targetType).typeArguments());
           ident = UCanBeTransformed.create(ident, ctype);
         } else {
           throw new IllegalStateException("NOT YET IMPLEMENTED");
