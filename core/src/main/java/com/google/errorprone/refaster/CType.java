@@ -25,6 +25,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
@@ -67,12 +68,24 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type expressionType = ASTHelpers.getType(tree);
     Type targetReturnType = types.findDescriptorType(targetType).getReturnType();
 
+    Inliner inliner = unifier.createInliner();
+    ImmutableList<Type> inlinedTargetArguments =
+        typeArguments().stream().map(t -> toType(t, inliner)).collect(toImmutableList());
+
+    Type improvedTargetType =
+        types.subst(
+            targetType,
+            targetType.getTypeArguments(),
+            com.sun.tools.javac.util.List.from(inlinedTargetArguments));
+    Type improvedTargetTypeDescriptorType = types.findDescriptorType(improvedTargetType);
+
     if (types.isFunctionalInterface(expressionType)) {
       if (tree instanceof LambdaExpressionTree) {
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) tree;
 
         boolean doesReturnTypeMatch =
-            doesReturnTypeOfLambdaMatch(lambdaTree, targetReturnType, types);
+            doesReturnTypeOfLambdaMatch(
+                lambdaTree, improvedTargetTypeDescriptorType.getReturnType(), types);
 
         List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
         ImmutableList<Type> params =
@@ -121,13 +134,22 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     return Choice.condition(types.isConvertible(expressionType, targetType), unifier);
   }
 
+  private Type toType(UType utype, Inliner inliner) {
+    try {
+      return utype.inline(inliner);
+    } catch (CouldNotResolveImportException e) {
+      // XXX: Fix this
+      throw new RuntimeException();
+    }
+  }
+
   private boolean doesReturnTypeOfLambdaMatch(
       LambdaExpressionTree lambdaTree, Type targetReturnType, Types types) {
     Tree lambdaBody = lambdaTree.getBody();
     Type lambdaReturnType = null;
     switch (lambdaTree.getBodyKind()) {
       case EXPRESSION:
-        lambdaReturnType = ASTHelpers.getType(lambdaBody);
+        lambdaReturnType = types.boxedTypeOrType(ASTHelpers.getType(lambdaBody));
         break;
       case STATEMENT:
         ReturnTypeScanner returnTypeScanner = new ReturnTypeScanner();
@@ -139,12 +161,15 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
         // XXX: Should we write own logic for this? Or do we decide to go for boxed types?
         // XXX: This doesn't work when one of the two is a primitive. See `glb` implementation.
-        lambdaReturnType = types.glb(com.sun.tools.javac.util.List.from(returnTypes));
+//        lambdaReturnType = types.glb(com.sun.tools.javac.util.List.from(returnTypes));
         lambdaReturnType = types.lub(com.sun.tools.javac.util.List.from(returnTypes));
-        lambdaReturnType = returnTypes.get(0);
+//        lambdaReturnType = returnTypes.get(0);
     }
 
-    return types.isConvertible(lambdaReturnType, targetReturnType);
+    return types.isSubtype(targetReturnType.getLowerBound(), lambdaReturnType)
+            && types.isSubtype(lambdaReturnType, targetReturnType.getUpperBound());
+
+//    return types.isConvertible(lambdaReturnType, targetReturnType);
   }
 
   private boolean doesMethodThrowsMatches(
@@ -180,10 +205,20 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   }
 
   private static final class ReturnTypeScanner extends TreeScanner<Void, Void> {
-    List<Type> returnTypes = new ArrayList<>();
+    private final List<Type> returnTypes = new ArrayList<>();
 
     public List<Type> getReturnTypesOfTree() {
       return returnTypes;
+    }
+
+    @Override
+    public Void visitLambdaExpression(LambdaExpressionTree node, Void unused) {
+      return null;
+    }
+
+    @Override
+    public Void visitMethod(MethodTree node, Void unused) {
+      return null;
     }
 
     @Override
