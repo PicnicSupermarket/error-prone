@@ -28,18 +28,4 @@ public class TransformToTemplateExample {
     Integer n = (Integer) 1;
     return n.toString();
   }
-
-// input
-//  String testCreateEnumMap() {
-//    EnumMap<RoundingMode, Object> roundingModeObjectEnumMap = new EnumMap<>(RoundingMode.class);
-//    return roundingModeObjectEnumMap.toString();
-//  }
-
-//  public List<Integer> example() {
-//    return ImmutableSet.of(1).stream().map(this::test).collect(Collectors.toList());
-//  }
-//
-//  public Integer test(Integer i) {
-//    return i + i;
-//  }
 }

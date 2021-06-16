@@ -32,26 +32,3 @@ public class TransformToTemplate {
     return String.valueOf(num);
   }
 }
-//public class TransformToTemplate<T, R extends Enum<R>> {
-//  @BeforeTemplate
-//  @CanTransformToTargetType
-//  public Stream<R> before(Stream<T> stream, Function<T, R> function) {
-//    return stream.map(function);
-//  }
-//
-//  @AfterTemplate
-//  public Stream<R> after(Stream<T> stream, Function<T, R> function) {
-//    return stream.map(function).map(function);
-//  }
-//public class TransformToTemplate<K extends Enum<K>, V> {
-//  @BeforeTemplate
-//  String before(@CanTransformToTargetType Map<K, V>  enumMap) {
-//    return enumMap.toString();
-//  }
-//
-//  @AfterTemplate
-//  String after(Map<K, V> enumMap) {
-//    return enumMap.toString().toLowerCase(Locale.ROOT);
-//  }
-//}
-//}
