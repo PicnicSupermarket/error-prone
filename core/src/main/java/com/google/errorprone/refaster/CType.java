@@ -63,56 +63,59 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type expressionType = ASTHelpers.getType(tree);
     Type targetType = getTargetType(unifier, types, state);
 
-    if (types.isFunctionalInterface(expressionType)) {
-      if (tree instanceof LambdaExpressionTree) {
-        LambdaExpressionTree lambdaTree = (LambdaExpressionTree) tree;
-
-        boolean doesReturnTypeMatch =
-            doesLambdaReturnTypeMatch(lambdaTree, targetType.getReturnType(), types);
-
-        java.util.List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
-        ImmutableList<Type> params =
-            lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
-        boolean paramsWithinBounds =
-            areParamsWithinBounds(params, targetType.getParameterTypes(), state.getTypes());
-
-        ImmutableSet<Type> thrownExceptions =
-            ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
-        boolean methodThrowsMatches =
-            doesMethodThrowsMatches(
-                List.from(thrownExceptions), targetType.getThrownTypes(), state);
-
-        // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
-        // separate method (early returns).
-        return Choice.condition(
-            doesReturnTypeMatch && paramsWithinBounds && methodThrowsMatches, unifier);
-      } else if (tree instanceof MemberReferenceTree) {
-        MemberReferenceTree memberReferenceTree = (MemberReferenceTree) tree;
-        MethodSymbol methodReferenceSymbol = ASTHelpers.getSymbol(memberReferenceTree);
-        if (methodReferenceSymbol == null) {
-          return Choice.none();
-        }
-
-        boolean doesReturnTypeMatch =
-            isSubtypeOrWithinBounds(
-                methodReferenceSymbol.getReturnType(), targetType.getReturnType(), types);
-
-        ImmutableList<Type> params =
-            methodReferenceSymbol.getParameters().stream()
-                .map(param -> param.type)
-                .collect(toImmutableList());
-        boolean paramsWithinBounds =
-            areParamsWithinBounds(params, targetType.getParameterTypes(), types);
-
-        boolean throwsSignatureMatches =
-            doesMethodThrowsMatches(
-                methodReferenceSymbol.getThrownTypes(), targetType.getThrownTypes(), state);
-
-        return Choice.condition(
-            doesReturnTypeMatch && paramsWithinBounds && throwsSignatureMatches, unifier);
-      }
+    if (!types.isFunctionalInterface(expressionType)) {
+      return Choice.condition(isSubtypeOrWithinBounds(expressionType, targetType, types), unifier);
     }
 
+    if (tree instanceof LambdaExpressionTree) {
+      LambdaExpressionTree lambdaTree = (LambdaExpressionTree) tree;
+
+      boolean doesReturnTypeMatch =
+          doesLambdaReturnTypeMatch(lambdaTree, targetType.getReturnType(), types);
+
+      java.util.List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
+      ImmutableList<Type> params =
+          lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
+      boolean paramsWithinBounds =
+          areParamsWithinBounds(params, targetType.getParameterTypes(), state.getTypes());
+
+      ImmutableSet<Type> thrownExceptions =
+          ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
+      boolean methodThrowsMatches =
+          doesMethodThrowsMatches(List.from(thrownExceptions), targetType.getThrownTypes(), state);
+
+      // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
+      // separate method (early returns).
+      return Choice.condition(
+          doesReturnTypeMatch && paramsWithinBounds && methodThrowsMatches, unifier);
+    } else if (tree instanceof MemberReferenceTree) {
+      MemberReferenceTree memberReferenceTree = (MemberReferenceTree) tree;
+      MethodSymbol methodReferenceSymbol = ASTHelpers.getSymbol(memberReferenceTree);
+      if (methodReferenceSymbol == null) {
+        return Choice.none();
+      }
+
+      boolean doesReturnTypeMatch =
+          isSubtypeOrWithinBounds(
+              methodReferenceSymbol.getReturnType(), targetType.getReturnType(), types);
+
+      ImmutableList<Type> params =
+          methodReferenceSymbol.getParameters().stream()
+              .map(param -> param.type)
+              .collect(toImmutableList());
+      boolean paramsWithinBounds =
+          areParamsWithinBounds(params, targetType.getParameterTypes(), types);
+
+      boolean throwsSignatureMatches =
+          doesMethodThrowsMatches(
+              methodReferenceSymbol.getThrownTypes(), targetType.getThrownTypes(), state);
+
+      return Choice.condition(
+          doesReturnTypeMatch && paramsWithinBounds && throwsSignatureMatches, unifier);
+    }
+
+    // XXX: Or should this be the default?       return
+    // Choice.condition(isSubtypeOrWithinBounds(expressionType, targetType, types), unifier);
     return Choice.none();
   }
 
@@ -130,7 +133,10 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type targetTypeWithSubstitutedTypeArguments =
         types.subst(
             originalTargetType, originalTargetType.getTypeArguments(), inlinedTargetTypeArguments);
-    return types.findDescriptorType(targetTypeWithSubstitutedTypeArguments);
+
+    return types.isFunctionalInterface(targetTypeWithSubstitutedTypeArguments)
+        ? types.findDescriptorType(targetTypeWithSubstitutedTypeArguments)
+        : targetTypeWithSubstitutedTypeArguments;
   }
 
   private static List<Type> inlineUTypes(Inliner inliner, ImmutableList<UType> types) {
@@ -202,7 +208,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   }
 
   private static final class ReturnTypeScanner extends TreeScanner<Void, Void> {
-    private final List<Type> returnTypes = List.nil();
+    private List<Type> returnTypes = List.nil();
 
     public List<Type> getReturnTypes() {
       return returnTypes;
@@ -220,7 +226,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
     @Override
     public Void visitReturn(ReturnTree tree, Void unused) {
-      returnTypes.append(ASTHelpers.getType(tree.getExpression()));
+      returnTypes = returnTypes.append(ASTHelpers.getType(tree.getExpression()));
       return super.visitReturn(tree, unused);
     }
   }
