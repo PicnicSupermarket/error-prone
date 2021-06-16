@@ -64,7 +64,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type targetType = getTargetType(unifier, types, state);
 
     if (!types.isFunctionalInterface(expressionType)) {
-      return Choice.condition(isSubtypeOrWithinBounds(expressionType, targetType, types), unifier);
+         return Choice.condition(isSubtypeOrWithinBounds(expressionType, targetType, types), unifier);
     }
 
     if (tree instanceof LambdaExpressionTree) {

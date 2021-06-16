@@ -384,9 +384,14 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   public void transformWithSpecificGenerics() throws IOException {
     runTest("TransformWithGenericsTemplate");
   }
+
   @Test
   public void transformThrowsException() throws IOException {
-    runTest("TransformThrowsException");
+    runTest("TransformThrowsExceptionTemplate");
   }
 
+  @Test
+  public void transformEnum() throws IOException {
+    runTest("TransformEnumTemplate");
+  }
 }
