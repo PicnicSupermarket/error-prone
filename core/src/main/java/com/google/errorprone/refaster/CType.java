@@ -68,15 +68,13 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         LambdaExpressionTree lambdaTree = (LambdaExpressionTree) tree;
 
         boolean doesReturnTypeMatch =
-            doesReturnTypeOfLambdaMatch(
-                lambdaTree, targetType.getReturnType(), types);
+            doesLambdaReturnTypeMatch(lambdaTree, targetType.getReturnType(), types);
 
         java.util.List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
         ImmutableList<Type> params =
             lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
         boolean paramsWithinBounds =
-            areParamsWithinBounds(
-                params, targetType.getParameterTypes(), state.getTypes());
+            areParamsWithinBounds(params, targetType.getParameterTypes(), state.getTypes());
 
         ImmutableSet<Type> thrownExceptions =
             ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
@@ -96,24 +94,19 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         }
 
         boolean doesReturnTypeMatch =
-            isTypeWithinBounds(
-                methodReferenceSymbol.getReturnType(),
-                targetType.getReturnType(),
-                types);
+            isSubtypeOrWithinBounds(
+                methodReferenceSymbol.getReturnType(), targetType.getReturnType(), types);
 
         ImmutableList<Type> params =
             methodReferenceSymbol.getParameters().stream()
                 .map(param -> param.type)
                 .collect(toImmutableList());
         boolean paramsWithinBounds =
-            areParamsWithinBounds(
-                params, targetType.getParameterTypes(), types);
+            areParamsWithinBounds(params, targetType.getParameterTypes(), types);
 
         boolean throwsSignatureMatches =
             doesMethodThrowsMatches(
-                methodReferenceSymbol.getThrownTypes(),
-                targetType.getThrownTypes(),
-                state);
+                methodReferenceSymbol.getThrownTypes(), targetType.getThrownTypes(), state);
 
         return Choice.condition(
             doesReturnTypeMatch && paramsWithinBounds && throwsSignatureMatches, unifier);
@@ -123,29 +116,32 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     return Choice.none();
   }
 
+  // XXX: Discuss naming. `getSubstitutedTargetType`? `extractSubstitutedTargetType`?
   private Type getTargetType(Unifier unifier, Types types, VisitorState state) {
     Inliner inliner = unifier.createInliner();
-    List<Type> inlinedTargetTypeArguments = getInlinedTypeArguments(inliner, typeArguments());
+    List<Type> inlinedTargetTypeArguments = inlineUTypes(inliner, typeArguments());
 
-    Type defaultTargetType = state.getTypeFromString(fullyQualifiedClass());
-    if (defaultTargetType == null) {
-      throw new IllegalArgumentException("Can't create type from the fullyQualifiedClass: " + fullyQualifiedClass());
+    Type originalTargetType = state.getTypeFromString(fullyQualifiedClass());
+    if (originalTargetType == null) {
+      throw new IllegalArgumentException(
+          "Can't create type from the fullyQualifiedClass: " + fullyQualifiedClass());
     }
 
-    Type restrictedTargetType =
-            types.subst(defaultTargetType, defaultTargetType.getTypeArguments(), inlinedTargetTypeArguments);
-    return types.findDescriptorType(restrictedTargetType);
+    Type targetTypeWithSubstitutedTypeArguments =
+        types.subst(
+            originalTargetType, originalTargetType.getTypeArguments(), inlinedTargetTypeArguments);
+    return types.findDescriptorType(targetTypeWithSubstitutedTypeArguments);
   }
 
-  private static List<Type> getInlinedTypeArguments(Inliner inliner, ImmutableList<UType> types) {
+  private static List<Type> inlineUTypes(Inliner inliner, ImmutableList<UType> types) {
     try {
       return inliner.inlineList(types);
     } catch (CouldNotResolveImportException e) {
-      throw new IllegalArgumentException("Unsupported argument for getInlinedTypeArguments");
+      throw new IllegalArgumentException("Unsupported argument for inlineUTypes");
     }
   }
 
-  private static boolean doesReturnTypeOfLambdaMatch(
+  private static boolean doesLambdaReturnTypeMatch(
       LambdaExpressionTree lambdaTree, Type targetReturnType, Types types) {
     Tree lambdaBody = lambdaTree.getBody();
     Type lambdaReturnType = null;
@@ -164,10 +160,10 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         lambdaReturnType = types.lub(returnTypes);
     }
 
-    return isTypeWithinBounds(lambdaReturnType, targetReturnType, types);
+    return isSubtypeOrWithinBounds(lambdaReturnType, targetReturnType, types);
   }
 
-  private static boolean isTypeWithinBounds(Type exprType, Type targetType, Types types) {
+  private static boolean isSubtypeOrWithinBounds(Type exprType, Type targetType, Types types) {
     exprType = types.boxedTypeOrType(exprType);
     targetType = types.boxedTypeOrType(targetType);
 
@@ -198,7 +194,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     }
 
     for (int i = 0; i < parameterTypes.size(); i++) {
-      if (!isTypeWithinBounds(parameterTypes.get(i), targetParameterTypes.get(i), types)) {
+      if (!isSubtypeOrWithinBounds(parameterTypes.get(i), targetParameterTypes.get(i), types)) {
         return false;
       }
     }
