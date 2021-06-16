@@ -58,8 +58,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   @Override
   public Choice<Unifier> unify(Tree tree, Unifier unifier) {
-    // Look at the non(?)-deprecated way of retrieving the VisitorState.
-    VisitorState state = new VisitorState(unifier.getContext());
+    VisitorState state = VisitorState.createForUtilityPurposes(unifier.getContext());
     Types types = unifier.types();
     Type targetType = state.getTypeFromString(fullyQualifiedClass());
     if (targetType == null) {
@@ -69,14 +68,11 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type expressionType = ASTHelpers.getType(tree);
 
     Inliner inliner = unifier.createInliner();
-    ImmutableList<Type> inlinedTargetTypeArguments =
-        typeArguments().stream().map(t -> toType(t, inliner)).collect(toImmutableList());
+    com.sun.tools.javac.util.List<Type> inlinedTargetTypeArguments =
+        getInlinedTypeArguments(inliner, typeArguments());
 
     Type improvedTargetType =
-        types.subst(
-            targetType,
-            targetType.getTypeArguments(),
-            com.sun.tools.javac.util.List.from(inlinedTargetTypeArguments));
+        types.subst(targetType, targetType.getTypeArguments(), inlinedTargetTypeArguments);
     Type improvedTargetTypeDescriptorType = types.findDescriptorType(improvedTargetType);
 
     if (types.isFunctionalInterface(expressionType)) {
@@ -97,7 +93,8 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         ImmutableSet<Type> thrownExceptions =
             ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
         boolean methodThrowsMatches =
-            doesMethodThrowsMatches(thrownExceptions.asList(), improvedTargetType.getThrownTypes(), state);
+            doesMethodThrowsMatches(
+                thrownExceptions.asList(), improvedTargetType.getThrownTypes(), state);
 
         // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
         // separate method (early returns).
@@ -110,21 +107,25 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
           return Choice.none();
         }
 
-        // XXX: Discuss with Stephan, how do we want to handle primitive for now? -> Allow autoboxing, more "default" way of thinking for people.
+        // XXX: Discuss with Stephan, how do we want to handle primitive for now? -> Allow
+        // autoboxing, more "default" way of thinking for people.
         boolean doesReturnTypeMatch =
-            types.isConvertible(methodReferenceSymbol.getReturnType(), improvedTargetTypeDescriptorType.getReturnType());
+            types.isConvertible(
+                methodReferenceSymbol.getReturnType(),
+                improvedTargetTypeDescriptorType.getReturnType());
 
         ImmutableList<Type> params =
             methodReferenceSymbol.getParameters().stream()
                 .map(param -> param.type)
                 .collect(toImmutableList());
         boolean paramsWithinBounds =
-            areParamsWithinBounds(
-                improvedTargetType.getParameterTypes(), params, types);
+            areParamsWithinBounds(improvedTargetType.getParameterTypes(), params, types);
 
         boolean throwsSignatureMatches =
             doesMethodThrowsMatches(
-                methodReferenceSymbol.getThrownTypes(), improvedTargetTypeDescriptorType.getThrownTypes(), state);
+                methodReferenceSymbol.getThrownTypes(),
+                improvedTargetTypeDescriptorType.getThrownTypes(),
+                state);
 
         return Choice.condition(
             doesReturnTypeMatch && paramsWithinBounds && throwsSignatureMatches, unifier);
@@ -134,12 +135,12 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     return Choice.none();
   }
 
-  private Type toType(UType utype, Inliner inliner) {
+  private com.sun.tools.javac.util.List<Type> getInlinedTypeArguments(
+      Inliner inliner, ImmutableList<UType> types) {
     try {
-      return utype.inline(inliner);
+      return inliner.inlineList(types);
     } catch (CouldNotResolveImportException e) {
-      // XXX: Fix this
-      throw new RuntimeException();
+      throw new IllegalArgumentException("Unsupported argument for getInlinedTypeArguments");
     }
   }
 
