@@ -85,7 +85,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
         boolean paramsWithinBounds =
             areParamsWithinBounds(
-                improvedTargetTypeDescriptorType.getParameterTypes(), params, state.getTypes());
+                params, improvedTargetTypeDescriptorType.getParameterTypes(), state.getTypes());
 
         ImmutableSet<Type> thrownExceptions =
             ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
@@ -107,16 +107,21 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         // XXX: Discuss with Stephan, how do we want to handle primitive for now? -> Allow
         // autoboxing, more "default" way of thinking for people.
         boolean doesReturnTypeMatch =
-            types.isConvertible(
+            isTypeWithinBounds(
                 methodReferenceSymbol.getReturnType(),
-                improvedTargetTypeDescriptorType.getReturnType());
+                improvedTargetTypeDescriptorType.getReturnType(),
+                types);
+        //            types.isSubtype(
+        //                methodReferenceSymbol.getReturnType(),
+        //                improvedTargetTypeDescriptorType.getReturnType());
 
         ImmutableList<Type> params =
             methodReferenceSymbol.getParameters().stream()
                 .map(param -> param.type)
                 .collect(toImmutableList());
         boolean paramsWithinBounds =
-            areParamsWithinBounds(improvedTargetType.getParameterTypes(), params, types);
+            areParamsWithinBounds(
+                params, improvedTargetTypeDescriptorType.getParameterTypes(), types);
 
         boolean throwsSignatureMatches =
             doesMethodThrowsMatches(
@@ -140,30 +145,40 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     }
   }
 
-  private boolean doesReturnTypeOfLambdaMatch(
+  private static boolean doesReturnTypeOfLambdaMatch(
       LambdaExpressionTree lambdaTree, Type targetReturnType, Types types) {
     Tree lambdaBody = lambdaTree.getBody();
     Type lambdaReturnType = null;
     switch (lambdaTree.getBodyKind()) {
       case EXPRESSION:
-        lambdaReturnType = types.boxedTypeOrType(ASTHelpers.getType(lambdaBody));
+        lambdaReturnType = ASTHelpers.getType(lambdaBody);
         break;
       case STATEMENT:
         ReturnTypeScanner returnTypeScanner = new ReturnTypeScanner();
         returnTypeScanner.scan(lambdaBody, null);
         List<Type> returnTypes =
-            returnTypeScanner.getReturnTypesOfTree().stream()
+            returnTypeScanner.getReturnTypes().stream()
                 .map(types::boxedTypeOrType)
                 .collect(List.collector());
 
         lambdaReturnType = types.lub(returnTypes);
     }
 
-    return types.isSubtype(targetReturnType.getLowerBound(), lambdaReturnType)
-        && types.isSubtype(lambdaReturnType, targetReturnType.getUpperBound());
+    return isTypeWithinBounds(lambdaReturnType, targetReturnType, types);
   }
 
-  private boolean doesMethodThrowsMatches(
+  private static boolean isTypeWithinBounds(Type type, Type targetType, Types types) {
+    type = types.boxedTypeOrType(type);
+    targetType = types.boxedTypeOrType(targetType);
+    // XXX: I think there is a better way to fix this
+    if (targetType.getLowerBound() == null && targetType.getUpperBound() == null) {
+      return types.isSubtype(type, targetType);
+    }
+    return types.isSubtype(targetType.getLowerBound(), type)
+        && types.isSubtype(type, targetType.getUpperBound());
+  }
+
+  private static boolean doesMethodThrowsMatches(
       List<Type> thrownExceptions, List<Type> targetThrownTypes, VisitorState state) {
 
     return thrownExceptions.stream()
@@ -176,18 +191,16 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   }
 
   private static boolean areParamsWithinBounds(
-      List<Type> targetParameterTypes, ImmutableList<Type> parameterTypes, Types types) {
+      ImmutableList<Type> parameterTypes, List<Type> targetParameterTypes, Types types) {
     if (parameterTypes.size() != targetParameterTypes.size()) {
       return false;
     }
 
     for (int i = 0; i < parameterTypes.size(); i++) {
-      Type boxedParamTypeOrType = types.boxedTypeOrType(parameterTypes.get(i));
-      // XXX: Should this one also be boxed?
-      Type targetParamType = targetParameterTypes.get(i);
+//      Type boxedParamTypeOrType = types.boxedTypeOrType(parameterTypes.get(i));
+//      Type targetParamType = targetParameterTypes.get(i);
 
-      if (!types.isSubtype(targetParamType.getLowerBound(), boxedParamTypeOrType)
-          && !types.isSubtype(boxedParamTypeOrType, targetParamType.getUpperBound())) {
+      if (!isTypeWithinBounds(parameterTypes.get(i), targetParameterTypes.get(i), types)) {
         return false;
       }
     }
@@ -198,7 +211,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   private static final class ReturnTypeScanner extends TreeScanner<Void, Void> {
     private final List<Type> returnTypes = List.nil();
 
-    public List<Type> getReturnTypesOfTree() {
+    public List<Type> getReturnTypes() {
       return returnTypes;
     }
 
@@ -214,7 +227,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
     @Override
     public Void visitReturn(ReturnTree tree, Void unused) {
-      returnTypes.add(ASTHelpers.getType(tree.getExpression()));
+      returnTypes.append(ASTHelpers.getType(tree.getExpression()));
       return super.visitReturn(tree, unused);
     }
   }

@@ -73,11 +73,7 @@ abstract class UCanBeTransformed extends UExpression {
     return expression()
         .unify(tree, unifier)
         .condition(
-            (Unifier success) -> {
-              boolean present = afterTemplateType()
-                      .unify(tree, unifier).first().isPresent();
-
-              return present;
-            });
+            (Unifier success) -> afterTemplateType()
+                    .unify(tree, unifier).first().isPresent());
   }
 }

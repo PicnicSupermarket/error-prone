@@ -21,16 +21,17 @@ import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
 
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 /** Example */
-public class TransformMethodReferenceTemplate<T, R> {
+public class TransformMethodReferenceTemplate<T, R extends Number> {
   @BeforeTemplate
-  public Object before(@CanTransformToTargetType Function<T, R> function) {
-    return function.getClass();
+  public Object before(Stream<T> stream, @CanTransformToTargetType Function<T, R> function) {
+    return stream.map(function).getClass();
   }
 
   @AfterTemplate
-  public Object after(Function<T, R> function) {
-    return function.getClass().getClass();
+  public Object after(Stream<T> stream, Function<T, R> function) {
+    return stream.map(function).getClass().getClass();
   }
 }
