@@ -24,9 +24,9 @@ import java.util.function.Function;
 public class TransformMethodReferenceTemplateExample {
 
   public void test() {
-    ImmutableList.of(1).stream().map(Integer::valueOf).getClass();
+    ImmutableList.of(1).stream().map(String::valueOf).getClass();
 
     Function<Integer, Integer> intFunction = (Integer i) -> i + i;
-    intFunction.getClass().getClass();
+    intFunction.getClass();
   }
 }
