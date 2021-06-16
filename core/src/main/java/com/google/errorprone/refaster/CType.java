@@ -33,10 +33,8 @@ import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.List;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 @AutoValue
@@ -68,8 +66,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type expressionType = ASTHelpers.getType(tree);
 
     Inliner inliner = unifier.createInliner();
-    com.sun.tools.javac.util.List<Type> inlinedTargetTypeArguments =
-        getInlinedTypeArguments(inliner, typeArguments());
+    List<Type> inlinedTargetTypeArguments = getInlinedTypeArguments(inliner, typeArguments());
 
     Type improvedTargetType =
         types.subst(targetType, targetType.getTypeArguments(), inlinedTargetTypeArguments);
@@ -83,7 +80,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             doesReturnTypeOfLambdaMatch(
                 lambdaTree, improvedTargetTypeDescriptorType.getReturnType(), types);
 
-        List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
+        java.util.List<? extends VariableTree> lambdaParameters = lambdaTree.getParameters();
         ImmutableList<Type> params =
             lambdaParameters.stream().map(ASTHelpers::getType).collect(toImmutableList());
         boolean paramsWithinBounds =
@@ -94,7 +91,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
             ASTHelpers.getThrownExceptions(lambdaTree.getBody(), state);
         boolean methodThrowsMatches =
             doesMethodThrowsMatches(
-                thrownExceptions.asList(), improvedTargetType.getThrownTypes(), state);
+                List.from(thrownExceptions), improvedTargetType.getThrownTypes(), state);
 
         // XXX: Performance: short-circuit. Might come naturally once we factor this stuff out in a
         // separate method (early returns).
@@ -135,8 +132,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     return Choice.none();
   }
 
-  private com.sun.tools.javac.util.List<Type> getInlinedTypeArguments(
-      Inliner inliner, ImmutableList<UType> types) {
+  private static List<Type> getInlinedTypeArguments(Inliner inliner, ImmutableList<UType> types) {
     try {
       return inliner.inlineList(types);
     } catch (CouldNotResolveImportException e) {
@@ -158,9 +154,9 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
         List<Type> returnTypes =
             returnTypeScanner.getReturnTypesOfTree().stream()
                 .map(types::boxedTypeOrType)
-                .collect(Collectors.toList());
+                .collect(List.collector());
 
-        lambdaReturnType = types.lub(com.sun.tools.javac.util.List.from(returnTypes));
+        lambdaReturnType = types.lub(returnTypes);
     }
 
     return types.isSubtype(targetReturnType.getLowerBound(), lambdaReturnType)
@@ -179,7 +175,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
                             ASTHelpers.isSubtype(thrownException, targetException, state)));
   }
 
-  private boolean areParamsWithinBounds(
+  private static boolean areParamsWithinBounds(
       List<Type> targetParameterTypes, ImmutableList<Type> parameterTypes, Types types) {
     if (parameterTypes.size() != targetParameterTypes.size()) {
       return false;
@@ -187,11 +183,11 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
     for (int i = 0; i < parameterTypes.size(); i++) {
       Type boxedParamTypeOrType = types.boxedTypeOrType(parameterTypes.get(i));
+      // XXX: Should this one also be boxed?
       Type targetParamType = targetParameterTypes.get(i);
 
-      // XXX: Here we should look at the paramtypes of the generics.
-      if (!types.isConvertible(targetParamType.getLowerBound(), boxedParamTypeOrType)
-          && !types.isConvertible(boxedParamTypeOrType, targetParamType.getUpperBound())) {
+      if (!types.isSubtype(targetParamType.getLowerBound(), boxedParamTypeOrType)
+          && !types.isSubtype(boxedParamTypeOrType, targetParamType.getUpperBound())) {
         return false;
       }
     }
@@ -200,7 +196,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
   }
 
   private static final class ReturnTypeScanner extends TreeScanner<Void, Void> {
-    private final List<Type> returnTypes = new ArrayList<>();
+    private final List<Type> returnTypes = List.nil();
 
     public List<Type> getReturnTypesOfTree() {
       return returnTypes;
