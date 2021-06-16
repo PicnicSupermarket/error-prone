@@ -18,23 +18,20 @@ package com.google.errorprone.refaster.testdata;
 
 import com.google.common.collect.ImmutableList;
 
-import java.util.stream.Stream;
-
 /** Example */
 public class TransformWithGenericsTemplateExample {
 
-  public Stream<Integer> test() {
+  public void foo() {
     ImmutableList.of(1).stream();
     ImmutableList.of(2).stream()
-            .map(
-                    y -> {
-                      if (false) {
-                        return (Object) y;
-                      }
-                      return (int) y;
-                    });
-    ImmutableList.of(4).stream();
-    
-    return null;
+        .map(
+            y -> {
+              if (false) {
+                return (Object) y;
+              }
+              return (int) y;
+            });
+      ImmutableList.of(3).stream();
+      ImmutableList.of(4).stream();
   }
 }

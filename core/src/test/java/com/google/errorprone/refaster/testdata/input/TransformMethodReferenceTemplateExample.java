@@ -18,15 +18,34 @@ package com.google.errorprone.refaster.testdata;
 
 import com.google.common.collect.ImmutableList;
 
-import java.util.function.Function;
-
 /** Example */
 public class TransformMethodReferenceTemplateExample {
 
   public void test() {
-    ImmutableList.of(1).stream().map(String::valueOf).getClass();
+    // Positive
+    ImmutableList.of(0).stream().map(Integer::valueOf).getClass();
+    ImmutableList.of(1).stream().map(this::bar).getClass();
+    ImmutableList.of(2).stream().map(this::baz).getClass();
+    ImmutableList.of(3).stream().map(this::bax).getClass();
 
-    Function<Integer, Integer> intFunction = (Integer i) -> i + i;
-    intFunction.getClass();
+    // Negative
+    ImmutableList.of(4).stream().map(String::valueOf).getClass();
+    ImmutableList.of(5).stream().map(this::foo).getClass();
+  }
+
+  public Object foo(Integer i) {
+    return i;
+  }
+
+  public Number baz(Integer i) {
+    return i;
+  }
+
+  public int bar(int i) {
+    return i;
+  }
+
+  public Integer bax(Object o) {
+    return null;
   }
 }
