@@ -16,16 +16,15 @@
 
 package com.google.errorprone.refaster.testdata;
 
-import com.google.errorprone.refaster.testdata.template.TransformThrowsExceptionTemplate;
+import java.util.function.Supplier;
 
 /** Example */
 public class TransformThrowsExceptionTemplateExample {
-
   public void foo() {
-    TransformThrowsExceptionTemplate.MyUtil.convert(
+    Supplier<Integer> supplier = DummyUtil.asSupplier(
         () -> {
           if (false) {
-              throw new IllegalStateException();
+            throw new IllegalStateException();
           } else {
             System.out.println("");
           }

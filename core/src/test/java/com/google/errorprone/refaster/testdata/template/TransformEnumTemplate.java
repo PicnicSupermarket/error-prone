@@ -24,7 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /** Example */
-public class TransformEnumTemplate<K extends Enum<K>, V> {
+public class transformEnumTemplate<K extends Enum<K>, V> {
   @BeforeTemplate
   String before(@CanTransformToTargetType Map<K, V> enumMap) {
     return enumMap.toString();

@@ -19,29 +19,19 @@ package com.google.errorprone.refaster.testdata.template;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.CanTransformToTargetType;
-
+import com.google.errorprone.refaster.testdata.DummyUtil;
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 /** Example */
-public class TransformThrowsExceptionTemplate<V> {
+public class TransformThrowsExceptionTemplate<T> {
   @BeforeTemplate
-  public void before(@CanTransformToTargetType Callable<V> callable) {
-    MyUtil.convert(callable);
+  public Supplier<T> before(@CanTransformToTargetType Callable<T> callable) {
+    return DummyUtil.asSupplier(callable);
   }
 
   @AfterTemplate
-  public void after(Runnable callable) {
-    Runnable r = callable;
-  }
-
-  public static class MyUtil {
-    public static <V> void convert(
-        Callable<V> function) {
-        try {
-          function.call();
-        } catch (Exception e) {
-          throw new RuntimeException();
-        }
-    }
+  public Supplier<T> after(Supplier<T> callable) {
+    return callable;
   }
 }
