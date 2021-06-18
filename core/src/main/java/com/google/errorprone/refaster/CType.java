@@ -34,7 +34,6 @@ import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.List;
-
 import javax.annotation.Nullable;
 
 // XXX: Add support for the `@NoAutoBoxing` annotation.
@@ -64,7 +63,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     Type targetType = getTargetType(unifier, types, state);
 
     if (!types.isFunctionalInterface(expressionType)) {
-         return Choice.condition(isSubtypeOrWithinBounds(expressionType, targetType, types), unifier);
+      return Choice.condition(isSubtypeOrWithinBounds(expressionType, targetType, types), unifier);
     }
 
     if (tree instanceof LambdaExpressionTree) {
@@ -143,7 +142,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
     try {
       return inliner.inlineList(types);
     } catch (CouldNotResolveImportException e) {
-      throw new IllegalArgumentException("Unsupported argument for inlineUTypes");
+      throw new IllegalArgumentException("Inline failure", e);
     }
   }
 
@@ -183,7 +182,7 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   private static boolean doesMethodThrowsMatches(
       List<Type> thrownExceptions, List<Type> targetThrownTypes, VisitorState state) {
-
+    // XXX: TODO: filter out `RuntimeException`s.
     return thrownExceptions.stream()
         .allMatch(
             thrownException ->
