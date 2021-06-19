@@ -182,8 +182,8 @@ public abstract class CType extends Types.SimpleVisitor<Choice<Unifier>, Unifier
 
   private static boolean doesMethodThrowsMatches(
       List<Type> thrownExceptions, List<Type> targetThrownTypes, VisitorState state) {
-    // XXX: TODO: filter out `RuntimeException`s.
     return thrownExceptions.stream()
+        .filter(t -> ASTHelpers.isCheckedExceptionType(t, state))
         .allMatch(
             thrownException ->
                 targetThrownTypes.stream()
