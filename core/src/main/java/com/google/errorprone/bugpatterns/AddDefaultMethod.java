@@ -30,8 +30,12 @@ import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.util.TreePath;
+import com.sun.tools.javac.api.JavacTrees;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 
 import java.io.FileInputStream;
@@ -50,6 +54,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 
 /** A {@link BugChecker}; see the associated {@link BugPattern} annotation for details. */
@@ -60,20 +65,20 @@ import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 public class AddDefaultMethod extends BugChecker
     implements MethodInvocationTreeMatcher, LiteralTreeMatcher {
 
-  public static List<RefasterRule<?, ?>> desiredRules = new ArrayList<>();
-  public static List<RefasterRule<?, ?>> undesiredRules = new ArrayList<>();
+  private static final List<CodeTransformer> desiredRules = new ArrayList<>();
+  private static final List<CodeTransformer> undesiredRules = new ArrayList<>();
+  private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
+
+  static final Supplier<ImmutableListMultimap<String, CodeTransformer>> MIGRATION_TRANSFORMER =
+      Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
   public AddDefaultMethod() {
     ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
         MIGRATION_TRANSFORMER.get();
 
-    int size = migrationTransformationsMap.size();
+    //    CodeTransformer refasterRule = desiredRules.get(0);
+    //    refasterRule.apply();
   }
-
-  private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
-
-  static final Supplier<ImmutableListMultimap<String, CodeTransformer>> MIGRATION_TRANSFORMER =
-      Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
   private static ImmutableListMultimap<String, CodeTransformer> loadMigrationTransformer() {
     ImmutableListMultimap.Builder<String, CodeTransformer> transformers =
@@ -91,8 +96,9 @@ public class AddDefaultMethod extends BugChecker
                 .map(
                     transformer ->
                         transformer.annotations().getInstance(MigrationTemplate.class).value()
-                            ? desiredRules.add((RefasterRule<?, ?>) transformer)
-                            : undesiredRules.add((RefasterRule<?, ?>) transformer));
+                            ? desiredRules.add(transformer)
+                            : undesiredRules.add(transformer))
+                .collect(toImmutableList());
       }
       transformers.put(name, codeTransformer);
     } catch (IOException | ClassNotFoundException e) {
@@ -111,8 +117,21 @@ public class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    // Here try to get a match when you create a TreeLiteral of "2".
     TreeMaker treeMaker = state.getTreeMaker();
+    JCTree.JCLiteral test = treeMaker.Literal("Test");
+
+    CompilationUnitTree compilationUnit = state.getPath().getCompilationUnit();
+    TreePath path = TreePath.getPath(compilationUnit, compilationUnit);
+
+//    new TreePath()
+    TreePath second = new TreePath(compilationUnit);
+
+//    TreePath path = JavacTrees.instance().getPath(taskEvent.getTypeElement());
+//    if (path == null) {
+//      path = new TreePath(taskEvent.getCompilationUnit());
+//    }
+
+    // Here try to get a match when you create a TreeLiteral of "2".
     return Description.NO_MATCH;
   }
 

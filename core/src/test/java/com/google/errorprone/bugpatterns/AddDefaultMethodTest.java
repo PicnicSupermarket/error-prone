@@ -41,6 +41,9 @@ public class AddDefaultMethodTest {
             "  String test() {",
             "    return \"2\";",
             "  }",
+            "  void test2() {",
+            "    test();",
+            "  }",
             "}")
         .doTest();
   }
