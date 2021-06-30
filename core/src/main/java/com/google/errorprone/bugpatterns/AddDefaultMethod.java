@@ -54,14 +54,13 @@ public class AddDefaultMethod extends BugChecker
     implements MethodInvocationTreeMatcher, LiteralTreeMatcher {
 
   public AddDefaultMethod() {
-    ImmutableListMultimap<String, CodeTransformer> stringCodeTransformerImmutableListMultimap =
+    ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
         MIGRATION_TRANSFORMER.get();
 
-    int size = stringCodeTransformerImmutableListMultimap.size();
+    int size = migrationTransformationsMap.size();
   }
 
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
-  private static final String INCLUDED_TEMPLATES_PATTERN_FLAG = "Refaster:NamePattern";
 
   static final Supplier<ImmutableListMultimap<String, CodeTransformer>> MIGRATION_TRANSFORMER =
       Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
@@ -70,9 +69,10 @@ public class AddDefaultMethod extends BugChecker
     ImmutableListMultimap.Builder<String, CodeTransformer> transformers =
         ImmutableListMultimap.builder();
 
-    String refasterUri = "src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster";
+    String refasterUri =
+        "src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster";
     try (FileInputStream is = new FileInputStream(refasterUri);
-         ObjectInputStream ois = new ObjectInputStream(is)) {
+        ObjectInputStream ois = new ObjectInputStream(is)) {
       String name = getRefasterTemplateName(refasterUri).orElseThrow(IllegalStateException::new);
       CodeTransformer codeTransformer = (CodeTransformer) ois.readObject();
       transformers.put(name, codeTransformer);
@@ -82,7 +82,6 @@ public class AddDefaultMethod extends BugChecker
 
     return transformers.build();
   }
-
 
   private static Optional<String> getRefasterTemplateName(String resourceName) {
     int lastPathSeparator = resourceName.lastIndexOf('/');
