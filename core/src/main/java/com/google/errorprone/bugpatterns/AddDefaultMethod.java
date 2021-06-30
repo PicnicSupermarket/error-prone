@@ -23,10 +23,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.ClassPath;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
+import com.google.errorprone.CompositeCodeTransformer;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker.LiteralTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.refaster.RefasterRule;
+import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.tree.TreeMaker;
@@ -38,10 +41,14 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 
@@ -52,6 +59,9 @@ import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
     severity = ERROR)
 public class AddDefaultMethod extends BugChecker
     implements MethodInvocationTreeMatcher, LiteralTreeMatcher {
+
+  public static List<RefasterRule<?, ?>> desiredRules = new ArrayList<>();
+  public static List<RefasterRule<?, ?>> undesiredRules = new ArrayList<>();
 
   public AddDefaultMethod() {
     ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
@@ -75,6 +85,15 @@ public class AddDefaultMethod extends BugChecker
         ObjectInputStream ois = new ObjectInputStream(is)) {
       String name = getRefasterTemplateName(refasterUri).orElseThrow(IllegalStateException::new);
       CodeTransformer codeTransformer = (CodeTransformer) ois.readObject();
+      if (codeTransformer instanceof CompositeCodeTransformer) {
+        ((CompositeCodeTransformer) codeTransformer)
+            .transformers().stream()
+                .map(
+                    transformer ->
+                        transformer.annotations().getInstance(MigrationTemplate.class).value()
+                            ? desiredRules.add((RefasterRule<?, ?>) transformer)
+                            : undesiredRules.add((RefasterRule<?, ?>) transformer));
+      }
       transformers.put(name, codeTransformer);
     } catch (IOException | ClassNotFoundException e) {
       e.printStackTrace();

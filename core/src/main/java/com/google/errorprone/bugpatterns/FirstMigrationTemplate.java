@@ -16,7 +16,6 @@
 
 package com.google.errorprone.bugpatterns;
 
-//import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
