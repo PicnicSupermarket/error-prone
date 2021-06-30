@@ -21,14 +21,15 @@ import java.util.function.Supplier;
 /** Example */
 public class TransformThrowsExceptionTemplateExample {
   public void foo() {
-    Supplier<Integer> supplier = DummyUtil.asSupplier(
-        () -> {
-          if (false) {
-            throw new IllegalStateException();
-          } else {
-            System.out.println("");
-          }
-          return null;
-        });
+    Supplier<Integer> supplier =
+        DummyUtil.asSupplier(
+            () -> {
+              if (false) {
+                throw new IllegalStateException();
+              } else {
+                System.out.println("");
+              }
+              return null;
+            });
   }
 }
