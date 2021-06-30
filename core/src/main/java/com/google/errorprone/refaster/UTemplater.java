@@ -671,12 +671,6 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     }
   }
 
-  @Nullable
-  private Type getType(UClassType targetType) {
-    VisitorState visitorState = VisitorState.createForUtilityPurposes(context);
-    return visitorState.getTypeFromString(targetType.fullyQualifiedClass().toString());
-  }
-
   /**
    * Returns the {@link Class} instance for the {@link Matcher} associated with the provided {@link
    * Matches} annotation. This roundabout solution is recommended and explained by {@link
