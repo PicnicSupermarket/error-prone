@@ -57,15 +57,6 @@ public class AddDefaultMethod extends BugChecker
     ImmutableListMultimap<String, CodeTransformer> stringCodeTransformerImmutableListMultimap =
         MIGRATION_TRANSFORMER.get();
 
-    try (FileInputStream is = new FileInputStream("src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster");
-         // use correct path, now it is not in this dir. perhaps absolute from a root? k
-         ObjectInputStream ois = new ObjectInputStream(is)) {
-      CodeTransformer codeTransformer = (CodeTransformer) ois.readObject();
-      ImmutableClassToInstanceMap<Annotation> annotations = codeTransformer.annotations();
-    } catch (IOException | ClassNotFoundException e) {
-      e.printStackTrace();
-    }
-    
     int size = stringCodeTransformerImmutableListMultimap.size();
   }
 
@@ -79,64 +70,25 @@ public class AddDefaultMethod extends BugChecker
     ImmutableListMultimap.Builder<String, CodeTransformer> transformers =
         ImmutableListMultimap.builder();
 
-    for (ClassPath.ResourceInfo resource : getClassPathResources()) {
-      getRefasterTemplateName(resource)
-          .ifPresent(
-              templateName ->
-                  loadCodeTransformer(resource)
-                      .ifPresent(transformer -> transformers.put(templateName, transformer)));
+    String refasterUri = "src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster";
+    try (FileInputStream is = new FileInputStream(refasterUri);
+         ObjectInputStream ois = new ObjectInputStream(is)) {
+      String name = getRefasterTemplateName(refasterUri).orElseThrow(IllegalStateException::new);
+      CodeTransformer codeTransformer = (CodeTransformer) ois.readObject();
+      transformers.put(name, codeTransformer);
+    } catch (IOException | ClassNotFoundException e) {
+      e.printStackTrace();
     }
 
     return transformers.build();
   }
 
-  private static ImmutableSet<ClassPath.ResourceInfo> getClassPathResources() {
-    try {
-       return ClassPath.from(
-              Objects.requireNonNullElseGet(
-                  AddDefaultMethod.class.getClassLoader(),
-                  () -> ClassLoader.getSystemClassLoader()))
-          .getResources();
-    } catch (IOException e) {
-      throw new UncheckedIOException("Failed to scan classpath for resources", e);
-    }
-  }
 
-  private static Optional<String> getRefasterTemplateName(ClassPath.ResourceInfo resource) {
-    String resourceName = resource.getResourceName();
-    if (!resourceName.contains(REFASTER_TEMPLATE_SUFFIX)) {
-      return Optional.empty();
-    }
-
+  private static Optional<String> getRefasterTemplateName(String resourceName) {
     int lastPathSeparator = resourceName.lastIndexOf('/');
     int beginIndex = lastPathSeparator < 0 ? 0 : lastPathSeparator + 1;
     int endIndex = resourceName.length() - REFASTER_TEMPLATE_SUFFIX.length();
     return Optional.of(resourceName.substring(beginIndex, endIndex));
-  }
-
-  private static Optional<CodeTransformer> loadCodeTransformer(ClassPath.ResourceInfo resource) {
-   try (FileInputStream is = new FileInputStream("FirstMigrationTemplate.refaster");
-        // use correct path, now it is not in this dir. perhaps absolute from a root? k
-    ObjectInputStream ois = new ObjectInputStream(is)) {
-     CodeTransformer codeTransformer = (CodeTransformer) ois.readObject();
-     ImmutableClassToInstanceMap<Annotation> annotations = codeTransformer.annotations();
-   } catch (IOException | ClassNotFoundException e) {
-     e.printStackTrace();
-   }
-
-
-    try (InputStream in = resource.url().openStream();
-        ObjectInputStream ois = new ObjectInputStream(in)) {
-      @SuppressWarnings("BanSerializableRead" /* Part of the Refaster API. */)
-      CodeTransformer codeTransformer = (CodeTransformer) ois.readObject();
-      return Optional.of(codeTransformer);
-    } catch (NoSuchElementException e) {
-      /* For some reason we can't load the resource. Skip it. */
-      // XXX: Should we log this?
-      return Optional.empty();
-    } catch (IOException | ClassNotFoundException e) {
-      throw new IllegalStateException("Can't load `CodeTransformer` from " + resource, e);
-    }
   }
 
   @Override
