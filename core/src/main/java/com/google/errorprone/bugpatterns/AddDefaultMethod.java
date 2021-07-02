@@ -24,6 +24,7 @@ import com.google.common.reflect.ClassPath;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
+import com.google.errorprone.MaskedClassLoader;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker.LiteralTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
@@ -37,6 +38,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
+import com.sun.tools.javac.util.Context;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -75,6 +77,20 @@ public class AddDefaultMethod extends BugChecker
   public AddDefaultMethod() {
     ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
         MIGRATION_TRANSFORMER.get();
+
+
+    Context context = new Context();
+    MaskedClassLoader.preRegisterFileManager(context);
+    // Perhaps should be for `createForUtilityPurposes`.
+    VisitorState state = VisitorState.createForCustomFindingCollection(context, description -> {
+      String test = description.checkName;
+    });
+    TreeMaker treeMaker = state.getTreeMaker();
+    JCTree.JCCompilationUnit jcCompilationUnit = treeMaker.TopLevel(com.sun.tools.javac.util.List.nil());
+    TreePath treePathTry = new TreePath(jcCompilationUnit);
+    JCTree.JCLiteral test = treeMaker.Literal("test");
+
+    TreePath newTreePath = new TreePath(treePathTry, test);
 
     //    CodeTransformer refasterRule = desiredRules.get(0);
     //    refasterRule.apply();
@@ -117,14 +133,16 @@ public class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    TreeMaker treeMaker = state.getTreeMaker();
-    JCTree.JCLiteral test = treeMaker.Literal("Test");
 
-    CompilationUnitTree compilationUnit = state.getPath().getCompilationUnit();
-    TreePath path = TreePath.getPath(compilationUnit, compilationUnit);
+
+
+//    JCTree.JCLiteral test = treeMaker.Literal("Test");
+
+    CompilationUnitTree compilationUnitOther = state.getPath().getCompilationUnit();
+    TreePath path = TreePath.getPath(compilationUnitOther, compilationUnitOther);
 
 //    new TreePath()
-    TreePath second = new TreePath(compilationUnit);
+    TreePath second = new TreePath(compilationUnitOther);
 
 //    TreePath path = JavacTrees.instance().getPath(taskEvent.getTypeElement());
 //    if (path == null) {
