@@ -365,6 +365,12 @@
       <artifactId>compile-testing</artifactId>
       <version>0.18</version>
     </dependency>
+      <dependency>
+          <groupId>com.google.testing.compile</groupId>
+          <artifactId>compile-testing</artifactId>
+          <version>0.18</version>
+          <scope>compile</scope>
+      </dependency>
   </dependencies>
 
   <build>
