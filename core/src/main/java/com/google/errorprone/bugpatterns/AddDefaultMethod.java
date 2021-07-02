@@ -26,9 +26,11 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
+import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker.LiteralTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
+import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.testing.compile.JavaFileObjects;
@@ -36,11 +38,14 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCLiteral;
 import com.sun.tools.javac.tree.JCTree.JCParens;
 import com.sun.tools.javac.tree.TreeMaker;
+import com.sun.tools.javac.util.Context;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -49,18 +54,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
-/** A {@link BugChecker}; see the associated {@link BugPattern} annotation for details. */
 @BugPattern(
     name = "AddDefaultMethod",
-    summary = "First steps in trying to add a default method in an interface",
+    summary = "First steps in trying to add a default method to an interface",
     severity = ERROR)
 public class AddDefaultMethod extends BugChecker
-    implements MethodInvocationTreeMatcher, LiteralTreeMatcher {
+        implements MethodInvocationTreeMatcher, LiteralTreeMatcher, CompilationUnitTreeMatcher {
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
 
-  private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
+private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
       MIGRATION_TRANSFORMER = Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
   private static ImmutableListMultimap<String, CodeTransformer> loadMigrationTransformer() {
@@ -110,38 +115,31 @@ public class AddDefaultMethod extends BugChecker
     ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
         MIGRATION_TRANSFORMER.get();
 
-    //    Context context = new Context();
-    //    MaskedClassLoader.preRegisterFileManager(context);
-    // Perhaps should be for `createForUtilityPurposes`.
-    //    VisitorState state =
-    //            VisitorState.createForCustomFindingCollection(
-    //                    context,
-    //                    description -> {
-    //                      String test = description.checkName;
-    //                    });
     TreeMaker treeMaker = state.getTreeMaker();
     JCCompilationUnit jcCompilationUnit = treeMaker.TopLevel(com.sun.tools.javac.util.List.nil());
-    TreePath treePathTry = new TreePath(jcCompilationUnit);
+    TreePath compUnitTreePath = new TreePath(jcCompilationUnit);
 
-    JCLiteral test = treeMaker.Literal("test");
-    JCParens parens= treeMaker.Parens(test);
+    JCLiteral literal = treeMaker.Literal("test");
+    JCParens parens = treeMaker.Parens(literal);
+    TreePath parensPathWithParent = new TreePath(compUnitTreePath, parens);
 
-    TreePath newTreePath = new TreePath(treePathTry, parens);
+    TreePath literalPathWithParents = new TreePath(parensPathWithParent, literal);
 
-    JavaFileObject source = JavaFileObjects.forSourceString("XXX", parens.toString());
+    JavaFileObject source = JavaFileObjects.forSourceString("XXX", literalPathWithParents.toString());
     jcCompilationUnit.sourcefile = source;
 
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
+    Context updatedContext = prepareContext(state.context, (JCCompilationUnit) literalPathWithParents.getCompilationUnit());
 
     List<Description> matches = new ArrayList<>();
-    transformer.apply(newTreePath, state.context, matches::add);
+    transformer.apply(literalPathWithParents, updatedContext, matches::add);
 
     ///// Ignore stuff below this line.
 
     //    CodeTransformer refasterRule = desiredRules.get(0);
     //    refasterRule.apply();
 
-    //    JCTree.JCLiteral test = treeMaker.Literal("Test");
+    //    JCTree.JCLiteral literal = treeMaker.Literal("Test");
 
     CompilationUnitTree compilationUnitOther = state.getPath().getCompilationUnit();
     TreePath path = TreePath.getPath(compilationUnitOther, compilationUnitOther);
@@ -158,8 +156,23 @@ public class AddDefaultMethod extends BugChecker
     return Description.NO_MATCH;
   }
 
+  private Context prepareContext(Context baseContext, JCCompilationUnit compilationUnit) {
+    Context context = new SubContext(baseContext);
+    if (context.get(JavaFileManager.class) == null) {
+      JavacFileManager.preRegister(context);
+    }
+    context.put(JCCompilationUnit.class, compilationUnit);
+    context.put(Symbol.PackageSymbol.class, compilationUnit.packge);
+    return context;
+  }
+
   @Override
   public Description matchLiteral(LiteralTree tree, VisitorState state) {
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
     return Description.NO_MATCH;
   }
 }
