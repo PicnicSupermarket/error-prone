@@ -16,48 +16,40 @@
 
 package com.google.errorprone.bugpatterns;
 
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static java.util.function.Function.identity;
+
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.reflect.ClassPath;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
-import com.google.errorprone.MaskedClassLoader;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker.LiteralTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import com.google.errorprone.matchers.Description;
-import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
+import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.tree.JCTree.JCLiteral;
+import com.sun.tools.javac.tree.JCTree.JCParens;
 import com.sun.tools.javac.tree.TreeMaker;
-import com.sun.tools.javac.util.Context;
-
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
-import java.io.UncheckedIOException;
-import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import javax.tools.JavaFileObject;
 
 /** A {@link BugChecker}; see the associated {@link BugPattern} annotation for details. */
 @BugPattern(
@@ -66,35 +58,10 @@ import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
     severity = ERROR)
 public class AddDefaultMethod extends BugChecker
     implements MethodInvocationTreeMatcher, LiteralTreeMatcher {
-
-  private static final List<CodeTransformer> desiredRules = new ArrayList<>();
-  private static final List<CodeTransformer> undesiredRules = new ArrayList<>();
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
 
-  static final Supplier<ImmutableListMultimap<String, CodeTransformer>> MIGRATION_TRANSFORMER =
-      Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
-
-  public AddDefaultMethod() {
-    ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
-        MIGRATION_TRANSFORMER.get();
-
-
-    Context context = new Context();
-    MaskedClassLoader.preRegisterFileManager(context);
-    // Perhaps should be for `createForUtilityPurposes`.
-    VisitorState state = VisitorState.createForCustomFindingCollection(context, description -> {
-      String test = description.checkName;
-    });
-    TreeMaker treeMaker = state.getTreeMaker();
-    JCTree.JCCompilationUnit jcCompilationUnit = treeMaker.TopLevel(com.sun.tools.javac.util.List.nil());
-    TreePath treePathTry = new TreePath(jcCompilationUnit);
-    JCTree.JCLiteral test = treeMaker.Literal("test");
-
-    TreePath newTreePath = new TreePath(treePathTry, test);
-
-    //    CodeTransformer refasterRule = desiredRules.get(0);
-    //    refasterRule.apply();
-  }
+  private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
+      MIGRATION_TRANSFORMER = Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
   private static ImmutableListMultimap<String, CodeTransformer> loadMigrationTransformer() {
     ImmutableListMultimap.Builder<String, CodeTransformer> transformers =
@@ -105,23 +72,30 @@ public class AddDefaultMethod extends BugChecker
     try (FileInputStream is = new FileInputStream(refasterUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
       String name = getRefasterTemplateName(refasterUri).orElseThrow(IllegalStateException::new);
-      CodeTransformer codeTransformer = (CodeTransformer) ois.readObject();
-      if (codeTransformer instanceof CompositeCodeTransformer) {
-        ((CompositeCodeTransformer) codeTransformer)
-            .transformers().stream()
-                .map(
-                    transformer ->
-                        transformer.annotations().getInstance(MigrationTemplate.class).value()
-                            ? desiredRules.add(transformer)
-                            : undesiredRules.add(transformer))
-                .collect(toImmutableList());
-      }
-      transformers.put(name, codeTransformer);
+
+      // XXX: Use this instead of the other code.
+      ImmutableSetMultimap<Boolean, CodeTransformer> templates =
+          unwrap((CodeTransformer) ois.readObject())
+              .collect(
+                  toImmutableSetMultimap(
+                      t -> t.annotations().getInstance(MigrationTemplate.class).value(),
+                      identity()));
+
+      transformers.put(name, templates.values().stream().findFirst().get());
     } catch (IOException | ClassNotFoundException e) {
       e.printStackTrace();
     }
 
     return transformers.build();
+  }
+
+  private static Stream<CodeTransformer> unwrap(CodeTransformer codeTransformer) {
+    if (!(codeTransformer instanceof CompositeCodeTransformer)) {
+      return Stream.of(codeTransformer);
+    }
+
+    return ((CompositeCodeTransformer) codeTransformer)
+        .transformers().stream().flatMap(AddDefaultMethod::unwrap);
   }
 
   private static Optional<String> getRefasterTemplateName(String resourceName) {
@@ -133,21 +107,52 @@ public class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
+    ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
+        MIGRATION_TRANSFORMER.get();
 
+    //    Context context = new Context();
+    //    MaskedClassLoader.preRegisterFileManager(context);
+    // Perhaps should be for `createForUtilityPurposes`.
+    //    VisitorState state =
+    //            VisitorState.createForCustomFindingCollection(
+    //                    context,
+    //                    description -> {
+    //                      String test = description.checkName;
+    //                    });
+    TreeMaker treeMaker = state.getTreeMaker();
+    JCCompilationUnit jcCompilationUnit = treeMaker.TopLevel(com.sun.tools.javac.util.List.nil());
+    TreePath treePathTry = new TreePath(jcCompilationUnit);
 
+    JCLiteral test = treeMaker.Literal("test");
+    JCParens parens= treeMaker.Parens(test);
 
-//    JCTree.JCLiteral test = treeMaker.Literal("Test");
+    TreePath newTreePath = new TreePath(treePathTry, parens);
+
+    JavaFileObject source = JavaFileObjects.forSourceString("XXX", parens.toString());
+    jcCompilationUnit.sourcefile = source;
+
+    CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
+
+    List<Description> matches = new ArrayList<>();
+    transformer.apply(newTreePath, state.context, matches::add);
+
+    ///// Ignore stuff below this line.
+
+    //    CodeTransformer refasterRule = desiredRules.get(0);
+    //    refasterRule.apply();
+
+    //    JCTree.JCLiteral test = treeMaker.Literal("Test");
 
     CompilationUnitTree compilationUnitOther = state.getPath().getCompilationUnit();
     TreePath path = TreePath.getPath(compilationUnitOther, compilationUnitOther);
 
-//    new TreePath()
+    //    new TreePath()
     TreePath second = new TreePath(compilationUnitOther);
 
-//    TreePath path = JavacTrees.instance().getPath(taskEvent.getTypeElement());
-//    if (path == null) {
-//      path = new TreePath(taskEvent.getCompilationUnit());
-//    }
+    //    TreePath path = JavacTrees.instance().getPath(taskEvent.getTypeElement());
+    //    if (path == null) {
+    //      path = new TreePath(taskEvent.getCompilationUnit());
+    //    }
 
     // Here try to get a match when you create a TreeLiteral of "2".
     return Description.NO_MATCH;

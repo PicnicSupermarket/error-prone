@@ -360,6 +360,11 @@
       <version>${flogger.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.google.testing.compile</groupId>
+      <artifactId>compile-testing</artifactId>
+      <version>0.18</version>
+    </dependency>
   </dependencies>
 
   <build>
