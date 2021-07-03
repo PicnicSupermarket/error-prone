@@ -127,6 +127,9 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
 
     JavaFileObject source = JavaFileObjects.forSourceString("XXX", literalPathWithParents.toString());
     jcCompilationUnit.sourcefile = source;
+    jcCompilationUnit.defs = jcCompilationUnit.defs.append(parens);
+
+  // JCCompilationUnit may not be empty, aka "". Fill it.
 
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
     Context updatedContext = prepareContext(state.context, (JCCompilationUnit) literalPathWithParents.getCompilationUnit());
