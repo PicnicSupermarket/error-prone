@@ -42,11 +42,11 @@ public class AddDefaultMethodTest {
         .addOutputLines(
             "Foo.java",
             "interface Foo {",
-            "  default java.lang.Integer bar() {",
+            "  default java.lang.Integer bar_migrated() {",
             "    return Integer.valueOf((\"test\"));",
             "  }",
             "",
-            " Number baz();",
+            "  Number baz();",
             "}")
         .doTest();
   }
