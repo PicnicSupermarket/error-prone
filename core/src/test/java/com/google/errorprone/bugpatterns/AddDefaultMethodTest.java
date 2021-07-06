@@ -16,6 +16,7 @@
 
 package com.google.errorprone.bugpatterns;
 
+import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,24 +28,43 @@ public class AddDefaultMethodTest {
   private final CompilationTestHelper compilationHelper =
       CompilationTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
+  private final BugCheckerRefactoringTestHelper helper =
+      BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
+
   private static final String[] FOO_INTERFACE = {
     "interface Foo {", "  String bar();", " Number baz();", "}",
   };
 
   @Test
   public void negative_thenReturn() {
-    compilationHelper
-        .addSourceLines("Foo.java", FOO_INTERFACE)
-//        .addSourceLines(
-//            "Test.java",
-//            "class Test {",
-//            "  String test() {",
-//            "    return \"2\";",
-//            "  }",
-//            "  void test2() {",
-//            "    test();",
-//            "  }",
-//            "}")
+    helper
+        .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
+        .addOutputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  default java.lang.Integer bar() {",
+            "    return Integer.valueOf((\"test\"));",
+            "  }",
+            "",
+            " Number baz();",
+            "}")
         .doTest();
   }
+
+  //  @Test
+  //  public void negative_thenReturn() {
+  //    compilationHelper
+  //        .addSourceLines("Foo.java", FOO_INTERFACE)
+  ////        .addSourceLines(
+  ////            "Test.java",
+  ////            "class Test {",
+  ////            "  String test() {",
+  ////            "    return \"2\";",
+  ////            "  }",
+  ////            "  void test2() {",
+  ////            "    test();",
+  ////            "  }",
+  ////            "}")
+  //        .doTest();
+  //  }
 }
