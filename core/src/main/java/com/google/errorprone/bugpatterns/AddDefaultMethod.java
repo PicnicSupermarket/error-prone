@@ -18,6 +18,7 @@ package com.google.errorprone.bugpatterns;
 
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static com.sun.tools.javac.tree.JCTree.*;
 import static java.util.function.Function.identity;
 
 import com.google.common.base.Suppliers;
@@ -40,11 +41,18 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.file.JavacFileManager;
+import com.sun.tools.javac.parser.JavacParser;
+import com.sun.tools.javac.parser.ParserFactory;
+import com.sun.tools.javac.tree.EndPosTable;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCLiteral;
 import com.sun.tools.javac.tree.JCTree.JCParens;
+import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.IntHashTable;
+import com.sun.tools.javac.util.Position;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -121,9 +129,12 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
 
     JCLiteral literal = treeMaker.Literal("test");
     JCParens parens = treeMaker.Parens(literal);
+    treeMaker.Return(parens);
     TreePath parensPathWithParent = new TreePath(compUnitTreePath, parens);
 
     TreePath literalPathWithParents = new TreePath(parensPathWithParent, literal);
+
+
 
     JavaFileObject source = JavaFileObjects.forSourceString("XXX", literalPathWithParents.toString());
     jcCompilationUnit.sourcefile = source;
@@ -133,6 +144,23 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
 
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
     Context updatedContext = prepareContext(state.context, (JCCompilationUnit) literalPathWithParents.getCompilationUnit());
+
+    JavacParser parser =
+            ParserFactory.instance(updatedContext)
+                    .newParser(
+                            literalPathWithParents.toString(),
+                            /* keepDocComments= */ true,
+                            /* keepEndPos= */ true,
+                            /* keepLineMap= */ true);
+
+    JCStatement jcStatement = parser.parseSimpleStatement();
+
+    SimpleEndPosTable simpleEndPosTable = new SimpleEndPosTable(parser);
+    simpleEndPosTable.storeEnd(jcStatement, literalPathWithParents.toString().length());
+
+
+//    EndPosTable endPosTable = ((JCCompilationUnit) source).endPositions;
+    jcCompilationUnit.endPositions = simpleEndPosTable;
 
     List<Description> matches = new ArrayList<>();
     transformer.apply(literalPathWithParents, updatedContext, matches::add);
@@ -177,5 +205,69 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
   @Override
   public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
     return Description.NO_MATCH;
+  }
+
+  protected static class SimpleEndPosTable extends AbstractEndPosTable {
+
+    private final IntHashTable endPosMap;
+
+    SimpleEndPosTable(JavacParser parser) {
+      super(parser);
+      endPosMap = new IntHashTable();
+    }
+
+    public void storeEnd(JCTree tree, int endpos) {
+      endPosMap.putAtIndex(tree, errorEndPos > endpos ? errorEndPos : endpos,
+              endPosMap.lookup(tree));
+    }
+
+    protected <T extends JCTree> T to(T t) {
+      storeEnd(t, parser.token().endPos);
+      return t;
+    }
+
+    protected <T extends JCTree> T toP(T t) {
+//      storeEnd(t, parser.().prevToken().endPos);
+      return t;
+    }
+
+    public int getEndPos(JCTree tree) {
+      int value = endPosMap.getFromIndex(endPosMap.lookup(tree));
+      // As long as Position.NOPOS==-1, this just returns value.
+      return (value == -1) ? Position.NOPOS : value;
+    }
+
+    public int replaceTree(JCTree oldTree, JCTree newTree) {
+      int pos = endPosMap.remove(oldTree);
+      if (pos != -1) {
+        storeEnd(newTree, pos);
+        return pos;
+      }
+      return Position.NOPOS;
+    }
+  }
+
+  protected abstract static class AbstractEndPosTable implements EndPosTable {
+    protected JavacParser parser;
+    public int errorEndPos = -1;
+
+    public AbstractEndPosTable(JavacParser parser) {
+      this.parser = parser;
+    }
+
+    protected abstract <T extends JCTree> T to(T var1);
+
+    protected abstract <T extends JCTree> T toP(T var1);
+
+    public void setErrorEndPos(int errPos) {
+      if (errPos > this.errorEndPos) {
+        this.errorEndPos = errPos;
+      }
+
+    }
+
+    public void setParser(JavacParser parser) {
+      this.parser = parser;
+    }
   }
 }
