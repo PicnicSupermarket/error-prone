@@ -62,6 +62,7 @@ import com.sun.tools.javac.tree.JCTree.JCParens;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
+import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Position;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -164,7 +165,7 @@ public final class AddDefaultMethod extends BugChecker
     JavaFileObject javaFileObject = null;
     try {
       javaFileObject = applyDiff(source, compilationUnit, matches.get(0));
-      transformationString = javaFileObject.getCharContent(false).toString();
+      transformationString = javaFileObject.getCharContent(true).toString();
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to apply diff", e);
     }
@@ -174,56 +175,50 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
+    TreeMaker treeMaker = state.getTreeMaker();
     Symbol.ClassSymbol interfaceSymbol = ASTHelpers.getSymbol(tree);
-    boolean isInterface = interfaceSymbol.isInterface();
+    ImmutableList<MethodSymbol> symbolStream = getMethodsOfInterfaceToMigrate(state.getTypeFromString("java.lang.String"), interfaceSymbol);
 
-    Scope.WriteableScope members = interfaceSymbol.members();
+    Type newReturnType = getNewReturnType(state.context, state.getTypeFromString("java.lang.Integer"));
 
+    MethodSymbol sym = symbolStream.get(0);
+    sym.flags_field = DEFAULT;
+    sym.name = sym.name.append(Names.instance(state.context).fromString("_migrated"));
+
+    JCTree.JCMethodDecl newMethodDecl = treeMaker.MethodDef(sym, newReturnType, getBlockWithReturnNull(treeMaker));
+
+    String fullyMigratedSourceCode =
+        newMethodDecl.toString().replace("\"null\"", transformationString);
+
+    if (interfaceSymbol.isInterface()) {
+      return buildDescription(tree)
+          .addFix(SuggestedFix.replace(tree.getMembers().get(0), fullyMigratedSourceCode))
+          .build();
+    }
+    return Description.NO_MATCH;
+  }
+
+  private ImmutableList<MethodSymbol> getMethodsOfInterfaceToMigrate(Type migrateFromType, Symbol.ClassSymbol interfaceSymbol) {
     Iterable<Symbol> symbols = interfaceSymbol.members().getSymbols(Scope.LookupKind.NON_RECURSIVE);
 
     ImmutableList<MethodSymbol> symbolStream =
         Streams.stream(symbols)
             .filter(MethodSymbol.class::isInstance)
             .map(MethodSymbol.class::cast)
-            .filter(msym -> msym.getReturnType() == state.getTypeFromString("java.lang.String"))
+            .filter(msym -> msym.getReturnType() == migrateFromType)
             .collect(toImmutableList());
-
-    TreeMaker treeMaker = state.getTreeMaker();
-    JCTree.JCBlock block = getBlockWithReturnNull(treeMaker);
-
-    Symtab instance = Symtab.instance(state.context);
-    Type methodType =
-        new Type.MethodType(
-            com.sun.tools.javac.util.List.<Type>nil(),
-            state.getTypeFromString("java.lang.Integer"),
-            com.sun.tools.javac.util.List.<Type>nil(),
-            instance.methodClass);
-
-    MethodSymbol sym = symbolStream.get(0);
-    sym.flags_field = sym.flags_field |= DEFAULT;
-    sym.flags_field  &= ~ABSTRACT;
-    sym.flags_field  &= ~PUBLIC;
-    JCTree.JCMethodDecl newMethodDecl = treeMaker.MethodDef(sym, methodType, block);
-
-    String migratedSource = newMethodDecl.toString().replace("\"null\"", transformationString);
-
-    if (isInterface) {
-      return buildDescription(tree)
-          .addFix(SuggestedFix.replace(tree.getMembers().get(0), migratedSource))
-          .build();
-    }
-    return Description.NO_MATCH;
+    return symbolStream;
   }
-  // SuggestedFix.replace(tree.getMembers().get(0), newMethodDecl.toString().replace("\"null\"", transformationString))
 
-//  int adjustFlags(final long flags) {
-//    int result = (int)flags;
-//
-//    if ((flags & DEFAULT) != 0)
-//      result &= ~ABSTRACT;
-//
-//    return result;
-//  }
+  private Type getNewReturnType(Context context, Type newReturnType) {
+    Symtab instance = Symtab.instance(context);
+    return new Type.MethodType(
+        com.sun.tools.javac.util.List.<Type>nil(),
+        newReturnType,
+        com.sun.tools.javac.util.List.<Type>nil(),
+        instance.methodClass);
+  }
+
   private JCTree.JCBlock getBlockWithReturnNull(TreeMaker treeMaker) {
     JCLiteral literal = treeMaker.Literal("null");
     JCReturn aReturn = treeMaker.Return(literal);
