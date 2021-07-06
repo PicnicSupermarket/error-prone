@@ -16,15 +16,19 @@
 
 package com.google.errorprone.bugpatterns;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.sun.tools.javac.code.Flags.*;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static java.util.function.Function.identity;
 
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
@@ -33,16 +37,22 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
 import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
-import com.google.errorprone.bugpatterns.BugChecker.LiteralTreeMatcher;
-import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
+import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
+import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
+import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
@@ -70,11 +80,12 @@ import javax.tools.JavaFileObject;
     summary = "First steps in trying to add a default method to an interface",
     severity = ERROR)
 public final class AddDefaultMethod extends BugChecker
-    implements MethodInvocationTreeMatcher, LiteralTreeMatcher, CompilationUnitTreeMatcher {
+    implements ClassTreeMatcher, CompilationUnitTreeMatcher {
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
 
   private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
       MIGRATION_TRANSFORMER = Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
+  private String transformationString;
 
   private static ImmutableListMultimap<String, CodeTransformer> loadMigrationTransformer() {
     ImmutableListMultimap.Builder<String, CodeTransformer> transformers =
@@ -119,7 +130,7 @@ public final class AddDefaultMethod extends BugChecker
   }
 
   @Override
-  public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
+  public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
     ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
         MIGRATION_TRANSFORMER.get();
 
@@ -129,21 +140,19 @@ public final class AddDefaultMethod extends BugChecker
 
     JCLiteral literal = treeMaker.Literal("test");
     JCParens parens = treeMaker.Parens(literal);
-    JCReturn aReturn = treeMaker.Return(parens);
 
-    TreePath returnPathWithExpr = new TreePath(compUnitTreePath, aReturn);
-    TreePath parensPathWithParent = new TreePath(returnPathWithExpr, parens);
+    TreePath parensPathWithParent = new TreePath(compUnitTreePath, parens);
     TreePath literalPathWithParents = new TreePath(parensPathWithParent, literal);
 
     SimpleEndPosTable endPosTable = new SimpleEndPosTable();
-    String fullSource = aReturn.getTree().toString();
-    endPosTable.storeEnd(aReturn, fullSource.length());
+    String fullSource = parens.getTree().toString();
+    endPosTable.storeEnd(parens, fullSource.length());
     endPosTable.storeEnd(
         literal, fullSource.lastIndexOf(literal.toString()) + literal.toString().length());
 
     JavaFileObject source = JavaFileObjects.forSourceString("XXX", fullSource);
     compilationUnit.sourcefile = source;
-    compilationUnit.defs = compilationUnit.defs.append(aReturn);
+    compilationUnit.defs = compilationUnit.defs.append(parens);
     compilationUnit.endPositions = endPosTable;
 
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
@@ -155,11 +164,75 @@ public final class AddDefaultMethod extends BugChecker
     JavaFileObject javaFileObject = null;
     try {
       javaFileObject = applyDiff(source, compilationUnit, matches.get(0));
+      transformationString = javaFileObject.getCharContent(false).toString();
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to apply diff", e);
     }
 
     return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchClass(ClassTree tree, VisitorState state) {
+    Symbol.ClassSymbol interfaceSymbol = ASTHelpers.getSymbol(tree);
+    boolean isInterface = interfaceSymbol.isInterface();
+
+    Scope.WriteableScope members = interfaceSymbol.members();
+
+    Iterable<Symbol> symbols = interfaceSymbol.members().getSymbols(Scope.LookupKind.NON_RECURSIVE);
+
+    ImmutableList<MethodSymbol> symbolStream =
+        Streams.stream(symbols)
+            .filter(MethodSymbol.class::isInstance)
+            .map(MethodSymbol.class::cast)
+            .filter(msym -> msym.getReturnType() == state.getTypeFromString("java.lang.String"))
+            .collect(toImmutableList());
+
+    MethodSymbol methodSymbol = symbolStream.get(0);
+    //    methodSymbol
+
+    TreeMaker treeMaker = state.getTreeMaker();
+    JCTree.JCBlock block = getBlockWithReturnNull(treeMaker);
+
+    Symtab instance = Symtab.instance(state.context);
+    Type methodType =
+        new Type.MethodType(
+            com.sun.tools.javac.util.List.<Type>nil(),
+            state.getTypeFromString("java.lang.Integer"),
+            com.sun.tools.javac.util.List.<Type>nil(),
+            instance.methodClass);
+
+    //    JCTree.JCExpression returnType =
+    // treeMaker.Type(state.getTypeFromString("java.lang.Integer"));
+    JCTree.JCMethodDecl newMethodDecl = treeMaker.MethodDef(symbolStream.get(0), methodType, block);
+    newMethodDecl.sym.flags_field = newMethodDecl.sym.flags() + DEFAULT;
+    MethodSymbol symbol = ASTHelpers.getSymbol(newMethodDecl);
+    if (isInterface) {
+      Symbol.ClassSymbol defaultImplementation =
+          new Symbol.ClassSymbol(
+              PUBLIC | DEFAULT, interfaceSymbol.name, interfaceSymbol.type, interfaceSymbol.owner);
+      return buildDescription(tree)
+          .addFix(SuggestedFix.replace(tree.getMembers().get(0), defaultImplementation.toString()))
+          .build();
+    }
+    return Description.NO_MATCH;
+  }
+
+  private JCTree.JCBlock getBlockWithReturnNull(TreeMaker treeMaker) {
+    JCLiteral literal = treeMaker.Literal("null");
+    JCReturn aReturn = treeMaker.Return(literal);
+    return treeMaker.Block(0, com.sun.tools.javac.util.List.from(new JCReturn[] {aReturn}));
+  }
+
+  private Context prepareContext(Context baseContext, JCCompilationUnit compilationUnit) {
+    Context context = new SubContext(baseContext);
+    if (context.get(JavaFileManager.class) == null) {
+      // XXX: Review whether we can drop this.
+      JavacFileManager.preRegister(context);
+    }
+    context.put(JCCompilationUnit.class, compilationUnit);
+    context.put(Symbol.PackageSymbol.class, compilationUnit.packge);
+    return context;
   }
 
   private JavaFileObject applyDiff(
@@ -174,27 +247,6 @@ public final class AddDefaultMethod extends BugChecker
     diff.applyDifferences(sourceFile);
 
     return JavaFileObjects.forSourceString("XXX", sourceFile.getSourceText());
-  }
-
-  private Context prepareContext(Context baseContext, JCCompilationUnit compilationUnit) {
-    Context context = new SubContext(baseContext);
-    if (context.get(JavaFileManager.class) == null) {
-      // XXX: Review whether we can drop this.
-      JavacFileManager.preRegister(context);
-    }
-    context.put(JCCompilationUnit.class, compilationUnit);
-    context.put(Symbol.PackageSymbol.class, compilationUnit.packge);
-    return context;
-  }
-
-  @Override
-  public Description matchLiteral(LiteralTree tree, VisitorState state) {
-    return Description.NO_MATCH;
-  }
-
-  @Override
-  public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
-    return Description.NO_MATCH;
   }
 
   static final class SimpleEndPosTable implements EndPosTable {
