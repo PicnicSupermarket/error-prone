@@ -188,9 +188,6 @@ public final class AddDefaultMethod extends BugChecker
             .filter(msym -> msym.getReturnType() == state.getTypeFromString("java.lang.String"))
             .collect(toImmutableList());
 
-    MethodSymbol methodSymbol = symbolStream.get(0);
-    //    methodSymbol
-
     TreeMaker treeMaker = state.getTreeMaker();
     JCTree.JCBlock block = getBlockWithReturnNull(treeMaker);
 
@@ -202,22 +199,31 @@ public final class AddDefaultMethod extends BugChecker
             com.sun.tools.javac.util.List.<Type>nil(),
             instance.methodClass);
 
-    //    JCTree.JCExpression returnType =
-    // treeMaker.Type(state.getTypeFromString("java.lang.Integer"));
-    JCTree.JCMethodDecl newMethodDecl = treeMaker.MethodDef(symbolStream.get(0), methodType, block);
-    newMethodDecl.sym.flags_field = newMethodDecl.sym.flags() + DEFAULT;
-    MethodSymbol symbol = ASTHelpers.getSymbol(newMethodDecl);
+    MethodSymbol sym = symbolStream.get(0);
+    sym.flags_field = sym.flags_field |= DEFAULT;
+    sym.flags_field  &= ~ABSTRACT;
+    sym.flags_field  &= ~PUBLIC;
+    JCTree.JCMethodDecl newMethodDecl = treeMaker.MethodDef(sym, methodType, block);
+
+    String migratedSource = newMethodDecl.toString().replace("\"null\"", transformationString);
+
     if (isInterface) {
-      Symbol.ClassSymbol defaultImplementation =
-          new Symbol.ClassSymbol(
-              PUBLIC | DEFAULT, interfaceSymbol.name, interfaceSymbol.type, interfaceSymbol.owner);
       return buildDescription(tree)
-          .addFix(SuggestedFix.replace(tree.getMembers().get(0), defaultImplementation.toString()))
+          .addFix(SuggestedFix.replace(tree.getMembers().get(0), migratedSource))
           .build();
     }
     return Description.NO_MATCH;
   }
+  // SuggestedFix.replace(tree.getMembers().get(0), newMethodDecl.toString().replace("\"null\"", transformationString))
 
+//  int adjustFlags(final long flags) {
+//    int result = (int)flags;
+//
+//    if ((flags & DEFAULT) != 0)
+//      result &= ~ABSTRACT;
+//
+//    return result;
+//  }
   private JCTree.JCBlock getBlockWithReturnNull(TreeMaker treeMaker) {
     JCLiteral literal = treeMaker.Literal("null");
     JCReturn aReturn = treeMaker.Return(literal);
