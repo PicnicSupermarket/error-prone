@@ -129,61 +129,32 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
 
     JCLiteral literal = treeMaker.Literal("test");
     JCParens parens = treeMaker.Parens(literal);
-    treeMaker.Return(parens);
-    TreePath parensPathWithParent = new TreePath(compUnitTreePath, parens);
+    JCReturn aReturn = treeMaker.Return(parens);
 
+    TreePath returnPathWithExpr = new TreePath(compUnitTreePath, aReturn);
+    TreePath parensPathWithParent = new TreePath(returnPathWithExpr, parens);
     TreePath literalPathWithParents = new TreePath(parensPathWithParent, literal);
 
-
+    SimpleEndPosTable endPosTable = new SimpleEndPosTable(null);
+    endPosTable.storeEnd(aReturn, aReturn.expr.toString().length());
+    endPosTable.storeEnd(literal, aReturn.getTree().toString().lastIndexOf(literal.toString()) + literal.toString().length());
 
     JavaFileObject source = JavaFileObjects.forSourceString("XXX", literalPathWithParents.toString());
     jcCompilationUnit.sourcefile = source;
-    jcCompilationUnit.defs = jcCompilationUnit.defs.append(parens);
+    jcCompilationUnit.defs = jcCompilationUnit.defs.append(aReturn);
+    jcCompilationUnit.endPositions = endPosTable;
 
-  // JCCompilationUnit may not be empty, aka "". Fill it.
+    // JCCompilationUnit may not be empty, aka "". Fill it.
 
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
     Context updatedContext = prepareContext(state.context, (JCCompilationUnit) literalPathWithParents.getCompilationUnit());
 
-    JavacParser parser =
-            ParserFactory.instance(updatedContext)
-                    .newParser(
-                            literalPathWithParents.toString(),
-                            /* keepDocComments= */ true,
-                            /* keepEndPos= */ true,
-                            /* keepLineMap= */ true);
-
-    JCStatement jcStatement = parser.parseSimpleStatement();
-
-    SimpleEndPosTable simpleEndPosTable = new SimpleEndPosTable(parser);
-    simpleEndPosTable.storeEnd(jcStatement, literalPathWithParents.toString().length());
-
-
-//    EndPosTable endPosTable = ((JCCompilationUnit) source).endPositions;
-    jcCompilationUnit.endPositions = simpleEndPosTable;
 
     List<Description> matches = new ArrayList<>();
     transformer.apply(literalPathWithParents, updatedContext, matches::add);
 
-    ///// Ignore stuff below this line.
 
-    //    CodeTransformer refasterRule = desiredRules.get(0);
-    //    refasterRule.apply();
-
-    //    JCTree.JCLiteral literal = treeMaker.Literal("Test");
-
-    CompilationUnitTree compilationUnitOther = state.getPath().getCompilationUnit();
-    TreePath path = TreePath.getPath(compilationUnitOther, compilationUnitOther);
-
-    //    new TreePath()
-    TreePath second = new TreePath(compilationUnitOther);
-
-    //    TreePath path = JavacTrees.instance().getPath(taskEvent.getTypeElement());
-    //    if (path == null) {
-    //      path = new TreePath(taskEvent.getCompilationUnit());
-    //    }
-
-    // Here try to get a match when you create a TreeLiteral of "2".
+    // In this BugPattern we try to get a match when you create a TreeLiteral of "2".
     return Description.NO_MATCH;
   }
 
@@ -226,11 +197,6 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
       return t;
     }
 
-    protected <T extends JCTree> T toP(T t) {
-//      storeEnd(t, parser.().prevToken().endPos);
-      return t;
-    }
-
     public int getEndPos(JCTree tree) {
       int value = endPosMap.getFromIndex(endPosMap.lookup(tree));
       // As long as Position.NOPOS==-1, this just returns value.
@@ -257,17 +223,5 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
 
     protected abstract <T extends JCTree> T to(T var1);
 
-    protected abstract <T extends JCTree> T toP(T var1);
-
-    public void setErrorEndPos(int errPos) {
-      if (errPos > this.errorEndPos) {
-        this.errorEndPos = errPos;
-      }
-
-    }
-
-    public void setParser(JavacParser parser) {
-      this.parser = parser;
-    }
   }
 }
