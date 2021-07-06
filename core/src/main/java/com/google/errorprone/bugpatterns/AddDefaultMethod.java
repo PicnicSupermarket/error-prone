@@ -45,14 +45,12 @@ import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
@@ -177,16 +175,21 @@ public final class AddDefaultMethod extends BugChecker
   public Description matchClass(ClassTree tree, VisitorState state) {
     TreeMaker treeMaker = state.getTreeMaker();
     Symbol.ClassSymbol interfaceSymbol = ASTHelpers.getSymbol(tree);
-    ImmutableList<MethodSymbol> symbolStream = getMethodsOfInterfaceToMigrate(state.getTypeFromString("java.lang.String"), interfaceSymbol);
+    ImmutableList<MethodSymbol> symbolStream =
+        getMethodsOfInterfaceToMigrate(
+            state.getTypeFromString("java.lang.String"), interfaceSymbol);
 
-    Type newReturnType = getNewReturnType(state.context, state.getTypeFromString("java.lang.Integer"));
+    Type newReturnType =
+        getMethodTypeWithNewReturnType(state.context, state.getTypeFromString("java.lang.Integer"));
 
     MethodSymbol sym = symbolStream.get(0);
     sym.flags_field = DEFAULT;
     sym.name = sym.name.append(Names.instance(state.context).fromString("_migrated"));
 
-    JCTree.JCMethodDecl newMethodDecl = treeMaker.MethodDef(sym, newReturnType, getBlockWithReturnNull(treeMaker));
+    JCTree.JCMethodDecl newMethodDecl =
+        treeMaker.MethodDef(sym, newReturnType, getBlockWithReturnNull(treeMaker));
 
+    // how we know what to match instead of `(\"test\")` in normal cases?
     String fullyMigratedSourceCode =
         newMethodDecl.toString().replace("\"null\"", transformationString);
 
@@ -198,24 +201,25 @@ public final class AddDefaultMethod extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private ImmutableList<MethodSymbol> getMethodsOfInterfaceToMigrate(Type migrateFromType, Symbol.ClassSymbol interfaceSymbol) {
+  private ImmutableList<MethodSymbol> getMethodsOfInterfaceToMigrate(
+      Type migrateFromType, Symbol.ClassSymbol interfaceSymbol) {
     Iterable<Symbol> symbols = interfaceSymbol.members().getSymbols(Scope.LookupKind.NON_RECURSIVE);
 
     ImmutableList<MethodSymbol> symbolStream =
         Streams.stream(symbols)
             .filter(MethodSymbol.class::isInstance)
             .map(MethodSymbol.class::cast)
-            .filter(msym -> msym.getReturnType() == migrateFromType)
+            .filter(methodSymbol -> methodSymbol.getReturnType() == migrateFromType)
             .collect(toImmutableList());
     return symbolStream;
   }
 
-  private Type getNewReturnType(Context context, Type newReturnType) {
+  private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {
     Symtab instance = Symtab.instance(context);
     return new Type.MethodType(
-        com.sun.tools.javac.util.List.<Type>nil(),
+        com.sun.tools.javac.util.List.nil(),
         newReturnType,
-        com.sun.tools.javac.util.List.<Type>nil(),
+        com.sun.tools.javac.util.List.nil(),
         instance.methodClass);
   }
 
