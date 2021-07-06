@@ -18,7 +18,8 @@ package com.google.errorprone.bugpatterns;
 
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
-import static com.sun.tools.javac.tree.JCTree.*;
+import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static java.util.function.Function.identity;
 
 import com.google.common.base.Suppliers;
@@ -27,20 +28,15 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
-import com.google.errorprone.ErrorProneOptions;
-import com.google.errorprone.ImportOrderParser;
 import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
-import com.google.errorprone.apply.ImportOrganizer;
 import com.google.errorprone.apply.SourceFile;
+import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.LiteralTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
-import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
-import com.google.errorprone.scanner.ErrorProneScannerTransformer;
-import com.google.errorprone.scanner.ScannerSupplier;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LiteralTree;
@@ -48,24 +44,19 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.file.JavacFileManager;
-import com.sun.tools.javac.parser.JavacParser;
-import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCLiteral;
 import com.sun.tools.javac.tree.JCTree.JCParens;
-import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.Position;
-
-import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.nio.file.FileSystemException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -78,11 +69,11 @@ import javax.tools.JavaFileObject;
     name = "AddDefaultMethod",
     summary = "First steps in trying to add a default method to an interface",
     severity = ERROR)
-public class AddDefaultMethod extends BugChecker
-        implements MethodInvocationTreeMatcher, LiteralTreeMatcher, CompilationUnitTreeMatcher {
+public final class AddDefaultMethod extends BugChecker
+    implements MethodInvocationTreeMatcher, LiteralTreeMatcher, CompilationUnitTreeMatcher {
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
 
-private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
+  private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
       MIGRATION_TRANSFORMER = Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
   private static ImmutableListMultimap<String, CodeTransformer> loadMigrationTransformer() {
@@ -133,8 +124,8 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
         MIGRATION_TRANSFORMER.get();
 
     TreeMaker treeMaker = state.getTreeMaker();
-    JCCompilationUnit jcCompilationUnit = treeMaker.TopLevel(com.sun.tools.javac.util.List.nil());
-    TreePath compUnitTreePath = new TreePath(jcCompilationUnit);
+    JCCompilationUnit compilationUnit = treeMaker.TopLevel(com.sun.tools.javac.util.List.nil());
+    TreePath compUnitTreePath = new TreePath(compilationUnit);
 
     JCLiteral literal = treeMaker.Literal("test");
     JCParens parens = treeMaker.Parens(literal);
@@ -144,55 +135,51 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
     TreePath parensPathWithParent = new TreePath(returnPathWithExpr, parens);
     TreePath literalPathWithParents = new TreePath(parensPathWithParent, literal);
 
-    SimpleEndPosTable endPosTable = new SimpleEndPosTable(null);
-    endPosTable.storeEnd(aReturn, aReturn.expr.toString().length());
-    endPosTable.storeEnd(literal, aReturn.getTree().toString().lastIndexOf(literal.toString()) + literal.toString().length());
+    SimpleEndPosTable endPosTable = new SimpleEndPosTable();
+    String fullSource = aReturn.getTree().toString();
+    endPosTable.storeEnd(aReturn, fullSource.length());
+    endPosTable.storeEnd(
+        literal, fullSource.lastIndexOf(literal.toString()) + literal.toString().length());
 
-                                                                                  // literalPathWithParents.getCompilationUnit().toString()  -
-    JavaFileObject source = JavaFileObjects.forSourceString("XXX", returnPathWithExpr.getLeaf().toString());
-    jcCompilationUnit.sourcefile = source;
-    jcCompilationUnit.defs = jcCompilationUnit.defs.append(aReturn);
-    jcCompilationUnit.endPositions = endPosTable;
+    JavaFileObject source = JavaFileObjects.forSourceString("XXX", fullSource);
+    compilationUnit.sourcefile = source;
+    compilationUnit.defs = compilationUnit.defs.append(aReturn);
+    compilationUnit.endPositions = endPosTable;
 
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
-    Context updatedContext = prepareContext(state.context, (JCCompilationUnit) literalPathWithParents.getCompilationUnit());
-
-    JCCompilationUnit literalCompUnit = (JCCompilationUnit) literalPathWithParents.getCompilationUnit();
-    literalCompUnit.sourcefile = source;
-    literalCompUnit.defs = literalCompUnit.defs.append(literal);
-    literalCompUnit.endPositions = endPosTable;
+    Context updatedContext = prepareContext(state.context, compilationUnit);
 
     List<Description> matches = new ArrayList<>();
     transformer.apply(literalPathWithParents, updatedContext, matches::add);
 
     JavaFileObject javaFileObject = null;
     try {
-      javaFileObject = applyDiff(source, jcCompilationUnit, matches.get(0));
+      javaFileObject = applyDiff(source, compilationUnit, matches.get(0));
     } catch (IOException e) {
-      e.printStackTrace();
+      throw new UncheckedIOException("Failed to apply diff", e);
     }
 
     return Description.NO_MATCH;
   }
 
   private JavaFileObject applyDiff(
-          JavaFileObject sourceFileObject, JCCompilationUnit tree, Description description) throws IOException {
-
-    ImportOrganizer importOrganizer = ImportOrderParser.getImportOrganizer("static-first");
-    final DescriptionBasedDiff diff = DescriptionBasedDiff.create(tree, importOrganizer);
+      JavaFileObject sourceFileObject, JCCompilationUnit compilationUnit, Description description)
+      throws IOException {
+    DescriptionBasedDiff diff =
+        DescriptionBasedDiff.create(compilationUnit, STATIC_FIRST_ORGANIZER);
+    // XXX: Make nicer.
     diff.handleFix(description.fixes.get(0));
 
     SourceFile sourceFile = SourceFile.create(sourceFileObject);
     diff.applyDifferences(sourceFile);
 
-    JavaFileObject transformed =
-            JavaFileObjects.forSourceString("XXX", sourceFile.getSourceText());
-    return transformed;
+    return JavaFileObjects.forSourceString("XXX", sourceFile.getSourceText());
   }
 
   private Context prepareContext(Context baseContext, JCCompilationUnit compilationUnit) {
     Context context = new SubContext(baseContext);
     if (context.get(JavaFileManager.class) == null) {
+      // XXX: Review whether we can drop this.
       JavacFileManager.preRegister(context);
     }
     context.put(JCCompilationUnit.class, compilationUnit);
@@ -210,50 +197,29 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
     return Description.NO_MATCH;
   }
 
-  protected static class SimpleEndPosTable extends AbstractEndPosTable {
+  static final class SimpleEndPosTable implements EndPosTable {
+    private final IntHashTable endPosMap = new IntHashTable();
 
-    private final IntHashTable endPosMap;
-
-    SimpleEndPosTable(JavacParser parser) {
-      super(parser);
-      endPosMap = new IntHashTable();
+    @Override
+    public void storeEnd(JCTree tree, int endPos) {
+      endPosMap.putAtIndex(tree, endPos, endPosMap.lookup(tree));
     }
 
-    public void storeEnd(JCTree tree, int endpos) {
-      endPosMap.putAtIndex(tree, errorEndPos > endpos ? errorEndPos : endpos,
-              endPosMap.lookup(tree));
-    }
-
-    protected <T extends JCTree> T to(T t) {
-      storeEnd(t, parser.token().endPos);
-      return t;
-    }
-
+    @Override
     public int getEndPos(JCTree tree) {
       int value = endPosMap.getFromIndex(endPosMap.lookup(tree));
-      // As long as Position.NOPOS==-1, this just returns value.
       return (value == -1) ? Position.NOPOS : value;
     }
 
+    @Override
     public int replaceTree(JCTree oldTree, JCTree newTree) {
       int pos = endPosMap.remove(oldTree);
-      if (pos != -1) {
-        storeEnd(newTree, pos);
-        return pos;
+      if (pos == -1) {
+        return Position.NOPOS;
       }
-      return Position.NOPOS;
+
+      storeEnd(newTree, pos);
+      return pos;
     }
-  }
-
-  protected abstract static class AbstractEndPosTable implements EndPosTable {
-    protected JavacParser parser;
-    public int errorEndPos = -1;
-
-    public AbstractEndPosTable(JavacParser parser) {
-      this.parser = parser;
-    }
-
-    protected abstract <T extends JCTree> T to(T var1);
-
   }
 }
