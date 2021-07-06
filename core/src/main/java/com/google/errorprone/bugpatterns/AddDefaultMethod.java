@@ -21,6 +21,7 @@ import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMulti
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.sun.tools.javac.code.Flags.*;
+import static com.sun.tools.javac.tree.JCTree.*;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static java.util.function.Function.identity;
 
@@ -184,10 +185,13 @@ public final class AddDefaultMethod extends BugChecker
 
     MethodSymbol sym = symbolStream.get(0);
     sym.flags_field = DEFAULT;
-    sym.name = sym.name.append(Names.instance(state.context).fromString("_migrated"));
+    JCMethodDecl updatedMethodDecl = treeMaker.MethodDef(sym, getBlockWithReturnNull(treeMaker));
 
-    JCTree.JCMethodDecl newMethodDecl =
+    sym.name = sym.name.append(Names.instance(state.context).fromString("_migrated"));
+    JCMethodDecl newMethodDecl =
         treeMaker.MethodDef(sym, newReturnType, getBlockWithReturnNull(treeMaker));
+
+    String prevMethodInDefault = updatedMethodDecl.toString();
 
     // how we know what to match instead of `(\"test\")` in normal cases?
     String fullyMigratedSourceCode =
@@ -195,7 +199,7 @@ public final class AddDefaultMethod extends BugChecker
 
     if (interfaceSymbol.isInterface()) {
       return buildDescription(tree)
-          .addFix(SuggestedFix.replace(tree.getMembers().get(0), fullyMigratedSourceCode))
+          .addFix(SuggestedFix.replace(tree.getMembers().get(0), prevMethodInDefault + fullyMigratedSourceCode))
           .build();
     }
     return Description.NO_MATCH;
@@ -223,7 +227,7 @@ public final class AddDefaultMethod extends BugChecker
         instance.methodClass);
   }
 
-  private JCTree.JCBlock getBlockWithReturnNull(TreeMaker treeMaker) {
+  private JCBlock getBlockWithReturnNull(TreeMaker treeMaker) {
     JCLiteral literal = treeMaker.Literal("null");
     JCReturn aReturn = treeMaker.Return(literal);
     return treeMaker.Block(0, com.sun.tools.javac.util.List.from(new JCReturn[] {aReturn}));

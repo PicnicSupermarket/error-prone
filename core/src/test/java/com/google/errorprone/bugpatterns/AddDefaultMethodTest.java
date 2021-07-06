@@ -42,6 +42,10 @@ public class AddDefaultMethodTest {
         .addOutputLines(
             "Foo.java",
             "interface Foo {",
+            "  default java.lang.String bar() {",
+            "    return \"null\";",
+            "  }",
+            "",
             "  default java.lang.Integer bar_migrated() {",
             "    return Integer.valueOf((\"test\"));",
             "  }",
