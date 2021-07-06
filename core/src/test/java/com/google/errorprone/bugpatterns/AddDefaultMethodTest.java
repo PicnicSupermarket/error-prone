@@ -28,23 +28,23 @@ public class AddDefaultMethodTest {
       CompilationTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
   private static final String[] FOO_INTERFACE = {
-    "interface Foo {", "  String foo();", "}",
+    "interface Foo {", "  String bar();", " Number baz();", "}",
   };
 
   @Test
   public void negative_thenReturn() {
     compilationHelper
         .addSourceLines("Foo.java", FOO_INTERFACE)
-        .addSourceLines(
-            "Test.java",
-            "class Test {",
-            "  String test() {",
-            "    return \"2\";",
-            "  }",
-            "  void test2() {",
-            "    test();",
-            "  }",
-            "}")
+//        .addSourceLines(
+//            "Test.java",
+//            "class Test {",
+//            "  String test() {",
+//            "    return \"2\";",
+//            "  }",
+//            "  void test2() {",
+//            "    test();",
+//            "  }",
+//            "}")
         .doTest();
   }
 }
