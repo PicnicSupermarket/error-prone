@@ -27,13 +27,20 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
+import com.google.errorprone.ErrorProneOptions;
+import com.google.errorprone.ImportOrderParser;
 import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.apply.DescriptionBasedDiff;
+import com.google.errorprone.apply.ImportOrganizer;
+import com.google.errorprone.apply.SourceFile;
 import com.google.errorprone.bugpatterns.BugChecker.LiteralTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
+import com.google.errorprone.scanner.ErrorProneScannerTransformer;
+import com.google.errorprone.scanner.ScannerSupplier;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LiteralTree;
@@ -54,9 +61,11 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.Position;
 
+import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.nio.file.FileSystemException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -139,23 +148,46 @@ private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
     endPosTable.storeEnd(aReturn, aReturn.expr.toString().length());
     endPosTable.storeEnd(literal, aReturn.getTree().toString().lastIndexOf(literal.toString()) + literal.toString().length());
 
-    JavaFileObject source = JavaFileObjects.forSourceString("XXX", literalPathWithParents.toString());
+                                                                                  // literalPathWithParents.getCompilationUnit().toString()  -
+    JavaFileObject source = JavaFileObjects.forSourceString("XXX", returnPathWithExpr.getLeaf().toString());
     jcCompilationUnit.sourcefile = source;
     jcCompilationUnit.defs = jcCompilationUnit.defs.append(aReturn);
     jcCompilationUnit.endPositions = endPosTable;
 
-    // JCCompilationUnit may not be empty, aka "". Fill it.
-
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
     Context updatedContext = prepareContext(state.context, (JCCompilationUnit) literalPathWithParents.getCompilationUnit());
 
+    JCCompilationUnit literalCompUnit = (JCCompilationUnit) literalPathWithParents.getCompilationUnit();
+    literalCompUnit.sourcefile = source;
+    literalCompUnit.defs = literalCompUnit.defs.append(literal);
+    literalCompUnit.endPositions = endPosTable;
 
     List<Description> matches = new ArrayList<>();
     transformer.apply(literalPathWithParents, updatedContext, matches::add);
 
+    JavaFileObject javaFileObject = null;
+    try {
+      javaFileObject = applyDiff(source, jcCompilationUnit, matches.get(0));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
 
-    // In this BugPattern we try to get a match when you create a TreeLiteral of "2".
     return Description.NO_MATCH;
+  }
+
+  private JavaFileObject applyDiff(
+          JavaFileObject sourceFileObject, JCCompilationUnit tree, Description description) throws IOException {
+
+    ImportOrganizer importOrganizer = ImportOrderParser.getImportOrganizer("static-first");
+    final DescriptionBasedDiff diff = DescriptionBasedDiff.create(tree, importOrganizer);
+    diff.handleFix(description.fixes.get(0));
+
+    SourceFile sourceFile = SourceFile.create(sourceFileObject);
+    diff.applyDifferences(sourceFile);
+
+    JavaFileObject transformed =
+            JavaFileObjects.forSourceString("XXX", sourceFile.getSourceText());
+    return transformed;
   }
 
   private Context prepareContext(Context baseContext, JCCompilationUnit compilationUnit) {
