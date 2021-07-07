@@ -16,19 +16,8 @@
 
 package com.google.errorprone.bugpatterns;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
-import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
-import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
-import static com.sun.tools.javac.code.Flags.DEFAULT;
-import static com.sun.tools.javac.tree.JCTree.JCReturn;
-import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
-import static com.sun.tools.javac.tree.JCTree.JCBlock;
-import static java.util.function.Function.identity;
-
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
@@ -38,8 +27,8 @@ import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
-import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
+import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
@@ -56,15 +45,15 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.tree.JCTree.JCLiteral;
-import com.sun.tools.javac.tree.JCTree.JCParens;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Position;
+
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -73,8 +62,14 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.sun.tools.javac.code.Flags.DEFAULT;
+import static com.sun.tools.javac.tree.JCTree.*;
+import static java.util.function.Function.identity;
 
 @BugPattern(
     name = "AddDefaultMethod",
@@ -84,34 +79,30 @@ public final class AddDefaultMethod extends BugChecker
     implements ClassTreeMatcher, CompilationUnitTreeMatcher {
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
 
-  private static final Supplier<ImmutableListMultimap<String, CodeTransformer>>
+  private static final Supplier<ImmutableSetMultimap<Boolean, CodeTransformer>>
       MIGRATION_TRANSFORMER = Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
   private String transformationString;
 
-  private static ImmutableListMultimap<String, CodeTransformer> loadMigrationTransformer() {
-    ImmutableListMultimap.Builder<String, CodeTransformer> transformers =
-        ImmutableListMultimap.builder();
-
+  private static ImmutableSetMultimap<Boolean, CodeTransformer> loadMigrationTransformer() {
+    ImmutableSetMultimap<Boolean, CodeTransformer> templates = null;
     String refasterUri =
         "src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster";
     try (FileInputStream is = new FileInputStream(refasterUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
-      String name = getRefasterTemplateName(refasterUri).orElseThrow(IllegalStateException::new);
 
-      // XXX: Use this instead of the other code.
-      ImmutableSetMultimap<Boolean, CodeTransformer> templates =
+      templates =
           unwrap((CodeTransformer) ois.readObject())
               .collect(
                   toImmutableSetMultimap(
                       t -> t.annotations().getInstance(MigrationTemplate.class).value(),
                       identity()));
 
-      transformers.put(name, templates.values().stream().findFirst().get());
     } catch (IOException | ClassNotFoundException e) {
-      e.printStackTrace();
+      // XXX: @Stephan, which exception to throw here?
+      throw new RuntimeException("Failed to read the Refaster migration template", e);
     }
 
-    return transformers.build();
+    return templates;
   }
 
   private static Stream<CodeTransformer> unwrap(CodeTransformer codeTransformer) {
@@ -132,7 +123,7 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
-    ImmutableListMultimap<String, CodeTransformer> migrationTransformationsMap =
+    ImmutableSetMultimap<Boolean, CodeTransformer> migrationTransformationsMap =
         MIGRATION_TRANSFORMER.get();
 
     TreeMaker treeMaker = state.getTreeMaker();
