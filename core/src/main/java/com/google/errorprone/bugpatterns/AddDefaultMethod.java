@@ -17,21 +17,22 @@
 package com.google.errorprone.bugpatterns;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
+import static com.sun.tools.javac.code.Symbol.*;
+import static com.sun.tools.javac.tree.JCTree.*;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import static com.sun.tools.javac.tree.JCTree.JCLiteral;
 import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
-import static java.util.function.Function.identity;
 
+import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
@@ -46,6 +47,8 @@ import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.refaster.ExpressionTemplate;
+import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
@@ -66,6 +69,7 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Names;
+import com.sun.tools.javac.util.Pair;
 import com.sun.tools.javac.util.Position;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -73,7 +77,6 @@ import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
@@ -86,30 +89,44 @@ public final class AddDefaultMethod extends BugChecker
     implements ClassTreeMatcher, CompilationUnitTreeMatcher, MethodTreeMatcher {
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
 
-  private static final Supplier<ImmutableSetMultimap<Boolean, CodeTransformer>>
+  private static final Supplier<ImmutableTable<String, Boolean, Pair<String, CodeTransformer>>>
       MIGRATION_TRANSFORMER = Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
-  private String transformationString;
 
-  private static ImmutableSetMultimap<Boolean, CodeTransformer> loadMigrationTransformer() {
-    ImmutableSetMultimap<Boolean, CodeTransformer> templates = null;
+  private static ImmutableTable<String, Boolean, Pair<String, CodeTransformer>>
+      loadMigrationTransformer() {
+    ImmutableTable.Builder<String, Boolean, Pair<String, CodeTransformer>> migrationInformation =
+        new ImmutableTable.Builder<>();
+
     String refasterUri =
         "src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster";
     try (FileInputStream is = new FileInputStream(refasterUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
 
-      templates =
-          unwrap((CodeTransformer) ois.readObject())
-              .collect(
-                  toImmutableSetMultimap(
-                      t -> t.annotations().getInstance(MigrationTemplate.class).value(),
-                      identity()));
+      unwrap((CodeTransformer) ois.readObject())
+          .filter(RefasterRule.class::isInstance)
+          .map(RefasterRule.class::cast)
+          .forEach(
+              ctf ->
+                  // XXX: I know this is ugly... But gives us all the information in one place...
+                  // Perhaps split up?
+                  migrationInformation.put(
+                      ((ExpressionTemplate) ctf.beforeTemplates().get(0))
+                          .getFullyQualifiedReturnType(),
+                      ((CodeTransformer) ctf)
+                          .annotations()
+                          .getInstance(MigrationTemplate.class)
+                          .value(),
+                      new Pair<>(
+                          ((ExpressionTemplate) ctf.afterTemplates().get(0))
+                              .getFullyQualifiedReturnType(),
+                          ctf)));
 
     } catch (IOException | ClassNotFoundException e) {
       // XXX: @Stephan, which exception to throw here?
       throw new RuntimeException("Failed to read the Refaster migration template", e);
     }
 
-    return templates;
+    return migrationInformation.build();
   }
 
   private static Stream<CodeTransformer> unwrap(CodeTransformer codeTransformer) {
@@ -130,45 +147,100 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
-    ImmutableSetMultimap<Boolean, CodeTransformer> migrationTransformationsMap =
-        MIGRATION_TRANSFORMER.get();
+    //    ImmutableTable<String, Boolean, Pair<String, CodeTransformer>> migrationTransformationsMap
+    // =
+    //        MIGRATION_TRANSFORMER.get();
+    //
+    return Description.NO_MATCH;
+  }
 
+  @Override
+  public Description matchMethod(MethodTree methodTree, VisitorState state) {
+    ImmutableTable<String, Boolean, Pair<String, CodeTransformer>> migrationTransformationsMap =
+        MIGRATION_TRANSFORMER.get();
+    TreeMaker treeMaker = state.getTreeMaker();
+
+    MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+    String methodReturnType = methodSymbol.getReturnType().toString();
+    ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
+    if (!enclosingClassSymbol.isInterface()) {
+      return Description.NO_MATCH;
+    } else if (!migrationTransformationsMap.rowKeySet().contains(methodReturnType)) {
+      return Description.NO_MATCH;
+    }
+
+    String updatedSource = getUpdatedPart(methodTree, false, migrationTransformationsMap, state);
+
+    MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
+    undesiredDefaultMethodSymbol.flags_field = DEFAULT;
+    JCMethodDecl undesiredDefaultMethodDecl =
+        treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
+    String prevMethodInDefault = undesiredDefaultMethodDecl.toString();
+
+    Type newReturnType =
+            getMethodTypeWithNewReturnType(
+                    state.context,
+                    state.getTypeFromString(migrationTransformationsMap.get(methodReturnType, false).fst));
+
+    undesiredDefaultMethodSymbol.name =
+        undesiredDefaultMethodSymbol.name.append(Names.instance(state.context).fromString("_migrated"));
+    JCMethodDecl desiredDefaultMethod =
+        treeMaker.MethodDef(
+            undesiredDefaultMethodSymbol, newReturnType, getBlockWithReturnNull(treeMaker));
+
+    String fullyMigratedSourceCode =
+        desiredDefaultMethod.toString().replace("\"null\"", updatedSource);
+
+    return describeMatch(
+        methodTree,
+        SuggestedFix.replace(methodTree, prevMethodInDefault + fullyMigratedSourceCode));
+  }
+
+  private String getUpdatedPart(
+      MethodTree tree,
+      boolean migratingToDesired,
+      ImmutableTable<String, Boolean, Pair<String, CodeTransformer>> migrationTransformationsMap,
+      VisitorState state) {
     TreeMaker treeMaker = state.getTreeMaker();
     JCCompilationUnit compilationUnit = treeMaker.TopLevel(List.nil());
     TreePath compUnitTreePath = new TreePath(compilationUnit);
 
-    JCLiteral literal = treeMaker.Literal("test");
-    JCParens parens = treeMaker.Parens(literal);
+    Type type = ((JCIdent) tree.getReturnType()).type;
+    JCExpression identExpr = treeMaker.Ident(((JCMethodDecl) tree).getName()).setType(type);
+    JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, List.nil());
+    methodInvocation.setType(type);
+    // here pass typeparams and params.
 
-    TreePath parensPathWithParent = new TreePath(compUnitTreePath, parens);
-    TreePath literalPathWithParents = new TreePath(parensPathWithParent, literal);
+    TreePath literalPathWithParents = new TreePath(compUnitTreePath, methodInvocation);
 
     SimpleEndPosTable endPosTable = new SimpleEndPosTable();
-    String fullSource = parens.getTree().toString();
-    endPosTable.storeEnd(parens, fullSource.length());
-    endPosTable.storeEnd(
-        literal, fullSource.lastIndexOf(literal.toString()) + literal.toString().length());
+    String fullSource = methodInvocation.toString();
+    endPosTable.storeEnd(methodInvocation, fullSource.length());
+    endPosTable.storeEnd(identExpr, identExpr.toString().length());
 
     JavaFileObject source = JavaFileObjects.forSourceString("XXX", fullSource);
     compilationUnit.sourcefile = source;
-    compilationUnit.defs = compilationUnit.defs.append(parens);
+    compilationUnit.defs = compilationUnit.defs.append(methodInvocation);
     compilationUnit.endPositions = endPosTable;
 
-    CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
+    if (!migrationTransformationsMap.containsRow(methodInvocation.type.toString())) {
+      return "";
+    }
+
+    Pair<String, CodeTransformer> transformData =
+        migrationTransformationsMap.get(methodInvocation.type.toString(), migratingToDesired);
     Context updatedContext = prepareContext(state.context, compilationUnit);
 
     java.util.List<Description> matches = new ArrayList<>();
-    transformer.apply(literalPathWithParents, updatedContext, matches::add);
+    transformData.snd.apply(literalPathWithParents, updatedContext, matches::add);
 
-    JavaFileObject javaFileObject = null;
+    JavaFileObject javaFileObject;
     try {
       javaFileObject = applyDiff(source, compilationUnit, matches.get(0));
-      transformationString = javaFileObject.getCharContent(true).toString();
+      return javaFileObject.getCharContent(true).toString();
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to apply diff", e);
     }
-
-    return Description.NO_MATCH;
   }
 
   @Override
@@ -177,41 +249,43 @@ public final class AddDefaultMethod extends BugChecker
       return Description.NO_MATCH;
     }
 
-    TreeMaker treeMaker = state.getTreeMaker();
-    Symbol.ClassSymbol interfaceSymbol = ASTHelpers.getSymbol(tree);
-    ImmutableList<MethodSymbol> symbolStream =
-        getMethodsOfInterfaceToMigrate(
-            state.getTypeFromString("java.lang.String"), interfaceSymbol);
+    //        TreeMaker treeMaker = state.getTreeMaker();
+    //        ClassSymbol interfaceSymbol = ASTHelpers.getSymbol(tree);
+    //        ImmutableList<MethodSymbol> symbolStream =
+    //            getMethodsOfInterfaceToMigrate(
+    //                state.getTypeFromString("java.lang.String"), interfaceSymbol);
+    //
+    //        Type newReturnType =
+    //            getMethodTypeWithNewReturnType(state.context,
+    //     state.getTypeFromString("java.lang.Integer"));
+    //
+    //        MethodSymbol sym = symbolStream.get(0);
+    //        sym.flags_field = DEFAULT;
+    //        JCMethodDecl updatedMethodDecl = treeMaker.MethodDef(sym,
+    //     getBlockWithReturnNull(treeMaker));
+    //
+    //        sym.name = sym.name.append(Names.instance(state.context).fromString("_migrated"));
+    //        JCMethodDecl newMethodDecl =
+    //            treeMaker.MethodDef(sym, newReturnType, getBlockWithReturnNull(treeMaker));
+    //
+    //        String prevMethodInDefault = updatedMethodDecl.toString();
+    //
+    //        // how we know what to match instead of `(\"test\")` in normal cases?
+    //        String fullyMigratedSourceCode =
+    //            newMethodDecl.toString().replace("\"null\"", transformationString);
 
-    Type newReturnType =
-        getMethodTypeWithNewReturnType(state.context, state.getTypeFromString("java.lang.Integer"));
-
-    MethodSymbol sym = symbolStream.get(0);
-    sym.flags_field = DEFAULT;
-    JCMethodDecl updatedMethodDecl = treeMaker.MethodDef(sym, getBlockWithReturnNull(treeMaker));
-
-    sym.name = sym.name.append(Names.instance(state.context).fromString("_migrated"));
-    JCMethodDecl newMethodDecl =
-        treeMaker.MethodDef(sym, newReturnType, getBlockWithReturnNull(treeMaker));
-
-    String prevMethodInDefault = updatedMethodDecl.toString();
-
-    // how we know what to match instead of `(\"test\")` in normal cases?
-    String fullyMigratedSourceCode =
-        newMethodDecl.toString().replace("\"null\"", transformationString);
-
-    if (interfaceSymbol.isInterface()) {
-      return buildDescription(tree)
-          .addFix(
-              SuggestedFix.replace(
-                  tree.getMembers().get(0), prevMethodInDefault + fullyMigratedSourceCode))
-          .build();
-    }
+    //    if (interfaceSymbol.isInterface()) {
+    //      return buildDescription(tree)
+    //          .addFix(
+    //              SuggestedFix.replace(
+    //                  tree.getMembers().get(0), prevMethodInDefault + fullyMigratedSourceCode))
+    //          .build();
+    //    }
     return Description.NO_MATCH;
   }
 
   private ImmutableList<MethodSymbol> getMethodsOfInterfaceToMigrate(
-      Type migrateFromType, Symbol.ClassSymbol interfaceSymbol) {
+      Type migrateFromType, ClassSymbol interfaceSymbol) {
     Iterable<Symbol> symbols = interfaceSymbol.members().getSymbols(Scope.LookupKind.NON_RECURSIVE);
 
     return Streams.stream(symbols)
@@ -240,7 +314,7 @@ public final class AddDefaultMethod extends BugChecker
       JavacFileManager.preRegister(context);
     }
     context.put(JCCompilationUnit.class, compilationUnit);
-    context.put(Symbol.PackageSymbol.class, compilationUnit.packge);
+    context.put(PackageSymbol.class, compilationUnit.packge);
     return context;
   }
 
@@ -256,21 +330,6 @@ public final class AddDefaultMethod extends BugChecker
     diff.applyDifferences(sourceFile);
 
     return JavaFileObjects.forSourceString("XXX", sourceFile.getSourceText());
-  }
-
-  // XXX: Delete or move up.
-  @Override
-  public Description matchMethod(MethodTree tree, VisitorState state) {
-    // if not enclosing type is interface: return
-
-    // if not return type is undesired: return.
-
-//    ImmutableTable<Type, Type, CodeTransformer> x = null;
-//    x.rowKeySet().contains(xxx)
-
-    // XXX: Drop.
-    return describeMatch(
-        tree, SuggestedFix.replace(tree, tree.toString() + "   " + tree.toString()));
   }
 
   static final class SimpleEndPosTable implements EndPosTable {
