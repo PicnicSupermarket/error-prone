@@ -16,9 +16,23 @@
 
 package com.google.errorprone.bugpatterns;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.sun.tools.javac.code.Flags.DEFAULT;
+import static com.sun.tools.javac.tree.JCTree.JCBlock;
+import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import static com.sun.tools.javac.tree.JCTree.JCLiteral;
+import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import static com.sun.tools.javac.tree.JCTree.JCParens;
+import static com.sun.tools.javac.tree.JCTree.JCReturn;
+import static java.util.function.Function.identity;
+
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
@@ -29,6 +43,7 @@ import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
+import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
@@ -36,6 +51,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
@@ -51,9 +67,6 @@ import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Position;
-
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -62,21 +75,15 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
-import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
-import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
-import static com.sun.tools.javac.code.Flags.DEFAULT;
-import static com.sun.tools.javac.tree.JCTree.*;
-import static java.util.function.Function.identity;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
 
 @BugPattern(
     name = "AddDefaultMethod",
     summary = "First steps in trying to add a default method to an interface",
     severity = ERROR)
 public final class AddDefaultMethod extends BugChecker
-    implements ClassTreeMatcher, CompilationUnitTreeMatcher {
+    implements ClassTreeMatcher, CompilationUnitTreeMatcher, MethodTreeMatcher {
   private static final String REFASTER_TEMPLATE_SUFFIX = ".refaster";
 
   private static final Supplier<ImmutableSetMultimap<Boolean, CodeTransformer>>
@@ -166,6 +173,10 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
+    if (true) {
+      return Description.NO_MATCH;
+    }
+
     TreeMaker treeMaker = state.getTreeMaker();
     Symbol.ClassSymbol interfaceSymbol = ASTHelpers.getSymbol(tree);
     ImmutableList<MethodSymbol> symbolStream =
@@ -206,7 +217,8 @@ public final class AddDefaultMethod extends BugChecker
     return Streams.stream(symbols)
         .filter(MethodSymbol.class::isInstance)
         .map(MethodSymbol.class::cast)
-        .filter(methodSymbol -> methodSymbol.getReturnType() == migrateFromType)
+        // XXX: Or subtyping relation?
+        .filter(methodSymbol -> methodSymbol.getReturnType().equals(migrateFromType))
         .collect(toImmutableList());
   }
 
@@ -244,6 +256,21 @@ public final class AddDefaultMethod extends BugChecker
     diff.applyDifferences(sourceFile);
 
     return JavaFileObjects.forSourceString("XXX", sourceFile.getSourceText());
+  }
+
+  // XXX: Delete or move up.
+  @Override
+  public Description matchMethod(MethodTree tree, VisitorState state) {
+    // if not enclosing type is interface: return
+
+    // if not return type is undesired: return.
+
+//    ImmutableTable<Type, Type, CodeTransformer> x = null;
+//    x.rowKeySet().contains(xxx)
+
+    // XXX: Drop.
+    return describeMatch(
+        tree, SuggestedFix.replace(tree, tree.toString() + "   " + tree.toString()));
   }
 
   static final class SimpleEndPosTable implements EndPosTable {
