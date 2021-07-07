@@ -20,9 +20,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
-import static com.sun.tools.javac.code.Flags.*;
-import static com.sun.tools.javac.tree.JCTree.*;
+import static com.sun.tools.javac.code.Flags.DEFAULT;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
+import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static java.util.function.Function.identity;
 
 import com.google.common.base.Suppliers;
@@ -61,6 +62,7 @@ import com.sun.tools.javac.tree.JCTree.JCParens;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
+import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Position;
 import java.io.FileInputStream;
@@ -68,7 +70,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -135,7 +136,7 @@ public final class AddDefaultMethod extends BugChecker
         MIGRATION_TRANSFORMER.get();
 
     TreeMaker treeMaker = state.getTreeMaker();
-    JCCompilationUnit compilationUnit = treeMaker.TopLevel(com.sun.tools.javac.util.List.nil());
+    JCCompilationUnit compilationUnit = treeMaker.TopLevel(List.nil());
     TreePath compUnitTreePath = new TreePath(compilationUnit);
 
     JCLiteral literal = treeMaker.Literal("test");
@@ -158,7 +159,7 @@ public final class AddDefaultMethod extends BugChecker
     CodeTransformer transformer = migrationTransformationsMap.values().stream().findFirst().get();
     Context updatedContext = prepareContext(state.context, compilationUnit);
 
-    List<Description> matches = new ArrayList<>();
+    java.util.List<Description> matches = new ArrayList<>();
     transformer.apply(literalPathWithParents, updatedContext, matches::add);
 
     JavaFileObject javaFileObject = null;
@@ -199,7 +200,9 @@ public final class AddDefaultMethod extends BugChecker
 
     if (interfaceSymbol.isInterface()) {
       return buildDescription(tree)
-          .addFix(SuggestedFix.replace(tree.getMembers().get(0), prevMethodInDefault + fullyMigratedSourceCode))
+          .addFix(
+              SuggestedFix.replace(
+                  tree.getMembers().get(0), prevMethodInDefault + fullyMigratedSourceCode))
           .build();
     }
     return Description.NO_MATCH;
@@ -209,28 +212,22 @@ public final class AddDefaultMethod extends BugChecker
       Type migrateFromType, Symbol.ClassSymbol interfaceSymbol) {
     Iterable<Symbol> symbols = interfaceSymbol.members().getSymbols(Scope.LookupKind.NON_RECURSIVE);
 
-    ImmutableList<MethodSymbol> symbolStream =
-        Streams.stream(symbols)
-            .filter(MethodSymbol.class::isInstance)
-            .map(MethodSymbol.class::cast)
-            .filter(methodSymbol -> methodSymbol.getReturnType() == migrateFromType)
-            .collect(toImmutableList());
-    return symbolStream;
+    return Streams.stream(symbols)
+        .filter(MethodSymbol.class::isInstance)
+        .map(MethodSymbol.class::cast)
+        .filter(methodSymbol -> methodSymbol.getReturnType() == migrateFromType)
+        .collect(toImmutableList());
   }
 
   private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {
     Symtab instance = Symtab.instance(context);
-    return new Type.MethodType(
-        com.sun.tools.javac.util.List.nil(),
-        newReturnType,
-        com.sun.tools.javac.util.List.nil(),
-        instance.methodClass);
+    return new Type.MethodType(List.nil(), newReturnType, List.nil(), instance.methodClass);
   }
 
   private JCBlock getBlockWithReturnNull(TreeMaker treeMaker) {
     JCLiteral literal = treeMaker.Literal("null");
     JCReturn aReturn = treeMaker.Return(literal);
-    return treeMaker.Block(0, com.sun.tools.javac.util.List.from(new JCReturn[] {aReturn}));
+    return treeMaker.Block(0, List.of(aReturn));
   }
 
   private Context prepareContext(Context baseContext, JCCompilationUnit compilationUnit) {
