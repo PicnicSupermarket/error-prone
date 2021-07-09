@@ -66,6 +66,7 @@ import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Pair;
 import com.sun.tools.javac.util.Position;
@@ -158,24 +159,37 @@ public final class AddDefaultMethod extends BugChecker
       return Description.NO_MATCH;
     }
 
-    String updatedSource = getBodyForDefaultMethodInInterface(methodTree, "", false, migrationTransformationsMap, state);
+    String updatedSource =
+        getBodyForDefaultMethodInInterface(
+            methodTree,
+            ((JCIdent) methodTree.getReturnType()).type,
+            false,
+            migrationTransformationsMap.get(
+                ((JCIdent) methodTree.getReturnType()).type.toString(), false).snd,
+            state);
+
+    String otherUpdatedSource = getBodyForDefaultMethodInInterface(methodTree, state.getTypeFromString(otherType), true, codeTransformerDesired, state);
 
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
     String prevMethodInDefault = undesiredDefaultMethodDecl.toString();
+    prevMethodInDefault = prevMethodInDefault.replace("\"null\"", otherUpdatedSource);
 
     Type methodTypeWithReturnType =
-            getMethodTypeWithNewReturnType(
-                    state.context,
-                    state.getTypeFromString(migrationTransformationsMap.get(methodReturnType, false).fst));
+        getMethodTypeWithNewReturnType(
+            state.context,
+            state.getTypeFromString(migrationTransformationsMap.get(methodReturnType, false).fst));
 
     undesiredDefaultMethodSymbol.name =
-        undesiredDefaultMethodSymbol.name.append(Names.instance(state.context).fromString("_migrated"));
+        undesiredDefaultMethodSymbol.name.append(
+            Names.instance(state.context).fromString("_migrated"));
     JCMethodDecl desiredDefaultMethod =
         treeMaker.MethodDef(
-            undesiredDefaultMethodSymbol, methodTypeWithReturnType, getBlockWithReturnNull(treeMaker));
+            undesiredDefaultMethodSymbol,
+            methodTypeWithReturnType,
+            getBlockWithReturnNull(treeMaker));
 
     String fullyMigratedSourceCode =
         desiredDefaultMethod.toString().replace("\"null\"", updatedSource);
@@ -187,18 +201,21 @@ public final class AddDefaultMethod extends BugChecker
 
   private String getBodyForDefaultMethodInInterface(
       MethodTree tree,
-      String currentType,
+      Type currentType,
       boolean migratingToDesired,
-      ImmutableTable<String, Boolean, Pair<String, CodeTransformer>> migrationTransformationsMap,
+      CodeTransformer transformer,
       VisitorState state) {
     TreeMaker treeMaker = state.getTreeMaker();
     JCCompilationUnit compilationUnit = treeMaker.TopLevel(List.nil());
     TreePath compUnitTreePath = new TreePath(compilationUnit);
 
-    Type type = ((JCIdent) tree.getReturnType()).type;
-    JCExpression identExpr = treeMaker.Ident(((JCMethodDecl) tree).getName()).setType(type);
+    Name name = ((JCMethodDecl) tree).getName();
+    if (migratingToDesired) {
+      name = name.append(Names.instance(state.context).fromString("_migrated"));
+    }
+    JCExpression identExpr = treeMaker.Ident(name).setType(currentType);
     JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, List.nil());
-    methodInvocation.setType(type);
+    methodInvocation.setType(currentType);
     // XXX: here pass typeparams and params... In the List.nil() ^
 
     TreePath methodInvocationPath = new TreePath(compUnitTreePath, methodInvocation);
@@ -213,16 +230,10 @@ public final class AddDefaultMethod extends BugChecker
     compilationUnit.defs = compilationUnit.defs.append(methodInvocation);
     compilationUnit.endPositions = endPosTable;
 
-    if (!migrationTransformationsMap.containsRow(methodInvocation.type.toString())) {
-      return "";
-    }
-
-    Pair<String, CodeTransformer> transformData =
-        migrationTransformationsMap.get(methodInvocation.type.toString(), migratingToDesired);
     Context updatedContext = prepareContext(state.context, compilationUnit);
 
     java.util.List<Description> matches = new ArrayList<>();
-    transformData.snd.apply(methodInvocationPath, updatedContext, matches::add);
+    transformer.apply(methodInvocationPath, updatedContext, matches::add);
 
     JavaFileObject javaFileObject;
     try {
