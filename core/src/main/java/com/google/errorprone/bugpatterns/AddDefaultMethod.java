@@ -20,17 +20,22 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
-import static com.sun.tools.javac.code.Symbol.*;
-import static com.sun.tools.javac.tree.JCTree.*;
+import static com.sun.tools.javac.code.Symbol.ClassSymbol;
+import static com.sun.tools.javac.code.Symbol.PackageSymbol;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import static com.sun.tools.javac.tree.JCTree.JCExpression;
+import static com.sun.tools.javac.tree.JCTree.JCIdent;
 import static com.sun.tools.javac.tree.JCTree.JCLiteral;
 import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import static com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
@@ -41,7 +46,6 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
-import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
@@ -51,7 +55,6 @@ import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Scope;
@@ -85,11 +88,20 @@ import javax.tools.JavaFileObject;
     severity = ERROR)
 public final class AddDefaultMethod extends BugChecker
     implements ClassTreeMatcher, MethodTreeMatcher {
-
   private static final Supplier<ImmutableTable<String, Boolean, Pair<String, CodeTransformer>>>
       MIGRATION_TRANSFORMER = Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
-  private static ImmutableTable<String, Boolean, Pair<String, CodeTransformer>>
+  // XXX: Wrap these in an `@AutoValue`-generated type with two properties.
+  private static final ImmutableSet<String> UNDESIRED_TYPES = ImmutableSet.of();
+  private static final ImmutableTable<String, String, CodeTransformer> TRANSFORMERS =
+      ImmutableTable.of();
+  // XXX: other idea: (from, to) migrations; LHS is undesirable.
+  // XXX: Consider specifying this using a new `CompositeCodeTransformer`-derived type.
+  // ^ The code generating this type could also derive and store the (source and) target type.
+  private static final ImmutableMap<CodeTransformer, CodeTransformer> MIGRATIONS =
+      ImmutableMap.of();
+
+  private static final ImmutableTable<String, Boolean, Pair<String, CodeTransformer>>
       loadMigrationTransformer() {
     ImmutableTable.Builder<String, Boolean, Pair<String, CodeTransformer>> migrationInformation =
         new ImmutableTable.Builder<>();
@@ -145,6 +157,20 @@ public final class AddDefaultMethod extends BugChecker
     String methodReturnType = methodSymbol.getReturnType().toString();
 
     // XXX: Fix this...
+    // XXX: Suggestion:
+    // We know that if this return type is eligible for migration, then:
+    // 1. There must be a `CodeTransformer` accepting expressions of this type (namely for the
+    // migration for the new default method back to the old one).
+    // 2. The migration will require us to generate a fake tree of this type.
+    // So, given a method which, given a return type and method name produces such a fake tree, we
+    // can create such a tree here, and check whether any of the "non-desired" `CodeTransformer`s
+    // accepts this tree. We should migrate the method iff so.
+    // Downside: this operation is more expensive and linear in the number of types to be migrated.
+    // Upside: no `ExpressionTemplate` change required, generalizes to generic types if the rest of
+    // the logic supports it too.
+    // XXX: Other idea: optimistically attempt to migrate any interface method. Emit fix only if
+    // successful. (Upside: avoids non-compiling code in case of config issue or unforeseen
+    // limitation.)
     if (migrationTransformationsMap.get(methodReturnType, false) == null) {
       return Description.NO_MATCH;
     }
@@ -165,10 +191,13 @@ public final class AddDefaultMethod extends BugChecker
             ((JCIdent) methodTree.getReturnType()).type,
             false,
             migrationTransformationsMap.get(
-                ((JCIdent) methodTree.getReturnType()).type.toString(), false).snd,
+                    ((JCIdent) methodTree.getReturnType()).type.toString(), false)
+                .snd,
             state);
 
-    String otherUpdatedSource = getBodyForDefaultMethodInInterface(methodTree, state.getTypeFromString(otherType), true, codeTransformerDesired, state);
+    String otherUpdatedSource =
+        getBodyForDefaultMethodInInterface(
+            methodTree, state.getTypeFromString(otherType), true, codeTransformerDesired, state);
 
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
