@@ -23,9 +23,10 @@ import com.sun.tools.javac.api.BasicJavacTask;
 
 @AutoService(Plugin.class)
 public final class MigrationResourceCompiler implements Plugin {
+
   @Override
   public String getName() {
-    return getClass().getSimpleName();
+    return "MigrationResourceCompiler";
   }
 
   @Override
