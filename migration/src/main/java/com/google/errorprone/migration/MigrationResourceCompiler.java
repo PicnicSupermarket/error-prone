@@ -16,7 +16,7 @@
 
 package com.google.errorprone.migration;
 
-import autovalue.shaded.com.google.common.auto.service.AutoService;
+import com.google.auto.service.AutoService;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
 import com.sun.tools.javac.api.BasicJavacTask;
