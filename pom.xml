@@ -67,6 +67,7 @@
     <module>docgen</module>
     <module>docgen_processor</module>
     <module>refaster</module>
+    <module>migration</module>
   </modules>
 
   <scm>
@@ -159,21 +160,6 @@
           <testExcludes>
             <exclude>**/testdata/**</exclude>
           </testExcludes>
-          <annotationProcessorPaths combine.children="append">
-            <path>
-              <groupId>com.google.errorprone</groupId>
-              <artifactId>error_prone_annotations</artifactId>
-              <version>${project.version}</version>
-            </path>
-            <path>
-              <groupId>com.google.errorprone</groupId>
-              <artifactId>error_prone_core</artifactId>
-              <version>${project.version}</version>
-            </path>
-          </annotationProcessorPaths>
-          <compilerArgs combine.children="append">
-            <arg>-Xplugin:MigrationResourceCompiler</arg>
-          </compilerArgs>
         </configuration>
       </plugin>
       <plugin>
