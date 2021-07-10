@@ -65,8 +65,8 @@
     <module>type_annotations</module>
     <module>docgen</module>
     <module>docgen_processor</module>
-    <module>refaster</module>
     <module>migration</module>
+    <module>refaster</module>
   </modules>
 
   <scm>
