@@ -49,7 +49,6 @@ import java.util.Optional;
 final class MigrationResourceCompilerTaskListener implements TaskListener {
   private final Context context;
 
-
   MigrationResourceCompilerTaskListener(Context context) {
     this.context = context;
   }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Copyright 2016 The Error Prone Authors.
+  Copyright 2021 The Error Prone Authors.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -57,9 +57,15 @@
         </dependency>
         <dependency>
             <!-- Apache 2.0 -->
+            <groupId>com.google.jimfs</groupId>
+            <artifactId>jimfs</artifactId>
+            <version>1.1</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_check_api</artifactId>
-            <version>${project.version}</version>
+            <artifactId>error_prone_test_helpers</artifactId>
+            <version>HEAD-SNAPSHOT</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

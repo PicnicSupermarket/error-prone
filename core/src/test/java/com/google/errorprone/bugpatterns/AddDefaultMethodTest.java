@@ -52,6 +52,7 @@ public class AddDefaultMethodTest {
             "",
             "  Number baz();",
             "}")
+//        .setArgs("-Xplugin:MigrationResourceCompiler")
         .doTest();
   }
 
