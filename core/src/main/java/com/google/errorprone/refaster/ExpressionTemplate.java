@@ -103,13 +103,6 @@ public abstract class ExpressionTemplate extends Template<ExpressionTemplateMatc
 
   abstract UType returnType();
 
-  public String getFullyQualifiedReturnType() {
-    if (returnType() instanceof UClassType) {
-      return ((UClassType) returnType()).fullyQualifiedClass().contents();
-    }
-    return "";
-  }
-
   public boolean generateNegation() {
     return annotations().containsKey(AlsoNegation.class);
   }

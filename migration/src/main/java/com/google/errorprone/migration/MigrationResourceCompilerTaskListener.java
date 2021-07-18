@@ -16,17 +16,19 @@
 
 package com.google.errorprone.migration;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimaps;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
-import com.google.errorprone.CompositeCodeTransformer;
+import com.google.errorprone.MigrationCodeTransformer;
+import com.google.errorprone.refaster.ExpressionTemplate;
+import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.RefasterRuleBuilderScanner;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
@@ -42,9 +44,11 @@ import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.UncheckedIOException;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 final class MigrationResourceCompilerTaskListener implements TaskListener {
   private final Context context;
@@ -65,10 +69,10 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
       return;
     }
 
-    ImmutableListMultimap<ClassTree, CodeTransformer> rules = compileMigrationTemplates(tree);
-    for (Map.Entry<ClassTree, List<CodeTransformer>> rule : Multimaps.asMap(rules).entrySet()) {
+    ImmutableMap<ClassTree, CodeTransformer> rules = compileMigrationTemplates(tree);
+    for (Map.Entry<ClassTree, CodeTransformer> rule : rules.entrySet()) {
       try {
-        outputCodeTransformers(rule.getValue(), getOutputFile(taskEvent, rule.getKey()));
+        outputMigrationTransformer(rule.getValue(), getOutputFile(taskEvent, rule.getKey()));
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
@@ -82,7 +86,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
           public Boolean visitAnnotation(AnnotationTree node, Void ctx) {
             Symbol sym = ASTHelpers.getSymbol(node);
             return (sym != null
-                    && sym.getQualifiedName().contentEquals(MigrationTemplate.class.getCanonicalName()))
+                    && sym.getQualifiedName()
+                        .contentEquals(MigrationTemplate.class.getCanonicalName()))
                 || super.visitAnnotation(node, ctx);
           }
 
@@ -93,18 +98,45 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         }.scan(tree, null));
   }
 
-  private ImmutableListMultimap<ClassTree, CodeTransformer> compileMigrationTemplates(
-      ClassTree tree) {
-    ListMultimap<ClassTree, CodeTransformer> rules = ArrayListMultimap.create();
+  private ImmutableMap<ClassTree, CodeTransformer> compileMigrationTemplates(ClassTree tree) {
+    Map<ClassTree, CodeTransformer> rules = new HashMap<>();
     new TreeScanner<Void, Context>() {
       @Override
+      public Void visitCompilationUnit(CompilationUnitTree node, Context context) {
+        return super.visitCompilationUnit(node, context);
+      }
+
+      @Override
       public Void visitClass(ClassTree node, Context ctx) {
+        ImmutableList<ClassTree> migrationDefinitions =
+            node.getMembers().stream()
+                .filter(ClassTree.class::isInstance)
+                .map(ClassTree.class::cast)
+                .collect(toImmutableList());
+
+        if (migrationDefinitions.size() != 2) {
+          return super.visitClass(node, ctx);
+        }
+
+        // todo add extra meta data in annotations - but is that enough? For Mono<String> (e.g.)
+        // Mono<T>? Or should we derive it from the AfterTemplate UClassType?
+        CodeTransformer migrationFrom =
+            RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(0), ctx).stream()
+                .findFirst()
+                .get();
+        CodeTransformer migrationTo =
+            RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(1), ctx).stream()
+                .findFirst()
+                .get();
+        MigrationCodeTransformer migrationCodeTransformer =
+            MigrationCodeTransformer.create(migrationFrom, migrationTo, "", "");
+        rules.put(node, migrationCodeTransformer);
         // Here check for things. Is it our needed transformer?
-        rules.putAll(node, RefasterRuleBuilderScanner.extractRules(node, ctx));
+        //        if (node.annotations == null)  then return.
         return super.visitClass(node, ctx);
       }
     }.scan(tree, context);
-    return ImmutableListMultimap.copyOf(rules);
+    return ImmutableMap.copyOf(rules);
   }
 
   private FileObject getOutputFile(TaskEvent taskEvent, ClassTree tree) throws IOException {
@@ -130,10 +162,10 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     return lastDot < 0 ? flatName : flatName.subSequence(lastDot + 1, flatName.length());
   }
 
-  private static void outputCodeTransformers(List<CodeTransformer> rules, FileObject target)
+  private static void outputMigrationTransformer(CodeTransformer rules, FileObject target)
       throws IOException {
     try (ObjectOutputStream output = new ObjectOutputStream(target.openOutputStream())) {
-      output.writeObject(CompositeCodeTransformer.compose(rules));
+      output.writeObject(rules);
     }
   }
 }
