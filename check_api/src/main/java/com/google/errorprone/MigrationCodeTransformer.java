@@ -25,26 +25,27 @@ import com.sun.tools.javac.util.Context;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 
-/** Combines multiple {@code CodeTransformer}s into one. */
 @AutoValue
 public abstract class MigrationCodeTransformer implements CodeTransformer, Serializable {
-  public static CodeTransformer create(CodeTransformer transformTo, CodeTransformer transformFrom) {
-    return create(ImmutableList.of(transformTo, transformFrom));
-  }
 
-  public static CodeTransformer create(Iterable<? extends CodeTransformer> transformers) {
-    return new AutoValue_CompositeCodeTransformer(ImmutableList.copyOf(transformers));
+  public static MigrationCodeTransformer create(
+      CodeTransformer transformFrom, CodeTransformer transformTo, String typeFrom, String typeTo) {
+    return new AutoValue_MigrationCodeTransformer(transformFrom, transformTo, typeFrom, typeTo);
   }
 
   MigrationCodeTransformer() {}
 
-  public abstract ImmutableList<CodeTransformer> transformers();
+  public abstract CodeTransformer transformFrom();
+
+  public abstract CodeTransformer transformTo();
+
+  public abstract String typeFrom();
+
+  public abstract String typeTo();
 
   @Override
   public void apply(TreePath path, Context context, DescriptionListener listener) {
-    for (CodeTransformer transformer : transformers()) {
-      transformer.apply(path, context, listener);
-    }
+    transformFrom().apply(path, context, listener);
   }
 
   @Override

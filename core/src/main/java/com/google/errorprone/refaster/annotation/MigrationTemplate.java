@@ -25,4 +25,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface MigrationTemplate {
   boolean value();
+
+  Class<?> from();
+
+  Class<?> to();
 }
