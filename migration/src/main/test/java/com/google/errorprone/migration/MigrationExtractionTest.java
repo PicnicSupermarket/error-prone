@@ -68,15 +68,11 @@ public class MigrationExtractionTest extends MigrationCompilerBasedTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   @Test
-  public void applyFixesss2() throws IOException {
+  public void migrationExtractionTest() throws IOException {
     Assume.assumeFalse(StandardSystemProperty.OS_NAME.value().startsWith("Windows"));
 
-
-    // Todo pass the migration template to the Plugin...
-    File file = new File("../core/src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.java");
-
-    FileSystem fileSystem = Jimfs.newFileSystem(Configuration.unix());
-    Path source = fileSystem.getPath("src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.java");
+    File file = new File("../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.java");
+    Path path = file.toPath();
 
     JavacFileManager fileManager = new JavacFileManager(new Context(), false, UTF_8);
     DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
@@ -88,12 +84,12 @@ public class MigrationExtractionTest extends MigrationCompilerBasedTest {
                 diagnosticCollector,
                 ImmutableList.of("-Xplugin:MigrationResourceCompiler"),
                 ImmutableList.of(),
-                fileManager.getJavaFileObjects(source));
+                fileManager.getJavaFileObjects(path));
     Boolean call = task.call();
 //    assertWithMessage(Joiner.on('\n').join(diagnosticCollector.getDiagnostics()))
 //        .that(task.call())
 //        .isTrue();
-    assertThat(Files.readAllLines(source, UTF_8))
+    assertThat(Files.readAllLines(path, UTF_8))
         .containsExactly(
             "class A implements Runnable {", //
             "  public void run() {}",
