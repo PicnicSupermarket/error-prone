@@ -371,4 +371,9 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   public void suppressWarnings() throws IOException {
     runTest("SuppressWarningsTemplate");
   }
+
+  @Test
+  public void memberSelectAndMethodParameterDisambiguation() throws IOException {
+    runTest("MemberSelectAndMethodParameterDisambiguationTemplate");
+  }
 }
