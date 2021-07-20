@@ -24,8 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.RefasterRuleBuilderScanner;
 import com.google.errorprone.refaster.UClassType;
+import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
@@ -38,6 +40,7 @@ import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
@@ -105,50 +108,61 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     new TreeScanner<Void, Context>() {
       @Override
       public Void visitClass(ClassTree node, Context ctx) {
-        ImmutableList<ClassTree> classWithMigrations =
+        ImmutableList<ClassTree> classTreeWithFullMigrationDefinition =
             node.getMembers().stream()
                 .filter(ClassTree.class::isInstance)
                 .map(ClassTree.class::cast)
                 .collect(toImmutableList());
 
-        if (classWithMigrations.size() != 2) {
+        if (classTreeWithFullMigrationDefinition.size() != 2) {
           return super.visitClass(node, ctx);
         }
 
-        ImmutableList<? extends Tree> beforeDefinition =
-            getMethodsOfMigrationDefinition(classWithMigrations.get(0));
-        ImmutableList<? extends Tree> afterDefinition =
-            getMethodsOfMigrationDefinition(classWithMigrations.get(1));
+        ImmutableList<? extends Tree> fromMigrationDefinition =
+            getMethodsOfMigrationDefinition(classTreeWithFullMigrationDefinition.get(0));
+        ImmutableList<? extends Tree> toMigrationDefinition =
+            getMethodsOfMigrationDefinition(classTreeWithFullMigrationDefinition.get(1));
 
-        if (beforeDefinition.size() != 2 || afterDefinition.size() != 2) {
+        if (fromMigrationDefinition.size() != 2 || toMigrationDefinition.size() != 2) {
           return super.visitClass(node, ctx);
         }
 
         VisitorState state = VisitorState.createForUtilityPurposes(ctx);
-        ImmutableList<MethodSymbol> fromMigrationDefinition =
-            getMethodSymbolsWithRefasterAnnotation(beforeDefinition, state);
-        ImmutableList<MethodSymbol> toMigrationDefinition =
-            getMethodSymbolsWithRefasterAnnotation(afterDefinition, state);
+        ImmutableList<MethodSymbol> fromMigrationMethods =
+            getMethodSymbolsWithRefasterAnnotation(fromMigrationDefinition, state);
+        ImmutableList<MethodSymbol> toMigrationMethods =
+            getMethodSymbolsWithRefasterAnnotation(toMigrationDefinition, state);
 
-        if (fromMigrationDefinition.size() != 2
-            || toMigrationDefinition.size() != 2
-            || migrationDefinitionsCorrect(fromMigrationDefinition, toMigrationDefinition)) {
+        if (fromMigrationMethods.size() != 2
+            || toMigrationMethods.size() != 2
+            || !migrationDefinitionsCorrect(fromMigrationMethods, toMigrationMethods)) {
           return super.visitClass(node, ctx);
         }
 
-        UClassType beforeTemplateReturnType =
-            UClassType.create(fromMigrationDefinition.get(0).getReturnType().toString());
-        UClassType afterTemplateReturnType =
-            UClassType.create(fromMigrationDefinition.get(1).getReturnType().toString());
+        //        Types instance = Types.instance(context);
 
         CodeTransformer migrationFrom =
-            RefasterRuleBuilderScanner.extractRules(classWithMigrations.get(0), ctx).stream()
+            RefasterRuleBuilderScanner.extractRules(classTreeWithFullMigrationDefinition.get(0), ctx).stream()
                 .findFirst()
                 .get();
+
+        ImmutableList<UType> fromTemplateTypeVariables = getTypeVariablesOfTemplate(migrationFrom);
+        UClassType beforeTemplateReturnType =
+            UClassType.create(
+                fromMigrationMethods.get(0).getReturnType().toString(),
+                fromTemplateTypeVariables);
+
         CodeTransformer migrationTo =
-            RefasterRuleBuilderScanner.extractRules(classWithMigrations.get(1), ctx).stream()
+            RefasterRuleBuilderScanner.extractRules(classTreeWithFullMigrationDefinition.get(1), ctx).stream()
                 .findFirst()
                 .get();
+
+        ImmutableList<UType> toTemplateTypeVariables = getTypeVariablesOfTemplate(migrationTo);
+
+        UClassType afterTemplateReturnType =
+            UClassType.create(
+                fromMigrationMethods.get(1).getReturnType().toString(), toTemplateTypeVariables);
+
         MigrationCodeTransformer migrationCodeTransformer =
             MigrationCodeTransformer.create(
                 migrationFrom, migrationTo, beforeTemplateReturnType, afterTemplateReturnType);
@@ -157,6 +171,14 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
       }
     }.scan(tree, context);
     return ImmutableMap.copyOf(rules);
+  }
+
+  private ImmutableList<UType> getTypeVariablesOfTemplate(CodeTransformer migrationTo) {
+    return ((RefasterRule<?, ?>) migrationTo)
+        .typeVariables().stream()
+            .filter(UType.class::isInstance)
+            .map(UType.class::cast)
+            .collect(toImmutableList());
   }
 
   private ImmutableList<MethodSymbol> getMethodSymbolsWithRefasterAnnotation(
@@ -172,7 +194,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         .collect(toImmutableList());
   }
 
-  private ImmutableList<? extends Tree> getMethodsOfMigrationDefinition(ClassTree classMigrationDefinition) {
+  private ImmutableList<? extends Tree> getMethodsOfMigrationDefinition(
+      ClassTree classMigrationDefinition) {
     return classMigrationDefinition.getMembers().stream()
         .filter(JCMethodDecl.class::isInstance)
         .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
