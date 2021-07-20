@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 The Error Prone Authors.
+ * Copyright 2021 The Error Prone Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-package com.google.errorprone;
+package com.google.errorprone.migration;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.ImmutableList;
+import com.google.errorprone.CodeTransformer;
+import com.google.errorprone.DescriptionListener;
+import com.google.errorprone.refaster.UType;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 
@@ -29,7 +31,7 @@ import java.lang.annotation.Annotation;
 public abstract class MigrationCodeTransformer implements CodeTransformer, Serializable {
 
   public static MigrationCodeTransformer create(
-      CodeTransformer transformFrom, CodeTransformer transformTo, String typeFrom, String typeTo) {
+          CodeTransformer transformFrom, CodeTransformer transformTo, UType typeFrom, UType typeTo) {
     return new AutoValue_MigrationCodeTransformer(transformFrom, transformTo, typeFrom, typeTo);
   }
 
@@ -39,9 +41,9 @@ public abstract class MigrationCodeTransformer implements CodeTransformer, Seria
 
   public abstract CodeTransformer transformTo();
 
-  public abstract String typeFrom();
+  public abstract UType typeFrom();
 
-  public abstract String typeTo();
+  public abstract UType typeTo();
 
   @Override
   public void apply(TreePath path, Context context, DescriptionListener listener) {
