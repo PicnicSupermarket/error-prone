@@ -62,6 +62,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
@@ -205,6 +206,9 @@ public final class AddDefaultMethod extends BugChecker
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
     String prevMethodInDefault = undesiredDefaultMethodDecl.toString();
     prevMethodInDefault = prevMethodInDefault.replace("\"null\"", otherUpdatedSource);
+
+    // didn't try this yet: (however, we need to create a return null; not a "null";
+//    treeMaker.Literal(TypeTag.NONE, null);
 
     Type methodTypeWithReturnType =
         getMethodTypeWithNewReturnType(

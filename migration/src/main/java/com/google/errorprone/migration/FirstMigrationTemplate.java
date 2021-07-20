@@ -4,19 +4,21 @@ import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 
+import java.util.concurrent.Callable;
+
 public final class FirstMigrationTemplate {
   private FirstMigrationTemplate() {}
 
   @MigrationTemplate(value = false, from = String.class, to = Integer.class)
-  static final class MigrateStringToInteger<T extends Integer> {
+  static final class MigrateStringToInteger<T extends Callable<Integer>, S extends String> {
     @BeforeTemplate
-    String before(String s) {
+    S before(S s) {
       return s;
     }
 
     @AfterTemplate
     T after(String s) {
-      return (T) Integer.valueOf(s);
+      return null;
     }
   }
 
