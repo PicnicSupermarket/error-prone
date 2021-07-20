@@ -114,6 +114,7 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
                 .map(ClassTree.class::cast)
                 .collect(toImmutableList());
 
+        // XXX: This check is not solid enough yet...
         if (migrationDefinitions.size() != 2) {
           return super.visitClass(node, ctx);
         }
