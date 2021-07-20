@@ -24,12 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.refaster.Bindings;
-import com.google.errorprone.refaster.Inliner;
-import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.RefasterRuleBuilderScanner;
 import com.google.errorprone.refaster.UClassType;
-import com.google.errorprone.refaster.UStatement;
 import com.google.errorprone.refaster.UTemplater;
 import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
@@ -45,9 +41,9 @@ import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 
 import java.io.IOException;
@@ -140,11 +136,12 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
 
         if (fromMigrationMethods.size() != 2
             || toMigrationMethods.size() != 2
-            || !migrationDefinitionsCorrect(fromMigrationMethods, toMigrationMethods)) {
+            || !migrationDefinitionsCorrect(
+                fromMigrationMethods,
+                toMigrationMethods,
+                new UTemplater(new HashMap<>(), context))) {
           return super.visitClass(node, ctx);
         }
-
-        UTemplater templater = new UTemplater(new HashMap<>(), context);
 
         Type fromBeforeTemplateReturnType =
             ASTHelpers.getType(classTreeWithFullMigrationDefinition.get(0).getMembers().get(1))
@@ -153,26 +150,24 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
             ASTHelpers.getType(classTreeWithFullMigrationDefinition.get(0).getMembers().get(2))
                 .getReturnType();
 
+        UTemplater templater = new UTemplater(new HashMap<>(), context);
         UType fromUType = templater.template(fromBeforeTemplateReturnType);
         UType toUType = templater.template(fromAfterTemplateReturnType);
 
         CodeTransformer migrationFrom =
             RefasterRuleBuilderScanner.extractRules(
                     classTreeWithFullMigrationDefinition.get(0), ctx)
-                .stream()
-                .findFirst()
-                .get();
+                .iterator()
+                .next();
 
         CodeTransformer migrationTo =
             RefasterRuleBuilderScanner.extractRules(
                     classTreeWithFullMigrationDefinition.get(1), ctx)
-                .stream()
-                .findFirst()
-                .get();
+                .iterator()
+                .next();
 
         MigrationCodeTransformer migrationCodeTransformer =
-            MigrationCodeTransformer.create(
-                migrationFrom, migrationTo, fromUType, toUType);
+            MigrationCodeTransformer.create(migrationFrom, migrationTo, fromUType, toUType);
         rules.put(node, migrationCodeTransformer);
         return super.visitClass(node, ctx);
       }
@@ -203,13 +198,36 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
 
   private boolean migrationDefinitionsCorrect(
       ImmutableList<MethodSymbol> fromMigrationDefinition,
-      ImmutableList<MethodSymbol> toMigrationDefinition) {
+      ImmutableList<MethodSymbol> toMigrationDefinition,
+      UTemplater templater) {
+
+    boolean isBeforeTemplateCorrect = doesReturnTypeMatchParamType(fromMigrationDefinition.get(0));
+    boolean isSecondBeforeTemplateCorrect =
+        doesReturnTypeMatchParamType(toMigrationDefinition.get(0));
+
+    /// old
+    //    Type toReturnType = toMigrationDefinition.get(1).getReturnType();
+    ////    Type otherReturnType = fromMigrationDefinition.get(1).getReturnType();
+    //    UClassType template = (UClassType) templater.template(fromReturnType);
+    //    UClassType other = (UClassType) templater.template(toReturnType);
+    //    boolean equals = template.equals(other);
     // check here whether the param types are equal of both lists.
     // check whether the one converts to the other and back.
     // check that both lists have the following structure:
     // A A    (where A and B are types).
     // B A
-    return true;
+    return isBeforeTemplateCorrect && isSecondBeforeTemplateCorrect;
+  }
+
+  private boolean doesReturnTypeMatchParamType(MethodSymbol fromMigrationDefinition) {
+    Type fromReturnType = fromMigrationDefinition.getReturnType();
+    List<VarSymbol> fromParameterTypes = fromMigrationDefinition.getParameters();
+    boolean onlyOneParameter = fromParameterTypes.size() == 1;
+    Type paramType = fromParameterTypes.get(0).type;
+
+    // XXX: Stephan, you mentioned the AutoValue#equals, but this is not that comparison.
+    // However, casting to AutoValue seems a hurdle too far.
+    return onlyOneParameter && fromReturnType.equals(paramType);
   }
 
   private FileObject getOutputFile(TaskEvent taskEvent, ClassTree tree) throws IOException {

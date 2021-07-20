@@ -18,8 +18,4 @@ package com.google.errorprone.refaster.annotation;
 
 public @interface MigrationTemplate {
   boolean value();
-
-  Class<?> from() default Object.class;
-
-  Class<?> to() default Object.class;
 }
