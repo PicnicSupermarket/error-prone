@@ -20,6 +20,9 @@ import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
+import com.google.errorprone.refaster.annotation.AfterTemplate;
+import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
@@ -71,7 +74,9 @@ public class MigrationExtractionTest extends MigrationCompilerBasedTest {
   public void migrationExtractionTest() throws IOException {
     Assume.assumeFalse(StandardSystemProperty.OS_NAME.value().startsWith("Windows"));
 
-    File file = new File("../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.java");
+    File file =
+        new File(
+            "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.java");
     Path path = file.toPath();
 
     JavacFileManager fileManager = new JavacFileManager(new Context(), false, UTF_8);
@@ -86,13 +91,42 @@ public class MigrationExtractionTest extends MigrationCompilerBasedTest {
                 ImmutableList.of(),
                 fileManager.getJavaFileObjects(path));
     Boolean call = task.call();
-//    assertWithMessage(Joiner.on('\n').join(diagnosticCollector.getDiagnostics()))
-//        .that(task.call())
-//        .isTrue();
     assertThat(Files.readAllLines(path, UTF_8))
         .containsExactly(
-            "class A implements Runnable {", //
-            "  public void run() {}",
+            "package com.google.errorprone.migration;",
+            "",
+            "import com.google.errorprone.refaster.annotation.AfterTemplate;",
+            "import com.google.errorprone.refaster.annotation.BeforeTemplate;",
+            "import com.google.errorprone.refaster.annotation.MigrationTemplate;",
+            "",
+            "public final class FirstMigrationTemplate {",
+            "  private FirstMigrationTemplate() {}",
+            "",
+            "  @MigrationTemplate(value = false, from = String.class, to = Integer.class)",
+            "  static final class MigrateStringToInteger {",
+            "    @BeforeTemplate",
+            "    String before(String s) {",
+            "      return s;",
+            "    }",
+            "",
+            "    @AfterTemplate",
+            "    Integer after(String s) {",
+            "      return Integer.valueOf(s);",
+            "    }",
+            "  }",
+            "",
+            "  @MigrationTemplate(value = true, from = Integer.class, to = String.class)",
+            "  static final class MigrateIntegerToString {",
+            "    @BeforeTemplate",
+            "    Integer before(Integer s) {",
+            "      return s;",
+            "    }",
+            "",
+            "    @AfterTemplate",
+            "    String after(Integer s) {",
+            "      return String.valueOf(s);",
+            "    }",
+            "  }",
             "}")
         .inOrder();
   }

@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
 public @interface MigrationTemplate {
   boolean value();
 
-  Class<?> from();
+  Class<?> from() default Object.class;
 
-  Class<?> to();
+  Class<?> to() default Object.class;
 }

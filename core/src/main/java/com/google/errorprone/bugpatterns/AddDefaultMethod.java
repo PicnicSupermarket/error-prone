@@ -108,6 +108,7 @@ public final class AddDefaultMethod extends BugChecker
 
     String refasterUri =
         "src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster";
+    // XXX: Change this to .migration.
     try (FileInputStream is = new FileInputStream(refasterUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
 
@@ -119,16 +120,15 @@ public final class AddDefaultMethod extends BugChecker
                   // XXX: I know this is ugly... But gives us all the information in one place...
                   // Perhaps split up?
                   migrationInformation.put(
-                      ((ExpressionTemplate) ctf.beforeTemplates().get(0))
-                          .getFullyQualifiedReturnType(),
+                      ctf.beforeTemplates()
+                          .get(0)
+                          .toString(), // this is wrong, but first fix that we use .migration
+                                       // instead of .refaster.
                       ((CodeTransformer) ctf)
                           .annotations()
                           .getInstance(MigrationTemplate.class)
                           .value(),
-                      new Pair<>(
-                          ((ExpressionTemplate) ctf.afterTemplates().get(0))
-                              .getFullyQualifiedReturnType(),
-                          ctf)));
+                      new Pair<>(ctf.afterTemplates().get(0).toString(), ctf))); // This .toString is also wrong. first fix .migration use.
 
     } catch (IOException | ClassNotFoundException e) {
       // XXX: @Stephan, which exception to throw here?
