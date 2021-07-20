@@ -17,16 +17,22 @@
 package com.google.errorprone.migration;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.sun.tools.javac.code.Symbol.*;
+import static com.sun.tools.javac.tree.JCTree.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
-import com.google.errorprone.MigrationCodeTransformer;
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.refaster.RefasterRuleBuilderScanner;
+import com.google.errorprone.refaster.UClassType;
+import com.google.errorprone.refaster.annotation.AfterTemplate;
+import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
@@ -35,6 +41,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
+
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.UncheckedIOException;
@@ -104,13 +111,58 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
                 .map(ClassTree.class::cast)
                 .collect(toImmutableList());
 
-        // XXX: This check is not solid enough yet...
         if (migrationDefinitions.size() != 2) {
           return super.visitClass(node, ctx);
         }
 
-        // todo add extra meta data in annotations - but is that enough? For Mono<String> (e.g.)
-        // Mono<T>? Or should we derive it from the AfterTemplate UClassType?
+        ImmutableList<? extends Tree> beforeDefinition =
+            migrationDefinitions.get(0).getMembers().stream()
+                .filter(JCMethodDecl.class::isInstance)
+                .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
+                .collect(toImmutableList());
+
+        ImmutableList<? extends Tree> afterDefinition =
+            migrationDefinitions.get(1).getMembers().stream()
+                .filter(JCMethodDecl.class::isInstance)
+                .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
+                .collect(toImmutableList());
+
+        if (beforeDefinition.size() != 2 || afterDefinition.size() != 2) {
+          return super.visitClass(node, ctx);
+        }
+
+        VisitorState state = VisitorState.createForUtilityPurposes(ctx);
+        ImmutableList<MethodSymbol> fromMigrationDefinition =
+            beforeDefinition.stream()
+                .map(ASTHelpers::getSymbol)
+                .filter(MethodSymbol.class::isInstance)
+                .map(MethodSymbol.class::cast)
+                .filter(
+                    sym ->
+                        ASTHelpers.hasAnnotation(sym, BeforeTemplate.class, state)
+                            || ASTHelpers.hasAnnotation(sym, AfterTemplate.class, state))
+                .collect(toImmutableList());
+
+        ImmutableList<MethodSymbol> toMigrationDefinition =
+            afterDefinition.stream()
+                .map(ASTHelpers::getSymbol)
+                .filter(MethodSymbol.class::isInstance)
+                .map(MethodSymbol.class::cast)
+                .filter(
+                    sym ->
+                        ASTHelpers.hasAnnotation(sym, BeforeTemplate.class, state)
+                            || ASTHelpers.hasAnnotation(sym, AfterTemplate.class, state))
+                .collect(toImmutableList());
+
+        if (fromMigrationDefinition.size() != 2 || toMigrationDefinition.size() != 2 || migrationDefinitionsCorrect(fromMigrationDefinition, toMigrationDefinition)) {
+          return super.visitClass(node, ctx);
+        }
+
+        UClassType beforeTemplateReturnType =
+            UClassType.create(fromMigrationDefinition.get(0).getReturnType().toString());
+        UClassType afterTemplateReturnType =
+            UClassType.create(fromMigrationDefinition.get(1).getReturnType().toString());
+
         CodeTransformer migrationFrom =
             RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(0), ctx).stream()
                 .findFirst()
@@ -120,7 +172,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
                 .findFirst()
                 .get();
         MigrationCodeTransformer migrationCodeTransformer =
-            MigrationCodeTransformer.create(migrationFrom, migrationTo, "", "");
+            MigrationCodeTransformer.create(
+                migrationFrom, migrationTo, beforeTemplateReturnType, afterTemplateReturnType);
         rules.put(node, migrationCodeTransformer);
         // Here check for things. Is it our needed transformer?
         //        if (node.annotations == null)  then return.
@@ -130,11 +183,19 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     return ImmutableMap.copyOf(rules);
   }
 
+  private boolean migrationDefinitionsCorrect(ImmutableList<MethodSymbol> fromMigrationDefinition, ImmutableList<MethodSymbol> toMigrationDefinition) {
+    // check here whether the param types are equal of both lists.
+    // check whether the one converts to the other and back.
+    // check that both lists have the following structure:
+    // A A    (where A and B are types).
+    // B A
+  }
+
   private FileObject getOutputFile(TaskEvent taskEvent, ClassTree tree) throws IOException {
     String packageName =
         Optional.ofNullable(ASTHelpers.getSymbol(tree))
             .map(ASTHelpers::enclosingPackage)
-            .map(Symbol.PackageSymbol::toString)
+            .map(PackageSymbol::toString)
             .orElse("");
     CharSequence className =
         Optional.ofNullable(ASTHelpers.getSymbol(tree))
@@ -147,7 +208,7 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         StandardLocation.CLASS_OUTPUT, packageName, relativeName, taskEvent.getSourceFile());
   }
 
-  private static CharSequence toSimpleFlatName(Symbol.ClassSymbol classSymbol) {
+  private static CharSequence toSimpleFlatName(ClassSymbol classSymbol) {
     Name flatName = classSymbol.flatName();
     int lastDot = flatName.lastIndexOf((byte) '.');
     return lastDot < 0 ? flatName : flatName.subSequence(lastDot + 1, flatName.length());
