@@ -114,21 +114,23 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
                 .map(ClassTree.class::cast)
                 .collect(toImmutableList());
 
-        if (migrationDefinitions.size() == 2) {
-          // todo add extra meta data in annotations - but is that enough? For Mono<String> (e.g.)
-          // Mono<T>? Or should we derive it from the AfterTemplate UClassType?
-          CodeTransformer migrationFrom =
-              RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(0), ctx).stream()
-                  .findFirst()
-                  .get();
-          CodeTransformer migrationTo =
-              RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(1), ctx).stream()
-                  .findFirst()
-                  .get();
-          MigrationCodeTransformer migrationCodeTransformer =
-              MigrationCodeTransformer.create(migrationFrom, migrationTo, "", "");
-          rules.put(node, migrationCodeTransformer);
+        if (migrationDefinitions.size() != 2) {
+          return super.visitClass(node, ctx);
         }
+
+        // todo add extra meta data in annotations - but is that enough? For Mono<String> (e.g.)
+        // Mono<T>? Or should we derive it from the AfterTemplate UClassType?
+        CodeTransformer migrationFrom =
+            RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(0), ctx).stream()
+                .findFirst()
+                .get();
+        CodeTransformer migrationTo =
+            RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(1), ctx).stream()
+                .findFirst()
+                .get();
+        MigrationCodeTransformer migrationCodeTransformer =
+            MigrationCodeTransformer.create(migrationFrom, migrationTo, "", "");
+        rules.put(node, migrationCodeTransformer);
         // Here check for things. Is it our needed transformer?
         //        if (node.annotations == null)  then return.
         return super.visitClass(node, ctx);
