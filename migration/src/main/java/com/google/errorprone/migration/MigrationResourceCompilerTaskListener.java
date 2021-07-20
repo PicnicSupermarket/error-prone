@@ -105,20 +105,20 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     new TreeScanner<Void, Context>() {
       @Override
       public Void visitClass(ClassTree node, Context ctx) {
-        ImmutableList<ClassTree> migrationDefinitions =
+        ImmutableList<ClassTree> classWithMigrations =
             node.getMembers().stream()
                 .filter(ClassTree.class::isInstance)
                 .map(ClassTree.class::cast)
                 .collect(toImmutableList());
 
-        if (migrationDefinitions.size() != 2) {
+        if (classWithMigrations.size() != 2) {
           return super.visitClass(node, ctx);
         }
 
         ImmutableList<? extends Tree> beforeDefinition =
-            getMethodsOfDefinition(migrationDefinitions.get(0));
+            getMethodsOfMigrationDefinition(classWithMigrations.get(0));
         ImmutableList<? extends Tree> afterDefinition =
-            getMethodsOfDefinition(migrationDefinitions.get(1));
+            getMethodsOfMigrationDefinition(classWithMigrations.get(1));
 
         if (beforeDefinition.size() != 2 || afterDefinition.size() != 2) {
           return super.visitClass(node, ctx);
@@ -142,19 +142,17 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
             UClassType.create(fromMigrationDefinition.get(1).getReturnType().toString());
 
         CodeTransformer migrationFrom =
-            RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(0), ctx).stream()
+            RefasterRuleBuilderScanner.extractRules(classWithMigrations.get(0), ctx).stream()
                 .findFirst()
                 .get();
         CodeTransformer migrationTo =
-            RefasterRuleBuilderScanner.extractRules(migrationDefinitions.get(1), ctx).stream()
+            RefasterRuleBuilderScanner.extractRules(classWithMigrations.get(1), ctx).stream()
                 .findFirst()
                 .get();
         MigrationCodeTransformer migrationCodeTransformer =
             MigrationCodeTransformer.create(
                 migrationFrom, migrationTo, beforeTemplateReturnType, afterTemplateReturnType);
         rules.put(node, migrationCodeTransformer);
-        // Here check for things. Is it our needed transformer?
-        //        if (node.annotations == null)  then return.
         return super.visitClass(node, ctx);
       }
     }.scan(tree, context);
@@ -174,8 +172,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         .collect(toImmutableList());
   }
 
-  private ImmutableList<? extends Tree> getMethodsOfDefinition(ClassTree migrationDefinition) {
-    return migrationDefinition.getMembers().stream()
+  private ImmutableList<? extends Tree> getMethodsOfMigrationDefinition(ClassTree classMigrationDefinition) {
+    return classMigrationDefinition.getMembers().stream()
         .filter(JCMethodDecl.class::isInstance)
         .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
         .collect(toImmutableList());
