@@ -16,19 +16,17 @@
 
 package com.google.errorprone.migration;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.MigrationCodeTransformer;
-import com.google.errorprone.refaster.ExpressionTemplate;
-import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.RefasterRuleBuilderScanner;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
@@ -37,18 +35,15 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
-
-import javax.tools.FileObject;
-import javax.tools.JavaFileManager;
-import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import javax.tools.FileObject;
+import javax.tools.JavaFileManager;
+import javax.tools.StandardLocation;
 
 final class MigrationResourceCompilerTaskListener implements TaskListener {
   private final Context context;
@@ -101,11 +96,6 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
   private ImmutableMap<ClassTree, CodeTransformer> compileMigrationTemplates(ClassTree tree) {
     Map<ClassTree, CodeTransformer> rules = new HashMap<>();
     new TreeScanner<Void, Context>() {
-      @Override
-      public Void visitCompilationUnit(CompilationUnitTree node, Context context) {
-        return super.visitCompilationUnit(node, context);
-      }
-
       @Override
       public Void visitClass(ClassTree node, Context ctx) {
         ImmutableList<ClassTree> migrationDefinitions =
