@@ -25,8 +25,4 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface MigrationTemplate {
   boolean value();
-
-  Class<?> from() default Object.class;
-
-  Class<?> to() default Object.class;
 }
