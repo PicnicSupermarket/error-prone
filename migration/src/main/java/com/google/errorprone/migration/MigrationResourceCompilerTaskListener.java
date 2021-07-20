@@ -24,9 +24,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.refaster.Bindings;
+import com.google.errorprone.refaster.Inliner;
 import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.RefasterRuleBuilderScanner;
 import com.google.errorprone.refaster.UClassType;
+import com.google.errorprone.refaster.UStatement;
+import com.google.errorprone.refaster.UTemplater;
 import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
@@ -40,6 +44,7 @@ import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
@@ -139,33 +144,35 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
           return super.visitClass(node, ctx);
         }
 
-        //        Types instance = Types.instance(context);
+        UTemplater templater = new UTemplater(new HashMap<>(), context);
+
+        Type fromBeforeTemplateReturnType =
+            ASTHelpers.getType(classTreeWithFullMigrationDefinition.get(0).getMembers().get(1))
+                .getReturnType();
+        Type fromAfterTemplateReturnType =
+            ASTHelpers.getType(classTreeWithFullMigrationDefinition.get(0).getMembers().get(2))
+                .getReturnType();
+
+        UType fromUType = templater.template(fromBeforeTemplateReturnType);
+        UType toUType = templater.template(fromAfterTemplateReturnType);
 
         CodeTransformer migrationFrom =
-            RefasterRuleBuilderScanner.extractRules(classTreeWithFullMigrationDefinition.get(0), ctx).stream()
+            RefasterRuleBuilderScanner.extractRules(
+                    classTreeWithFullMigrationDefinition.get(0), ctx)
+                .stream()
                 .findFirst()
                 .get();
-
-        ImmutableList<UType> fromTemplateTypeVariables = getTypeVariablesOfTemplate(migrationFrom);
-        UClassType beforeTemplateReturnType =
-            UClassType.create(
-                fromMigrationMethods.get(0).getReturnType().toString(),
-                fromTemplateTypeVariables);
 
         CodeTransformer migrationTo =
-            RefasterRuleBuilderScanner.extractRules(classTreeWithFullMigrationDefinition.get(1), ctx).stream()
+            RefasterRuleBuilderScanner.extractRules(
+                    classTreeWithFullMigrationDefinition.get(1), ctx)
+                .stream()
                 .findFirst()
                 .get();
-
-        ImmutableList<UType> toTemplateTypeVariables = getTypeVariablesOfTemplate(migrationTo);
-
-        UClassType afterTemplateReturnType =
-            UClassType.create(
-                fromMigrationMethods.get(1).getReturnType().toString(), toTemplateTypeVariables);
 
         MigrationCodeTransformer migrationCodeTransformer =
             MigrationCodeTransformer.create(
-                migrationFrom, migrationTo, beforeTemplateReturnType, afterTemplateReturnType);
+                migrationFrom, migrationTo, fromUType, toUType);
         rules.put(node, migrationCodeTransformer);
         return super.visitClass(node, ctx);
       }
