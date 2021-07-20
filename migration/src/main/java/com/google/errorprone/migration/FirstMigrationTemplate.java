@@ -8,15 +8,15 @@ public final class FirstMigrationTemplate {
   private FirstMigrationTemplate() {}
 
   @MigrationTemplate(value = false, from = String.class, to = Integer.class)
-  static final class MigrateStringToInteger {
+  static final class MigrateStringToInteger<T extends Integer> {
     @BeforeTemplate
     String before(String s) {
       return s;
     }
 
     @AfterTemplate
-    Integer after(String s) {
-      return Integer.valueOf(s);
+    T after(String s) {
+      return (T) Integer.valueOf(s);
     }
   }
 
