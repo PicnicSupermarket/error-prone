@@ -180,14 +180,6 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     return ImmutableMap.copyOf(rules);
   }
 
-  private ImmutableList<UType> getTypeVariablesOfTemplate(CodeTransformer migrationTo) {
-    return ((RefasterRule<?, ?>) migrationTo)
-        .typeVariables().stream()
-            .filter(UType.class::isInstance)
-            .map(UType.class::cast)
-            .collect(toImmutableList());
-  }
-
   private ImmutableList<MethodSymbol> getMethodSymbolsWithRefasterAnnotation(
       ImmutableList<? extends Tree> beforeDefinition, VisitorState state) {
     return beforeDefinition.stream()
