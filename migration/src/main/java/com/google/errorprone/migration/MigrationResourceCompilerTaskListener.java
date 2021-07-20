@@ -116,16 +116,9 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         }
 
         ImmutableList<? extends Tree> beforeDefinition =
-            migrationDefinitions.get(0).getMembers().stream()
-                .filter(JCMethodDecl.class::isInstance)
-                .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
-                .collect(toImmutableList());
-
+            getMethodsOfDefinition(migrationDefinitions.get(0));
         ImmutableList<? extends Tree> afterDefinition =
-            migrationDefinitions.get(1).getMembers().stream()
-                .filter(JCMethodDecl.class::isInstance)
-                .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
-                .collect(toImmutableList());
+            getMethodsOfDefinition(migrationDefinitions.get(1));
 
         if (beforeDefinition.size() != 2 || afterDefinition.size() != 2) {
           return super.visitClass(node, ctx);
@@ -133,28 +126,13 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
 
         VisitorState state = VisitorState.createForUtilityPurposes(ctx);
         ImmutableList<MethodSymbol> fromMigrationDefinition =
-            beforeDefinition.stream()
-                .map(ASTHelpers::getSymbol)
-                .filter(MethodSymbol.class::isInstance)
-                .map(MethodSymbol.class::cast)
-                .filter(
-                    sym ->
-                        ASTHelpers.hasAnnotation(sym, BeforeTemplate.class, state)
-                            || ASTHelpers.hasAnnotation(sym, AfterTemplate.class, state))
-                .collect(toImmutableList());
-
+            getMethodSymbolsWithRefasterAnnotation(beforeDefinition, state);
         ImmutableList<MethodSymbol> toMigrationDefinition =
-            afterDefinition.stream()
-                .map(ASTHelpers::getSymbol)
-                .filter(MethodSymbol.class::isInstance)
-                .map(MethodSymbol.class::cast)
-                .filter(
-                    sym ->
-                        ASTHelpers.hasAnnotation(sym, BeforeTemplate.class, state)
-                            || ASTHelpers.hasAnnotation(sym, AfterTemplate.class, state))
-                .collect(toImmutableList());
+            getMethodSymbolsWithRefasterAnnotation(afterDefinition, state);
 
-        if (fromMigrationDefinition.size() != 2 || toMigrationDefinition.size() != 2 || migrationDefinitionsCorrect(fromMigrationDefinition, toMigrationDefinition)) {
+        if (fromMigrationDefinition.size() != 2
+            || toMigrationDefinition.size() != 2
+            || migrationDefinitionsCorrect(fromMigrationDefinition, toMigrationDefinition)) {
           return super.visitClass(node, ctx);
         }
 
@@ -183,12 +161,35 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     return ImmutableMap.copyOf(rules);
   }
 
-  private boolean migrationDefinitionsCorrect(ImmutableList<MethodSymbol> fromMigrationDefinition, ImmutableList<MethodSymbol> toMigrationDefinition) {
+  private ImmutableList<MethodSymbol> getMethodSymbolsWithRefasterAnnotation(
+      ImmutableList<? extends Tree> beforeDefinition, VisitorState state) {
+    return beforeDefinition.stream()
+        .map(ASTHelpers::getSymbol)
+        .filter(MethodSymbol.class::isInstance)
+        .map(MethodSymbol.class::cast)
+        .filter(
+            sym ->
+                ASTHelpers.hasAnnotation(sym, BeforeTemplate.class, state)
+                    || ASTHelpers.hasAnnotation(sym, AfterTemplate.class, state))
+        .collect(toImmutableList());
+  }
+
+  private ImmutableList<? extends Tree> getMethodsOfDefinition(ClassTree migrationDefinition) {
+    return migrationDefinition.getMembers().stream()
+        .filter(JCMethodDecl.class::isInstance)
+        .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
+        .collect(toImmutableList());
+  }
+
+  private boolean migrationDefinitionsCorrect(
+      ImmutableList<MethodSymbol> fromMigrationDefinition,
+      ImmutableList<MethodSymbol> toMigrationDefinition) {
     // check here whether the param types are equal of both lists.
     // check whether the one converts to the other and back.
     // check that both lists have the following structure:
     // A A    (where A and B are types).
     // B A
+    return true;
   }
 
   private FileObject getOutputFile(TaskEvent taskEvent, ClassTree tree) throws IOException {
