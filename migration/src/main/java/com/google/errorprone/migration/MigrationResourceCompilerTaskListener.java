@@ -16,16 +16,17 @@
 
 package com.google.errorprone.migration;
 
+import static com.google.common.base.Preconditions.*;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.sun.tools.javac.code.Symbol.*;
 import static com.sun.tools.javac.tree.JCTree.*;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.refaster.RefasterRuleBuilderScanner;
-import com.google.errorprone.refaster.UClassType;
 import com.google.errorprone.refaster.UTemplater;
 import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
@@ -41,6 +42,7 @@ import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
@@ -136,10 +138,7 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
 
         if (fromMigrationMethods.size() != 2
             || toMigrationMethods.size() != 2
-            || !migrationDefinitionsCorrect(
-                fromMigrationMethods,
-                toMigrationMethods,
-                new UTemplater(new HashMap<>(), context))) {
+            || !validateMigrationDefinitions(fromMigrationMethods, toMigrationMethods)) {
           return super.visitClass(node, ctx);
         }
 
@@ -196,39 +195,76 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         .collect(toImmutableList());
   }
 
-  private boolean migrationDefinitionsCorrect(
+  // XXX: Validation can be improved by giving a ClassTree (which represents the migration
+  // definition) to a BugPattern. Everything can be visited and the correct checks can be handled
+  // inside the BugPattern. Here we can then check whether the List<Description> is empty.
+  // The advantage is that the BugPattern can find all the bugs and provide a list of all the things
+  // that need to improve. In comparison to this validation that stops after it finds the first
+  // error.
+  private boolean validateMigrationDefinitions(
       ImmutableList<MethodSymbol> fromMigrationDefinition,
-      ImmutableList<MethodSymbol> toMigrationDefinition,
-      UTemplater templater) {
+      ImmutableList<MethodSymbol> toMigrationDefinition) {
+    Types types = Types.instance(context);
 
-    boolean isBeforeTemplateCorrect = doesReturnTypeMatchParamType(fromMigrationDefinition.get(0));
-    boolean isSecondBeforeTemplateCorrect =
-        doesReturnTypeMatchParamType(toMigrationDefinition.get(0));
+    validateParamsOfTemplate(fromMigrationDefinition, types);
+    validateParamsOfTemplate(toMigrationDefinition, types);
 
-    /// old
-    //    Type toReturnType = toMigrationDefinition.get(1).getReturnType();
-    ////    Type otherReturnType = fromMigrationDefinition.get(1).getReturnType();
-    //    UClassType template = (UClassType) templater.template(fromReturnType);
-    //    UClassType other = (UClassType) templater.template(toReturnType);
-    //    boolean equals = template.equals(other);
-    // check here whether the param types are equal of both lists.
-    // check whether the one converts to the other and back.
-    // check that both lists have the following structure:
-    // A A    (where A and B are types).
-    // B A
-    return isBeforeTemplateCorrect && isSecondBeforeTemplateCorrect;
+    validateReturnTypeMatchesParamType(fromMigrationDefinition.get(0), types);
+    validateReturnTypeMatchesParamType(toMigrationDefinition.get(0), types);
+
+    MethodSymbol fromDefMethodSymbol = fromMigrationDefinition.get(1);
+    MethodSymbol toDefMethodSymbol = toMigrationDefinition.get(1);
+
+    checkState(
+        types.isSameType(
+            fromDefMethodSymbol.getReturnType(), toDefMethodSymbol.getParameters().get(0).type),
+        "%s returnType doesn't match %s parameterType of the other definition",
+        fromDefMethodSymbol.toString(),
+        toDefMethodSymbol.toString());
+    checkState(
+        types.isSameType(
+            fromDefMethodSymbol.getParameters().get(0).type, toDefMethodSymbol.getReturnType()),
+        "%s parameterType doesn't match %s returnType of the other definition",
+        fromDefMethodSymbol.toString(),
+        toDefMethodSymbol.toString());
+
+    return true;
   }
 
-  private boolean doesReturnTypeMatchParamType(MethodSymbol fromMigrationDefinition) {
-    Type fromReturnType = fromMigrationDefinition.getReturnType();
-    List<VarSymbol> fromParameterTypes = fromMigrationDefinition.getParameters();
-    boolean onlyOneParameter = fromParameterTypes.size() == 1;
+  private void validateParamsOfTemplate(
+      ImmutableList<MethodSymbol> fromMigrationDefinition, Types types) {
+    List<VarSymbol> beforeTemplateParameters = fromMigrationDefinition.get(0).getParameters();
+    checkState(
+        beforeTemplateParameters.size() == 1,
+        "BeforeTemplate of MigrationTemplate can contain only 1 parameter, see %s.",
+        fromMigrationDefinition.toString());
+    List<VarSymbol> afterTemplateParameters = fromMigrationDefinition.get(1).getParameters();
+    checkState(
+        afterTemplateParameters.size() == 1,
+        "AfterTemplate of MigrationTemplate can contain only 1 parameter, see %s.",
+        fromMigrationDefinition.toString());
+    checkState(
+        types.isSameType(beforeTemplateParameters.get(0).type, afterTemplateParameters.get(0).type),
+        "Parameter Type of BeforeTemplate should match the Type of the AfterTemplate. See `%s` and `%s`",
+        fromMigrationDefinition.get(0),
+        fromMigrationDefinition.get(1));
+  }
+
+  private void validateReturnTypeMatchesParamType(
+      MethodSymbol migrationDefinitionBeforeTemplate, Types types) {
+    Type fromReturnType = migrationDefinitionBeforeTemplate.getReturnType();
+    List<VarSymbol> fromParameterTypes = migrationDefinitionBeforeTemplate.getParameters();
     Type paramType = fromParameterTypes.get(0).type;
 
-    // XXX: Stephan, you mentioned the AutoValue#equals, but this is not that comparison.
-    // However, casting to AutoValue seems a hurdle too far.
-    return onlyOneParameter && fromReturnType.equals(paramType);
+    // XXX: Stephan, you mentioned the AutoValue#equals, but I think this is what is appropriate in
+    // this case.
+    Preconditions.checkState(
+        types.isSameType(fromReturnType, paramType),
+        "@BeforeTemplate %s - ReturnType does not match parameter type.",
+        migrationDefinitionBeforeTemplate.toString());
   }
+
+  // method to see whether to given methods, are a mapping from on to the other.
 
   private FileObject getOutputFile(TaskEvent taskEvent, ClassTree tree) throws IOException {
     String packageName =
