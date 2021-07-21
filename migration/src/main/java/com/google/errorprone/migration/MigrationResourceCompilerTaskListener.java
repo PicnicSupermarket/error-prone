@@ -54,6 +54,7 @@ import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import javax.lang.model.type.TypeKind;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
@@ -221,12 +222,31 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         "%s returnType doesn't match %s parameterType of the other definition",
         fromDefMethodSymbol.toString(),
         toDefMethodSymbol.toString());
-    checkState(
-        types.isSameType(
-            fromDefMethodSymbol.getParameters().get(0).type, toDefMethodSymbol.getReturnType()),
-        "%s parameterType doesn't match %s returnType of the other definition",
-        fromDefMethodSymbol.toString(),
-        toDefMethodSymbol.toString());
+
+    Type type = fromDefMethodSymbol.getParameters().get(0).type;
+    boolean isTypeVar = type.getKind() == TypeKind.TYPEVAR;
+
+    Type returnType = toDefMethodSymbol.getReturnType();
+    // XXX: Make sure that type vars are also checked for the bounds.
+    // XXX: Would this be too strict?
+    //    type.toString().equals(returnType.toString())
+    if (isTypeVar) {
+      VisitorState context = VisitorState.createForUtilityPurposes(this.context);
+      checkState(
+          ASTHelpers.isSameType(type.getUpperBound(), (returnType.getUpperBound()), context)
+              || ASTHelpers.isSameType(type.getLowerBound(), (returnType.getLowerBound()), context),
+              "%s parameterType doesn't match %s returnType of the other definition, this concerns a TypeKind.TYPEVAR.",
+              fromDefMethodSymbol.toString(),
+              toDefMethodSymbol.toString());
+    } else {
+      checkState(
+          types.isSameType(
+                  fromDefMethodSymbol.getParameters().get(0).type,
+                  toDefMethodSymbol.getReturnType()),
+          "%s parameterType doesn't match %s returnType of the other definition",
+          fromDefMethodSymbol.toString(),
+          toDefMethodSymbol.toString());
+    }
 
     return true;
   }
