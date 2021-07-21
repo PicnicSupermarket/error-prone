@@ -16,10 +16,8 @@
 
 package com.google.errorprone.bugpatterns;
 
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
@@ -41,8 +39,6 @@ import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.code.Scope;
-import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
@@ -65,9 +61,9 @@ import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
@@ -118,7 +114,8 @@ public final class AddDefaultMethod extends BugChecker
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
-    TreeMaker treeMaker = state.getTreeMaker();
+    Unifier unifier = new Unifier(state.context);
+    Inliner inliner = unifier.createInliner();
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     Type methodReturnType = methodSymbol.getReturnType();
@@ -138,21 +135,12 @@ public final class AddDefaultMethod extends BugChecker
     // successful. (Upside: avoids non-compiling code in case of config issue or unforeseen
     // limitation.)
 
-    Unifier unifier = new Unifier(state.context);
-    Inliner inliner = unifier.createInliner();
-
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
             .filter(
-                e -> {
-                  try {
-                    return ASTHelpers.isSameType(
-                        e.typeFrom().inline(inliner), methodReturnType, state);
-                  } catch (CouldNotResolveImportException couldNotResolveImportException) {
-                    couldNotResolveImportException.printStackTrace();
-                  }
-                  return false;
-                })
+                m ->
+                    ASTHelpers.isSameType(
+                        inlineType(inliner, m.typeFrom()), methodReturnType, state))
             .findFirst();
 
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
@@ -162,52 +150,12 @@ public final class AddDefaultMethod extends BugChecker
       return Description.NO_MATCH;
     }
 
-    MigrationCodeTransformer currentMigration = suitableMigration.get();
-
-    String implNewMethod =
-        getBodyForDefaultMethodInInterface(
-            methodTree,
-            ((JCIdent) methodTree.getReturnType()).type,
-            false,
-            currentMigration.transformFrom(),
-            state);
-
-    String implExistingMethod =
-        getBodyForDefaultMethodInInterface(
-            methodTree,
-            inlineType(inliner, currentMigration.typeTo()),
-            true,
-            currentMigration.transformTo(),
-            state);
-
-    MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
-    undesiredDefaultMethodSymbol.flags_field = DEFAULT;
-    JCMethodDecl undesiredDefaultMethodDecl =
-        treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
-
-    String existingMethodWithDefaultImpl = undesiredDefaultMethodDecl.toString();
-    existingMethodWithDefaultImpl =
-        existingMethodWithDefaultImpl.replace("\"null\"", implExistingMethod);
-
-    Type methodTypeWithReturnType =
-        getMethodTypeWithNewReturnType(
-            state.context, inlineType(inliner, currentMigration.typeTo()));
-
-    undesiredDefaultMethodSymbol.name =
-        undesiredDefaultMethodSymbol.name.append(
-            Names.instance(state.context).fromString("_migrated"));
-    JCMethodDecl desiredDefaultMethod =
-        treeMaker.MethodDef(
-            undesiredDefaultMethodSymbol,
-            methodTypeWithReturnType,
-            getBlockWithReturnNull(treeMaker));
-
-    String implForMigratedMethod =
-        desiredDefaultMethod.toString().replace("\"null\"", implNewMethod);
-
     return describeMatch(
         methodTree,
-        SuggestedFix.replace(methodTree, existingMethodWithDefaultImpl + implForMigratedMethod));
+        SuggestedFix.replace(
+            methodTree,
+            getMigrationReplacementForMethod(
+                methodSymbol, suitableMigration.get(), inliner, state)));
   }
 
   private Type inlineType(Inliner inliner, UType uType) {
@@ -219,7 +167,7 @@ public final class AddDefaultMethod extends BugChecker
   }
 
   private String getBodyForDefaultMethodInInterface(
-      MethodTree tree,
+      Name methodName,
       Type currentType,
       boolean migratingToDesired,
       CodeTransformer transformer,
@@ -228,11 +176,10 @@ public final class AddDefaultMethod extends BugChecker
     JCCompilationUnit compilationUnit = treeMaker.TopLevel(List.nil());
     TreePath compUnitTreePath = new TreePath(compilationUnit);
 
-    Name name = ((JCMethodDecl) tree).getName();
     if (migratingToDesired) {
-      name = name.append(Names.instance(state.context).fromString("_migrated"));
+      methodName = Names.instance(state.context).fromString(methodName + "_migrated");
     }
-    JCExpression identExpr = treeMaker.Ident(name).setType(currentType);
+    JCExpression identExpr = treeMaker.Ident(methodName).setType(currentType);
     JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, List.nil());
     methodInvocation.setType(currentType);
     // XXX: here pass typeparams and params... In the List.nil() ^
@@ -263,57 +210,61 @@ public final class AddDefaultMethod extends BugChecker
     }
   }
 
-  @Override
-  public Description matchClass(ClassTree tree, VisitorState state) {
-    if (true) {
-      return Description.NO_MATCH;
-    }
+  private String getMigrationReplacementForMethod(
+      MethodSymbol methodSymbol,
+      MigrationCodeTransformer currentMigration,
+      Inliner inliner,
+      VisitorState state) {
+    TreeMaker treeMaker = state.getTreeMaker();
 
-    //        TreeMaker treeMaker = state.getTreeMaker();
-    //        ClassSymbol interfaceSymbol = ASTHelpers.getSymbol(tree);
-    //        ImmutableList<MethodSymbol> symbolStream =
-    //            getMethodsOfInterfaceToMigrate(
-    //                state.getTypeFromString("java.lang.String"), interfaceSymbol);
-    //
-    //        Type newReturnType =
-    //            getMethodTypeWithNewReturnType(state.context,
-    //     state.getTypeFromString("java.lang.Integer"));
-    //
-    //        MethodSymbol sym = symbolStream.get(0);
-    //        sym.flags_field = DEFAULT;
-    //        JCMethodDecl updatedMethodDecl = treeMaker.MethodDef(sym,
-    //     getBlockWithReturnNull(treeMaker));
-    //
-    //        sym.name = sym.name.append(Names.instance(state.context).fromString("_migrated"));
-    //        JCMethodDecl newMethodDecl =
-    //            treeMaker.MethodDef(sym, newReturnType, getBlockWithReturnNull(treeMaker));
-    //
-    //        String prevMethodInDefault = updatedMethodDecl.toString();
-    //
-    //        // how we know what to match instead of `(\"test\")` in normal cases?
-    //        String fullyMigratedSourceCode =
-    //            newMethodDecl.toString().replace("\"null\"", transformationString);
+    String implNewMethod =
+        getBodyForDefaultMethodInInterface(
+            methodSymbol.getSimpleName(),
+            methodSymbol.getReturnType(), // ((JCIdent) methodTree.getReturnType()).type,
+            false,
+            currentMigration.transformFrom(),
+            state);
 
-    //    if (interfaceSymbol.isInterface()) {
-    //      return buildDescription(tree)
-    //          .addFix(
-    //              SuggestedFix.replace(
-    //                  tree.getMembers().get(0), prevMethodInDefault + fullyMigratedSourceCode))
-    //          .build();
-    //    }
-    return Description.NO_MATCH;
+    String implExistingMethod =
+        getBodyForDefaultMethodInInterface(
+            methodSymbol.getSimpleName(),
+            inlineType(inliner, currentMigration.typeTo()),
+            true,
+            currentMigration.transformTo(),
+            state);
+
+    MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
+    undesiredDefaultMethodSymbol.flags_field = DEFAULT;
+    JCMethodDecl undesiredDefaultMethodDecl =
+        treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
+
+    String existingMethodWithDefaultImpl = undesiredDefaultMethodDecl.toString();
+    existingMethodWithDefaultImpl =
+        existingMethodWithDefaultImpl.replace("\"null\"", implExistingMethod);
+
+    Type methodTypeWithReturnType =
+        getMethodTypeWithNewReturnType(
+            state.context, inlineType(inliner, currentMigration.typeTo()));
+
+    undesiredDefaultMethodSymbol.name =
+        undesiredDefaultMethodSymbol.name.append(
+            Names.instance(state.context).fromString("_migrated"));
+    JCMethodDecl desiredDefaultMethod =
+        treeMaker.MethodDef(
+            undesiredDefaultMethodSymbol,
+            methodTypeWithReturnType,
+            getBlockWithReturnNull(treeMaker));
+
+    String implForMigratedMethod =
+        desiredDefaultMethod.toString().replace("\"null\"", implNewMethod);
+
+    return existingMethodWithDefaultImpl + implForMigratedMethod;
   }
 
-  private ImmutableList<MethodSymbol> getMethodsOfInterfaceToMigrate(
-      Type migrateFromType, ClassSymbol interfaceSymbol) {
-    Iterable<Symbol> symbols = interfaceSymbol.members().getSymbols(Scope.LookupKind.NON_RECURSIVE);
-
-    return Streams.stream(symbols)
-        .filter(MethodSymbol.class::isInstance)
-        .map(MethodSymbol.class::cast)
-        // XXX: Or subtyping relation?
-        .filter(methodSymbol -> methodSymbol.getReturnType().equals(migrateFromType))
-        .collect(toImmutableList());
+  @Override
+  public Description matchClass(ClassTree tree, VisitorState state) {
+    // XXX: Here go over the interfaces and try to find methods that should be migrated.
+    return Description.NO_MATCH;
   }
 
   private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {
