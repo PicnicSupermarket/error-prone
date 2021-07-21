@@ -19,9 +19,6 @@ package com.google.errorprone.bugpatterns;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
@@ -49,7 +46,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
@@ -69,7 +65,6 @@ import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -86,18 +81,8 @@ import static com.sun.tools.javac.tree.JCTree.*;
     severity = ERROR)
 public final class AddDefaultMethod extends BugChecker
     implements ClassTreeMatcher, MethodTreeMatcher {
-  private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMER =
+  private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
-
-  // XXX: Wrap these in an `@AutoValue`-generated type with two properties.
-  private static final ImmutableSet<String> UNDESIRED_TYPES = ImmutableSet.of();
-  private static final ImmutableTable<String, String, CodeTransformer> TRANSFORMERS =
-      ImmutableTable.of();
-  // XXX: other idea: (from, to) migrations; LHS is undesirable.
-  // XXX: Consider specifying this using a new `CompositeCodeTransformer`-derived type.
-  // ^ The code generating this type could also derive and store the (source and) target type.
-  private static final ImmutableMap<CodeTransformer, CodeTransformer> MIGRATIONS =
-      ImmutableMap.of();
 
   private static ImmutableList<MigrationCodeTransformer> loadMigrationTransformer() {
     ImmutableList.Builder<MigrationCodeTransformer> migrationDefinitions =
@@ -132,7 +117,7 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
-    ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMER.get();
+    ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
     TreeMaker treeMaker = state.getTreeMaker();
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
@@ -199,8 +184,9 @@ public final class AddDefaultMethod extends BugChecker
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
-    String prevMethodInDefault = undesiredDefaultMethodDecl.toString();
-    prevMethodInDefault = prevMethodInDefault.replace("\"null\"", implExistingMethod);
+    String existingMethodWithDefaultImpl = undesiredDefaultMethodDecl.toString();
+    existingMethodWithDefaultImpl =
+        existingMethodWithDefaultImpl.replace("\"null\"", implExistingMethod);
 
     Type methodTypeWithReturnType =
         getMethodTypeWithNewReturnType(
@@ -215,12 +201,12 @@ public final class AddDefaultMethod extends BugChecker
             methodTypeWithReturnType,
             getBlockWithReturnNull(treeMaker));
 
-    String fullyMigratedSourceCode =
-        desiredDefaultMethod.toString().replace("\"null\"", implExistingMethod);
+    String implForMigratedMethod =
+        desiredDefaultMethod.toString().replace("\"null\"", implNewMethod);
 
     return describeMatch(
         methodTree,
-        SuggestedFix.replace(methodTree, prevMethodInDefault + fullyMigratedSourceCode));
+        SuggestedFix.replace(methodTree, existingMethodWithDefaultImpl + implForMigratedMethod));
   }
 
   private Type inlineType(Inliner inliner, UType uType) {
