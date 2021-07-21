@@ -184,6 +184,7 @@ public final class AddDefaultMethod extends BugChecker
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
+
     String existingMethodWithDefaultImpl = undesiredDefaultMethodDecl.toString();
     existingMethodWithDefaultImpl =
         existingMethodWithDefaultImpl.replace("\"null\"", implExistingMethod);
