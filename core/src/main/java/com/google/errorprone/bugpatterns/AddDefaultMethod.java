@@ -120,21 +120,6 @@ public final class AddDefaultMethod extends BugChecker
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     Type methodReturnType = methodSymbol.getReturnType();
 
-    // XXX: Suggestion:
-    // We know that if this return type is eligible for migration, then:
-    // 1. There must be a `CodeTransformer` accepting expressions of this type (namely for the
-    // migration for the new default method back to the old one).
-    // 2. The migration will require us to generate a fake tree of this type.
-    // So, given a method which, given a return type and method name produces such a fake tree, we
-    // can create such a tree here, and check whether any of the "non-desired" `CodeTransformer`s
-    // accepts this tree. We should migrate the method iff so.
-    // Downside: this operation is more expensive and linear in the number of types to be migrated.
-    // Upside: no `ExpressionTemplate` change required, generalizes to generic types if the rest of
-    // the logic supports it too.
-    // XXX: Other idea: optimistically attempt to migrate any interface method. Emit fix only if
-    // successful. (Upside: avoids non-compiling code in case of config issue or unforeseen
-    // limitation.)
-
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
             .filter(
@@ -220,7 +205,7 @@ public final class AddDefaultMethod extends BugChecker
     String implNewMethod =
         getBodyForDefaultMethodInInterface(
             methodSymbol.getSimpleName(),
-            methodSymbol.getReturnType(), // ((JCIdent) methodTree.getReturnType()).type,
+            methodSymbol.getReturnType(),
             false,
             currentMigration.transformFrom(),
             state);
@@ -328,4 +313,19 @@ public final class AddDefaultMethod extends BugChecker
       return pos;
     }
   }
+
+  // XXX: Suggestion: (update: suggestion almost fully applied, but leaving it in here to be sure)
+  // We know that if this return type is eligible for migration, then:
+  // 1. There must be a `CodeTransformer` accepting expressions of this type (namely for the
+  // migration for the new default method back to the old one).
+  // 2. The migration will require us to generate a fake tree of this type.
+  // So, given a method which, given a return type and method name produces such a fake tree, we
+  // can create such a tree here, and check whether any of the "non-desired" `CodeTransformer`s
+  // accepts this tree. We should migrate the method iff so.
+  // Downside: this operation is more expensive and linear in the number of types to be migrated.
+  // Upside: no `ExpressionTemplate` change required, generalizes to generic types if the rest of
+  // the logic supports it too.
+  // XXX: Other idea: optimistically attempt to migrate any interface method. Emit fix only if
+  // successful. (Upside: avoids non-compiling code in case of config issue or unforeseen
+  // limitation.)
 }
