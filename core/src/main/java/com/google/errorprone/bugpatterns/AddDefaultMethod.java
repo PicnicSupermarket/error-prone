@@ -32,8 +32,13 @@ import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
+import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.migration.MigrationCodeTransformer;
+import com.google.errorprone.refaster.CouldNotResolveImportException;
+import com.google.errorprone.refaster.Inliner;
+import com.google.errorprone.refaster.UType;
+import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.ClassTree;
@@ -44,6 +49,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
@@ -62,11 +68,14 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.sun.tools.javac.code.Flags.DEFAULT;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
 import static com.sun.tools.javac.code.Symbol.PackageSymbol;
 import static com.sun.tools.javac.tree.JCTree.*;
@@ -91,48 +100,22 @@ public final class AddDefaultMethod extends BugChecker
       ImmutableMap.of();
 
   private static ImmutableList<MigrationCodeTransformer> loadMigrationTransformer() {
-    //    ImmutableTable.Builder<String, Boolean, Pair<String, CodeTransformer>>
-    // migrationInformation =
-    //        new ImmutableTable.Builder<>();
     ImmutableList.Builder<MigrationCodeTransformer> migrationDefinitions =
         new ImmutableList.Builder<>();
 
     String migrationDefinitionUri =
         "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
-    // XXX: Change this to .migration.
 
     try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
 
-//      MigrationCodeTransformer migrationCodeTransformer =
-//          (MigrationCodeTransformer) ois.readObject();
       unwrap((CodeTransformer) ois.readObject())
           .filter(MigrationCodeTransformer.class::isInstance)
           .map(MigrationCodeTransformer.class::cast)
           .forEach(migrationDefinitions::add);
-      //          .filter(RefasterRule.class::isInstance)
-      //          .map(RefasterRule.class::cast)
-      //          .forEach(
-      //              ctf ->
-      //                  // XXX: I know this is ugly... But gives us all the information in one
-      // place...
-      //                  // Perhaps split up?
-      //                  migrationInformation.put(
-      //                      ctf.beforeTemplates()
-      //                          .get(0)
-      //                          .toString(), // this is wrong, but first fix that we use
-      // .migration
-      //                                       // instead of .refaster.
-      //                      ((CodeTransformer) ctf)
-      //                          .annotations()
-      //                          .getInstance(MigrationTemplate.class)
-      //                          .value(),
-      //                      new Pair<>(ctf.afterTemplates().get(0).toString(), ctf))); // This
-      // .toString is also wrong. first fix .migration use.
-
     } catch (IOException | ClassNotFoundException e) {
       // XXX: @Stephan, which exception to throw here?
-      throw new RuntimeException("Failed to read the Refaster migration template", e);
+      throw new IllegalStateException("Failed to read the Refaster migration template", e);
     }
 
     return migrationDefinitions.build();
@@ -149,15 +132,12 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
-    ImmutableList<MigrationCodeTransformer> migrationTransformationsMap =
-        MIGRATION_TRANSFORMER.get();
+    ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMER.get();
     TreeMaker treeMaker = state.getTreeMaker();
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
-    String methodReturnType = methodSymbol.getReturnType().toString();
+    Type methodReturnType = methodSymbol.getReturnType();
 
-    return Description.NO_MATCH;
-    // XXX: Fix this...
     // XXX: Suggestion:
     // We know that if this return type is eligible for migration, then:
     // 1. There must be a `CodeTransformer` accepting expressions of this type (namely for the
@@ -172,64 +152,83 @@ public final class AddDefaultMethod extends BugChecker
     // XXX: Other idea: optimistically attempt to migrate any interface method. Emit fix only if
     // successful. (Upside: avoids non-compiling code in case of config issue or unforeseen
     // limitation.)
-//    if (migrationTransformationsMap.get(methodReturnType, false) == null) {
-//      return Description.NO_MATCH;
-//    }
-//    String otherType = migrationTransformationsMap.get(methodReturnType, false).fst;
-//
-//    CodeTransformer codeTransformerDesired = migrationTransformationsMap.get(otherType, true).snd;
-//
-//    ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
-//    if (!enclosingClassSymbol.isInterface()) {
-//      return Description.NO_MATCH;
-//    } else if (!migrationTransformationsMap.rowKeySet().contains(methodReturnType)) {
-//      return Description.NO_MATCH;
-//    }
-//
-//    String updatedSource =
-//        getBodyForDefaultMethodInInterface(
-//            methodTree,
-//            ((JCIdent) methodTree.getReturnType()).type,
-//            false,
-//            migrationTransformationsMap.get(
-//                    ((JCIdent) methodTree.getReturnType()).type.toString(), false)
-//                .snd,
-//            state);
-//
-//    String otherUpdatedSource =
-//        getBodyForDefaultMethodInInterface(
-//            methodTree, state.getTypeFromString(otherType), true, codeTransformerDesired, state);
-//
-//    MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
-//    undesiredDefaultMethodSymbol.flags_field = DEFAULT;
-//    JCMethodDecl undesiredDefaultMethodDecl =
-//        treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
-//    String prevMethodInDefault = undesiredDefaultMethodDecl.toString();
-//    prevMethodInDefault = prevMethodInDefault.replace("\"null\"", otherUpdatedSource);
-//
-//    // didn't try this yet: (however, we need to create a return null; not a "null";
-//    //    treeMaker.Literal(TypeTag.NONE, null);
-//
-//    Type methodTypeWithReturnType =
-//        getMethodTypeWithNewReturnType(
-//            state.context,
-//            state.getTypeFromString(migrationTransformationsMap.get(methodReturnType, false).fst));
-//
-//    undesiredDefaultMethodSymbol.name =
-//        undesiredDefaultMethodSymbol.name.append(
-//            Names.instance(state.context).fromString("_migrated"));
-//    JCMethodDecl desiredDefaultMethod =
-//        treeMaker.MethodDef(
-//            undesiredDefaultMethodSymbol,
-//            methodTypeWithReturnType,
-//            getBlockWithReturnNull(treeMaker));
 
-//    String fullyMigratedSourceCode =
-//        desiredDefaultMethod.toString().replace("\"null\"", updatedSource);
-//
-//    return describeMatch(
-//        methodTree,
-//        SuggestedFix.replace(methodTree, prevMethodInDefault + fullyMigratedSourceCode));
+    Unifier unifier = new Unifier(state.context);
+    Inliner inliner = unifier.createInliner();
+
+    Optional<MigrationCodeTransformer> suitableMigration =
+        migrationDefinitions.stream()
+            .filter(
+                e -> {
+                  try {
+                    return ASTHelpers.isSameType(
+                        e.typeFrom().inline(inliner), methodReturnType, state);
+                  } catch (CouldNotResolveImportException couldNotResolveImportException) {
+                    couldNotResolveImportException.printStackTrace();
+                  }
+                  return false;
+                })
+            .findFirst();
+
+    ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
+    if (!suitableMigration.isPresent()
+        || enclosingClassSymbol == null
+        || !enclosingClassSymbol.isInterface()) {
+      return Description.NO_MATCH;
+    }
+
+    MigrationCodeTransformer currentMigration = suitableMigration.get();
+
+    String implNewMethod =
+        getBodyForDefaultMethodInInterface(
+            methodTree,
+            ((JCIdent) methodTree.getReturnType()).type,
+            false,
+            currentMigration.transformFrom(),
+            state);
+
+    String implExistingMethod =
+        getBodyForDefaultMethodInInterface(
+            methodTree,
+            inlineType(inliner, currentMigration.typeTo()),
+            true,
+            currentMigration.transformTo(),
+            state);
+
+    MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
+    undesiredDefaultMethodSymbol.flags_field = DEFAULT;
+    JCMethodDecl undesiredDefaultMethodDecl =
+        treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
+    String prevMethodInDefault = undesiredDefaultMethodDecl.toString();
+    prevMethodInDefault = prevMethodInDefault.replace("\"null\"", implExistingMethod);
+
+    Type methodTypeWithReturnType =
+        getMethodTypeWithNewReturnType(
+            state.context, inlineType(inliner, currentMigration.typeTo()));
+
+    undesiredDefaultMethodSymbol.name =
+        undesiredDefaultMethodSymbol.name.append(
+            Names.instance(state.context).fromString("_migrated"));
+    JCMethodDecl desiredDefaultMethod =
+        treeMaker.MethodDef(
+            undesiredDefaultMethodSymbol,
+            methodTypeWithReturnType,
+            getBlockWithReturnNull(treeMaker));
+
+    String fullyMigratedSourceCode =
+        desiredDefaultMethod.toString().replace("\"null\"", implExistingMethod);
+
+    return describeMatch(
+        methodTree,
+        SuggestedFix.replace(methodTree, prevMethodInDefault + fullyMigratedSourceCode));
+  }
+
+  private Type inlineType(Inliner inliner, UType uType) {
+    try {
+      return uType.inline(inliner);
+    } catch (CouldNotResolveImportException e) {
+      throw new IllegalStateException("Couldn't inline UType", e);
+    }
   }
 
   private String getBodyForDefaultMethodInInterface(
