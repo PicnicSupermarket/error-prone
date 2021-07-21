@@ -8,27 +8,27 @@ public final class FirstMigrationTemplate {
   private FirstMigrationTemplate() {}
 
   @MigrationTemplate(value = false)
-  static final class MigrateStringToInteger<S extends String> {
+  static final class MigrateStringToInteger<S extends String, T extends Integer> {
     @BeforeTemplate
     S before(S s) {
       return s;
     }
 
     @AfterTemplate
-    Integer after(S s) {
-      return Integer.valueOf(s);
+    T after(S s) {
+      return (T) Integer.valueOf(s);
     }
   }
 
   @MigrationTemplate(value = true)
-  static final class MigrateIntegerToString<S extends String> {
+  static final class MigrateIntegerToString<S extends String, T extends Integer> {
     @BeforeTemplate
-    Integer before(Integer s) {
+    T before(T s) {
       return s;
     }
 
     @AfterTemplate
-    S after(Integer s) {
+    S after(T s) {
       return (S) String.valueOf(s);
     }
   }
