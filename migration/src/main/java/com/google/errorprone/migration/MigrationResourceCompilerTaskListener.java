@@ -213,42 +213,41 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     validateReturnTypeMatchesParamType(fromMigrationDefinition.get(0), types);
     validateReturnTypeMatchesParamType(toMigrationDefinition.get(0), types);
 
-    MethodSymbol fromDefMethodSymbol = fromMigrationDefinition.get(1);
-    MethodSymbol toDefMethodSymbol = toMigrationDefinition.get(1);
+    MethodSymbol fromAfterTemplateMethodSymbol = fromMigrationDefinition.get(1);
+    MethodSymbol toAfterTemplateMethodSymbol = toMigrationDefinition.get(1);
+    validateParamTypeWithReturnType(
+        types, toAfterTemplateMethodSymbol, fromAfterTemplateMethodSymbol);
+    validateParamTypeWithReturnType(
+        types, fromAfterTemplateMethodSymbol, toAfterTemplateMethodSymbol);
 
-    checkState(
-        types.isSameType(
-            fromDefMethodSymbol.getReturnType(), toDefMethodSymbol.getParameters().get(0).type),
-        "%s returnType doesn't match %s parameterType of the other definition",
-        fromDefMethodSymbol.toString(),
-        toDefMethodSymbol.toString());
+    return true;
+  }
 
-    Type type = fromDefMethodSymbol.getParameters().get(0).type;
+  private void validateParamTypeWithReturnType(
+      Types types, MethodSymbol paramMethodSymbol, MethodSymbol returnMethodSymbol) {
+    Type type = paramMethodSymbol.getParameters().get(0).type;
     boolean isTypeVar = type.getKind() == TypeKind.TYPEVAR;
 
-    Type returnType = toDefMethodSymbol.getReturnType();
+    Type returnType = returnMethodSymbol.getReturnType();
     // XXX: Make sure that type vars are also checked for the bounds.
     // XXX: Would this be too strict?
     //    type.toString().equals(returnType.toString())
     if (isTypeVar) {
-      VisitorState context = VisitorState.createForUtilityPurposes(this.context);
+      VisitorState state = VisitorState.createForUtilityPurposes(context);
       checkState(
-          ASTHelpers.isSameType(type.getUpperBound(), (returnType.getUpperBound()), context)
-              || ASTHelpers.isSameType(type.getLowerBound(), (returnType.getLowerBound()), context),
-              "%s parameterType doesn't match %s returnType of the other definition, this concerns a TypeKind.TYPEVAR.",
-              fromDefMethodSymbol.toString(),
-              toDefMethodSymbol.toString());
+          ASTHelpers.isSameType(type.getUpperBound(), (returnType.getUpperBound()), state)
+              || ASTHelpers.isSameType(type.getLowerBound(), (returnType.getLowerBound()), state),
+          "%s parameterType doesn't match %s returnType of the other definition, this concerns a TypeKind.TYPEVAR.",
+          paramMethodSymbol.toString(),
+          returnMethodSymbol.toString());
     } else {
       checkState(
           types.isSameType(
-                  fromDefMethodSymbol.getParameters().get(0).type,
-                  toDefMethodSymbol.getReturnType()),
+              paramMethodSymbol.getParameters().get(0).type, returnMethodSymbol.getReturnType()),
           "%s parameterType doesn't match %s returnType of the other definition",
-          fromDefMethodSymbol.toString(),
-          toDefMethodSymbol.toString());
+          paramMethodSymbol.toString(),
+          returnMethodSymbol.toString());
     }
-
-    return true;
   }
 
   private void validateParamsOfTemplate(
