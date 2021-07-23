@@ -283,8 +283,6 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         migrationDefinitionBeforeTemplate.toString());
   }
 
-  // method to see whether to given methods, are a mapping from on to the other.
-
   private FileObject getOutputFile(TaskEvent taskEvent, ClassTree tree) throws IOException {
     String packageName =
         Optional.ofNullable(ASTHelpers.getSymbol(tree))
@@ -296,7 +294,7 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
             .map(MigrationResourceCompilerTaskListener::toSimpleFlatName)
             .orElseGet(tree::getSimpleName);
     String relativeName = className + ".migration";
-// look here at the $, is that OK ? Why are all the bytes read from the inputstream empty otherwise?
+
     JavaFileManager fileManager = context.get(JavaFileManager.class);
     return fileManager.getFileForOutput(
         StandardLocation.CLASS_OUTPUT, packageName, relativeName, taskEvent.getSourceFile());
