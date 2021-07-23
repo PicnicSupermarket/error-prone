@@ -85,8 +85,9 @@ public final class AddDefaultMethod extends BugChecker
         new ImmutableList.Builder<>();
 
     String migrationDefinitionUri =
-        "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
-
+//         "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
+         "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
+//        "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
     try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
 
