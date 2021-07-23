@@ -85,9 +85,10 @@ public final class AddDefaultMethod extends BugChecker
         new ImmutableList.Builder<>();
 
     String migrationDefinitionUri =
-//         "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
-         "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
-//        "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
+        // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
+        // "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
+        "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
+
     try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
 
@@ -114,25 +115,24 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
-    ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
-    Unifier unifier = new Unifier(state.context);
-    Inliner inliner = unifier.createInliner();
-
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
-    Type methodReturnType = methodSymbol.getReturnType();
+    ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
+    if (enclosingClassSymbol == null || !enclosingClassSymbol.isInterface()) {
+      return Description.NO_MATCH;
+    }
+
+    ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
+    Inliner inliner = new Unifier(state.context).createInliner();
 
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
             .filter(
-                m ->
+                migration ->
                     ASTHelpers.isSameType(
-                        inlineType(inliner, m.typeFrom()), methodReturnType, state))
+                        inlineType(inliner, migration.typeFrom()), methodSymbol.getReturnType(), state))
             .findFirst();
 
-    ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    if (!suitableMigration.isPresent()
-        || enclosingClassSymbol == null
-        || !enclosingClassSymbol.isInterface()) {
+    if (!suitableMigration.isPresent()) {
       return Description.NO_MATCH;
     }
 

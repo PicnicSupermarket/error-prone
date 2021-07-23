@@ -25,51 +25,36 @@ import org.junit.runners.JUnit4;
 /** {@link AddDefaultMethod}Test */
 @RunWith(JUnit4.class)
 public class AddDefaultMethodTest {
-  private final CompilationTestHelper compilationHelper =
-      CompilationTestHelper.newInstance(AddDefaultMethod.class, getClass());
-
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
-  private static final String[] FOO_INTERFACE = {
-    "interface Foo {", "  String bar();", " Number baz();", "}",
-  };
-
   @Test
-  public void negative_thenReturn() {
+  public void positive_StringMigration() {
     helper
         .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
         .addOutputLines(
             "Foo.java",
             "interface Foo {",
             "  default java.lang.String bar() {",
-            "    return \"null\";",
+            "    return String.valueOf(bar_migrated());",
             "  }",
             "",
-            "  default Integer bar_migrated() {",
+            "  default java.lang.Integer bar_migrated() {",
             "    return Integer.valueOf(bar());",
             "  }",
             "",
             "  Number baz();",
             "}")
-//        .setArgs("-Xplugin:MigrationResourceCompiler")
         .doTest();
   }
 
-  //  @Test
-  //  public void negative_thenReturn() {
-  //    compilationHelper
-  //        .addSourceLines("Foo.java", FOO_INTERFACE)
-  ////        .addSourceLines(
-  ////            "Test.java",
-  ////            "class Test {",
-  ////            "  String test() {",
-  ////            "    return \"2\";",
-  ////            "  }",
-  ////            "  void test2() {",
-  ////            "    test();",
-  ////            "  }",
-  ////            "}")
-  //        .doTest();
-  //  }
+  @Test
+  public void negative_dontMigrateClass() {
+    helper
+        .addInputLines(
+            "Foo.java", "public class Foo {", "  String bar() {", "    return \"\";", "  }", "}")
+        .addOutputLines(
+            "Foo.java", "public class Foo {", "  String bar() {", "    return \"\";", "  }", "}")
+        .doTest();
+  }
 }
