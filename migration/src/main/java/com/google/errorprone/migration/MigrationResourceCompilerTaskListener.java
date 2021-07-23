@@ -296,14 +296,14 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
             .map(MigrationResourceCompilerTaskListener::toSimpleFlatName)
             .orElseGet(tree::getSimpleName);
     String relativeName = className + ".migration";
-
+// look here at the $, is that OK ? Why are all the bytes read from the inputstream empty otherwise?
     JavaFileManager fileManager = context.get(JavaFileManager.class);
     return fileManager.getFileForOutput(
         StandardLocation.CLASS_OUTPUT, packageName, relativeName, taskEvent.getSourceFile());
   }
 
   private static CharSequence toSimpleFlatName(ClassSymbol classSymbol) {
-    Name flatName = classSymbol.flatName();
+    Name flatName = classSymbol.getQualifiedName();
     int lastDot = flatName.lastIndexOf((byte) '.');
     return lastDot < 0 ? flatName : flatName.subSequence(lastDot + 1, flatName.length());
   }

@@ -7,29 +7,59 @@ import com.google.errorprone.refaster.annotation.MigrationTemplate;
 public final class FirstMigrationTemplate {
   private FirstMigrationTemplate() {}
 
-  @MigrationTemplate(value = false)
-  static final class MigrateStringToInteger<S extends String, T extends Integer> {
-    @BeforeTemplate
-    S before(S s) {
-      return s;
+  static final class StringToInteger {
+    @MigrationTemplate(value = false)
+    static final class MigrateStringToInteger<S extends String, T extends Integer> {
+      @BeforeTemplate
+      S before(S s) {
+        return s;
+      }
+
+      @AfterTemplate
+      T after(S s) {
+        return (T) Integer.valueOf(s);
+      }
     }
 
-    @AfterTemplate
-    T after(S s) {
-      return (T) Integer.valueOf(s);
+    @MigrationTemplate(value = true)
+    static final class MigrateIntegerToString<S extends String, T extends Integer> {
+      @BeforeTemplate
+      T before(T s) {
+        return s;
+      }
+
+      @AfterTemplate
+      S after(T s) {
+        return (S) String.valueOf(s);
+      }
     }
   }
 
-  @MigrationTemplate(value = true)
-  static final class MigrateIntegerToString<S extends String, T extends Integer> {
-    @BeforeTemplate
-    T before(T s) {
-      return s;
+  static final class AlsoStringToIntegerSecond {
+    @MigrationTemplate(value = false)
+    static final class MigrateStringToIntegerSecond {
+      @BeforeTemplate
+      String before(String s) {
+        return s;
+      }
+
+      @AfterTemplate
+      Integer after(String s) {
+        return Integer.valueOf(s);
+      }
     }
 
-    @AfterTemplate
-    S after(T s) {
-      return (S) String.valueOf(s);
+    @MigrationTemplate(value = true)
+    static final class MigrateIntegerToStringSecond {
+      @BeforeTemplate
+      Integer before(Integer s) {
+        return s;
+      }
+
+      @AfterTemplate
+      String after(Integer s) {
+        return String.valueOf(s);
+      }
     }
   }
 }
