@@ -16,6 +16,20 @@
 
 package com.google.errorprone.bugpatterns;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.sun.tools.javac.code.Flags.DEFAULT;
+import static com.sun.tools.javac.code.Symbol.ClassSymbol;
+import static com.sun.tools.javac.code.Symbol.PackageSymbol;
+import static com.sun.tools.javac.tree.JCTree.JCBlock;
+import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import static com.sun.tools.javac.tree.JCTree.JCExpression;
+import static com.sun.tools.javac.tree.JCTree.JCLiteral;
+import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import static com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
+import static com.sun.tools.javac.tree.JCTree.JCReturn;
+
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugPattern;
@@ -52,9 +66,6 @@ import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Position;
-
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -63,13 +74,8 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-
-import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
-import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
-import static com.sun.tools.javac.code.Flags.DEFAULT;
-import static com.sun.tools.javac.code.Symbol.ClassSymbol;
-import static com.sun.tools.javac.code.Symbol.PackageSymbol;
-import static com.sun.tools.javac.tree.JCTree.*;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
 
 @BugPattern(
     name = "AddDefaultMethod",
@@ -81,9 +87,15 @@ public final class AddDefaultMethod extends BugChecker
       Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
   private static ImmutableList<MigrationCodeTransformer> loadMigrationTransformer() {
-    ImmutableList.Builder<MigrationCodeTransformer> migrationDefinitions =
-        new ImmutableList.Builder<>();
-
+    // XXX: Make nice. Potential API:
+    // 1. Accept `ErrorProneFlags` specifying paths.
+    // 2. Fall back to classpath scanning, just like RefasterCheck.
+    // Or:
+    // Completely follow RefasterCheck; use regex flag to black-/whitelist.
+    // Or:
+    // Accept single `CompositeCodeTransformer`?
+    //
+    // Argument against blanket classpath scanning: only some combinations may make sense?
     String migrationDefinitionUri =
         // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
         // "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
@@ -91,19 +103,17 @@ public final class AddDefaultMethod extends BugChecker
 
     try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
-
-      unwrap((CodeTransformer) ois.readObject())
+      return unwrap((CodeTransformer) ois.readObject())
           .filter(MigrationCodeTransformer.class::isInstance)
           .map(MigrationCodeTransformer.class::cast)
-          .forEach(migrationDefinitions::add);
+          .collect(toImmutableList());
     } catch (IOException | ClassNotFoundException e) {
       // XXX: @Stephan, which exception to throw here?
       throw new IllegalStateException("Failed to read the Refaster migration template", e);
     }
-
-    return migrationDefinitions.build();
   }
 
+  // XXX: depending on decision above we don't need this.
   private static Stream<CodeTransformer> unwrap(CodeTransformer codeTransformer) {
     if (!(codeTransformer instanceof CompositeCodeTransformer)) {
       return Stream.of(codeTransformer);
@@ -129,7 +139,9 @@ public final class AddDefaultMethod extends BugChecker
             .filter(
                 migration ->
                     ASTHelpers.isSameType(
-                        inlineType(inliner, migration.typeFrom()), methodSymbol.getReturnType(), state))
+                        inlineType(inliner, migration.typeFrom()),
+                        methodSymbol.getReturnType(),
+                        state))
             .findFirst();
 
     if (!suitableMigration.isPresent()) {

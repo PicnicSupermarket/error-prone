@@ -17,7 +17,6 @@
 package com.google.errorprone.bugpatterns;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import com.google.errorprone.CompilationTestHelper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,6 +34,7 @@ public class AddDefaultMethodTest {
         .addOutputLines(
             "Foo.java",
             "interface Foo {",
+            "  @Deprecated",
             "  default java.lang.String bar() {",
             "    return String.valueOf(bar_migrated());",
             "  }",

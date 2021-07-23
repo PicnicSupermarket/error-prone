@@ -16,12 +16,14 @@
 
 package com.google.errorprone.migration;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.sun.tools.javac.code.Symbol.*;
-import static com.sun.tools.javac.tree.JCTree.*;
+import static com.sun.tools.javac.code.Symbol.ClassSymbol;
+import static com.sun.tools.javac.code.Symbol.MethodSymbol;
+import static com.sun.tools.javac.code.Symbol.PackageSymbol;
+import static com.sun.tools.javac.code.Symbol.VarSymbol;
+import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.CodeTransformer;
@@ -47,7 +49,6 @@ import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
-
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.UncheckedIOException;
@@ -107,25 +108,25 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         }.scan(tree, null));
   }
 
+  // XXX: Maybe allow only top-level and one-level down classes?
   private ImmutableMap<ClassTree, CodeTransformer> compileMigrationTemplates(ClassTree tree) {
     Map<ClassTree, CodeTransformer> rules = new HashMap<>();
     new TreeScanner<Void, Context>() {
       @Override
       public Void visitClass(ClassTree node, Context ctx) {
-        ImmutableList<ClassTree> classTreeWithFullMigrationDefinition =
+        ImmutableList<ClassTree> classTrees =
             node.getMembers().stream()
                 .filter(ClassTree.class::isInstance)
                 .map(ClassTree.class::cast)
                 .collect(toImmutableList());
 
-        if (classTreeWithFullMigrationDefinition.size() != 2) {
+        if (classTrees.size() != 2) {
           return super.visitClass(node, ctx);
         }
 
         ImmutableList<? extends Tree> fromMigrationDefinition =
-            getMethodsOfMigrationDefinition(classTreeWithFullMigrationDefinition.get(0));
-        ImmutableList<? extends Tree> toMigrationDefinition =
-            getMethodsOfMigrationDefinition(classTreeWithFullMigrationDefinition.get(1));
+            getDeclaredMethods(classTrees.get(0));
+        ImmutableList<? extends Tree> toMigrationDefinition = getDeclaredMethods(classTrees.get(1));
 
         if (fromMigrationDefinition.size() != 2 || toMigrationDefinition.size() != 2) {
           return super.visitClass(node, ctx);
@@ -137,34 +138,29 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         ImmutableList<MethodSymbol> toMigrationMethods =
             getMethodSymbolsWithRefasterAnnotation(toMigrationDefinition, state);
 
-        if (fromMigrationMethods.size() != 2
-            || toMigrationMethods.size() != 2
-            || !validateMigrationDefinitions(fromMigrationMethods, toMigrationMethods)) {
+        if (fromMigrationMethods.size() != 2 || toMigrationMethods.size() != 2) {
           return super.visitClass(node, ctx);
         }
 
+        // XXX: Use marker interface to identify which classes are _intended_ to contain a Refaster
+        // migration pair, and throw an exception if any invariant is violated.
+        validateMigrationDefinitions(fromMigrationMethods, toMigrationMethods);
+
+        // XXX: Revisit all logic in this method. We have already extracted these types elsewhere.
         Type fromBeforeTemplateReturnType =
-            ASTHelpers.getType(classTreeWithFullMigrationDefinition.get(0).getMembers().get(1))
-                .getReturnType();
+            ASTHelpers.getType(fromMigrationDefinition.get(0)).getReturnType();
         Type fromAfterTemplateReturnType =
-            ASTHelpers.getType(classTreeWithFullMigrationDefinition.get(0).getMembers().get(2))
-                .getReturnType();
+            ASTHelpers.getType(fromMigrationDefinition.get(1)).getReturnType();
 
         UTemplater templater = new UTemplater(new HashMap<>(), context);
         UType fromUType = templater.template(fromBeforeTemplateReturnType);
         UType toUType = templater.template(fromAfterTemplateReturnType);
 
         CodeTransformer migrationFrom =
-            RefasterRuleBuilderScanner.extractRules(
-                    classTreeWithFullMigrationDefinition.get(0), ctx)
-                .iterator()
-                .next();
+            RefasterRuleBuilderScanner.extractRules(classTrees.get(0), ctx).iterator().next();
 
         CodeTransformer migrationTo =
-            RefasterRuleBuilderScanner.extractRules(
-                    classTreeWithFullMigrationDefinition.get(1), ctx)
-                .iterator()
-                .next();
+            RefasterRuleBuilderScanner.extractRules(classTrees.get(1), ctx).iterator().next();
 
         MigrationCodeTransformer migrationCodeTransformer =
             MigrationCodeTransformer.create(migrationFrom, migrationTo, fromUType, toUType);
@@ -188,8 +184,7 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         .collect(toImmutableList());
   }
 
-  private ImmutableList<? extends Tree> getMethodsOfMigrationDefinition(
-      ClassTree classMigrationDefinition) {
+  private ImmutableList<? extends Tree> getDeclaredMethods(ClassTree classMigrationDefinition) {
     return classMigrationDefinition.getMembers().stream()
         .filter(JCMethodDecl.class::isInstance)
         .filter(e -> !((JCMethodDecl) e).name.contentEquals("<init>"))
@@ -202,9 +197,13 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
   // The advantage is that the BugPattern can find all the bugs and provide a list of all the things
   // that need to improve. In comparison to this validation that stops after it finds the first
   // error.
-  private boolean validateMigrationDefinitions(
+  private void validateMigrationDefinitions(
       ImmutableList<MethodSymbol> fromMigrationDefinition,
       ImmutableList<MethodSymbol> toMigrationDefinition) {
+    // XXX: Maybe move size == 2 check here?
+    // XXX: All this logic implicitly assumes that `@BeforeTemplate` is at index 0 and
+    // `@AfterTemplate` is at index 1. Make this clearer.
+
     Types types = Types.instance(context);
 
     validateParamsOfTemplate(fromMigrationDefinition, types);
@@ -219,8 +218,6 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         types, toAfterTemplateMethodSymbol, fromAfterTemplateMethodSymbol);
     validateParamTypeWithReturnType(
         types, fromAfterTemplateMethodSymbol, toAfterTemplateMethodSymbol);
-
-    return true;
   }
 
   private void validateParamTypeWithReturnType(
@@ -229,24 +226,20 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     boolean isTypeVar = type.getKind() == TypeKind.TYPEVAR;
 
     Type returnType = returnMethodSymbol.getReturnType();
-    // XXX: Make sure that type vars are also checked for the bounds.
-    // XXX: Would this be too strict?
-    //    type.toString().equals(returnType.toString())
     if (isTypeVar) {
       VisitorState state = VisitorState.createForUtilityPurposes(context);
       checkState(
-          ASTHelpers.isSameType(type.getUpperBound(), (returnType.getUpperBound()), state)
-              || ASTHelpers.isSameType(type.getLowerBound(), (returnType.getLowerBound()), state),
+          ASTHelpers.isSameType(type.getUpperBound(), returnType.getUpperBound(), state)
+              || ASTHelpers.isSameType(type.getLowerBound(), returnType.getLowerBound(), state),
           "%s parameterType doesn't match %s returnType of the other definition, this concerns a TypeKind.TYPEVAR.",
-          paramMethodSymbol.toString(),
-          returnMethodSymbol.toString());
+          paramMethodSymbol,
+          returnMethodSymbol);
     } else {
       checkState(
-          types.isSameType(
-              paramMethodSymbol.getParameters().get(0).type, returnMethodSymbol.getReturnType()),
+          types.isSameType(type, returnMethodSymbol.getReturnType()),
           "%s parameterType doesn't match %s returnType of the other definition",
-          paramMethodSymbol.toString(),
-          returnMethodSymbol.toString());
+          paramMethodSymbol,
+          returnMethodSymbol);
     }
   }
 
@@ -256,12 +249,12 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     checkState(
         beforeTemplateParameters.size() == 1,
         "BeforeTemplate of MigrationTemplate can contain only 1 parameter, see %s.",
-        fromMigrationDefinition.toString());
+        fromMigrationDefinition);
     List<VarSymbol> afterTemplateParameters = fromMigrationDefinition.get(1).getParameters();
     checkState(
         afterTemplateParameters.size() == 1,
         "AfterTemplate of MigrationTemplate can contain only 1 parameter, see %s.",
-        fromMigrationDefinition.toString());
+        fromMigrationDefinition);
     checkState(
         types.isSameType(beforeTemplateParameters.get(0).type, afterTemplateParameters.get(0).type),
         "Parameter Type of BeforeTemplate should match the Type of the AfterTemplate. See `%s` and `%s`",
@@ -277,12 +270,13 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
 
     // XXX: Stephan, you mentioned the AutoValue#equals, but I think this is what is appropriate in
     // this case.
-    Preconditions.checkState(
+    checkState(
         types.isSameType(fromReturnType, paramType),
         "@BeforeTemplate %s - ReturnType does not match parameter type.",
-        migrationDefinitionBeforeTemplate.toString());
+        migrationDefinitionBeforeTemplate);
   }
 
+  // XXX: Using only inner class names could lead to name clashes.
   private FileObject getOutputFile(TaskEvent taskEvent, ClassTree tree) throws IOException {
     String packageName =
         Optional.ofNullable(ASTHelpers.getSymbol(tree))
