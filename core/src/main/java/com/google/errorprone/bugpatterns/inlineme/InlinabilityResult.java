@@ -202,15 +202,16 @@ abstract class InlinabilityResult {
       return fromError(InlineValidationErrorReason.LAMBDA_CAPTURES_PARAMETER, body);
     }
 
-    if (ASTHelpers.methodCanBeOverridden(methSymbol)) {
-      // TODO(glorioso): One additional edge case we can check is if the owning class can't be
-      // overridden due to having no publicly-accessible constructors.
-      return fromError(
-          methSymbol.isDefault()
-              ? InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_AND_CANT_BE_FIXED
-              : InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_BUT_CAN_BE_FIXED,
-          body);
-    }
+    // XXX: If we remove this, we can use the InlinerSuggester for the thesis.
+//    if (ASTHelpers.methodCanBeOverridden(methSymbol)) {
+//      // TODO(glorioso): One additional edge case we can check is if the owning class can't be
+//      // overridden due to having no publicly-accessible constructors.
+//      return fromError(
+//          methSymbol.isDefault()
+//              ? InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_AND_CANT_BE_FIXED
+//              : InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_BUT_CAN_BE_FIXED,
+//          body);
+//    }
 
     return inlinable(body);
   }
