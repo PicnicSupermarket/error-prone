@@ -172,29 +172,46 @@ public class InlinerTest {
         .addInputLines(
             "Caller.java",
             "package com.google.foo;",
+            "import com.google.foo.Client;",
             "public final class Caller implements Client {",
             "  @Override public String before() {",
             "    return \"\";",
             "  }",
             "}")
-        .expectUnchanged()
-        .addInputLines("Test.java",
-                "package com.google.foo;",
-                "public class Test {",
-                "  public void test() {",
-                "    Caller call = new Caller();",
-                "    String s = call.before();",
-                "  }",
-                "}")
-        .addOutputLines(
-            "out/Test.java",
-                "package com.google.foo;",
-                "public class Test {",
-                "  public void test() {",
-                "    Caller call = new Caller();",
-                "    call.after();",
-                "  }",
-            "}")
+            .expectUnchanged()
+//        .addOutputLines(
+//            "[com.google.foo.Caller]",
+////            "out/Caller.java",
+//            "package com.google.foo;",
+//            "import com.google.foo.Client;",
+//            "import com.google.errorprone.annotations.InlineMe;",
+//            "public final class Caller implements Client {",
+//            "  @InlineMe(replacement = \"this.after()\")",
+//            "  @Override public String before() {",
+//            "    return \"\";",
+//            "  }",
+//            "}")
+        //        .expectUnchanged()
+        //        .addInputLines(
+        //            "com/google/foo/Test.java",
+        //            "package com.google.foo;",
+        //            "import com.google.foo.Caller;",
+        //            "public class Test {",
+        //            "  public void test() {",
+        //            "    Caller call = new Caller();",
+        //            "    String s = call.before();",
+        //            "  }",
+        //            "}")
+        //        .addOutputLines(
+        //            "com/google/foo/Test.java",
+        //            "package com.google.foo;",
+        //            "import com.google.foo.Caller;",
+        //            "public class Test {",
+        //            "  public void test() {",
+        //            "    Caller call = new Caller();",
+        //            "    String s = call.after();",
+        //            "  }",
+        //            "}")
         .doTest();
   }
 
@@ -227,7 +244,7 @@ public class InlinerTest {
             "  }",
             "}")
         .addOutputLines(
-            "out/Caller.java",
+            "com/google/foo/Caller.java",
             "package com.google.foo;",
             "public final class Caller {",
             "  public void doTest() {",
