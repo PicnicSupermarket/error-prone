@@ -156,33 +156,44 @@ public class InlinerTest {
     refactoringTestHelper
         .addInputLines(
             "Client.java",
+            "package com.google.foo;",
             "import com.google.errorprone.annotations.InlineMe;",
-            "public final class Client {",
+            "public interface Client {",
             "  @Deprecated",
             "  @InlineMe(replacement = \"this.after()\")",
-            "  public String before() {",
+            "  default String before() {",
             "    return after();",
             "  }",
-            "  public String after() {",
+            "  default String after() {",
             "    return \"frobber\";",
             "  }",
             "}")
         .expectUnchanged()
         .addInputLines(
             "Caller.java",
-            "public final class Caller {",
-            "  public void doTest() {",
-            "    Client client = new Client();",
-            "    String result = client.before();",
+            "package com.google.foo;",
+            "public final class Caller implements Client {",
+            "  @Override public String before() {",
+            "    return \"\";",
             "  }",
             "}")
+        .expectUnchanged()
+        .addInputLines("Test.java",
+                "package com.google.foo;",
+                "public class Test {",
+                "  public void test() {",
+                "    Caller call = new Caller();",
+                "    String s = call.before();",
+                "  }",
+                "}")
         .addOutputLines(
-            "out/Caller.java",
-            "public final class Caller {",
-            "  public void doTest() {",
-            "    Client client = new Client();",
-            "    String result = client.after();",
-            "  }",
+            "out/Test.java",
+                "package com.google.foo;",
+                "public class Test {",
+                "  public void test() {",
+                "    Caller call = new Caller();",
+                "    call.after();",
+                "  }",
             "}")
         .doTest();
   }

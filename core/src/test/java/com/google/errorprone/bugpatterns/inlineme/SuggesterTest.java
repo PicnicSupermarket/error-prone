@@ -31,6 +31,39 @@ public class SuggesterTest {
       BugCheckerRefactoringTestHelper.newInstance(Suggester.class, getClass());
 
   @Test
+  public void testInterfaceSuggestion() {
+    refactoringTestHelper
+            .addInputLines(
+                    "/com/google/frobber/Client.java",
+                    "package com.google.frobber;",
+                    "public interface Client {",
+                    "  @Deprecated",
+                    "  default String bar() {",
+                    "    return String.valueOf(bar_migrated());",
+                    "  }",
+                    "  default Integer bar_migrated() {",
+                    "    return Integer.valueOf(bar());",
+                    "  }",
+                    "}")
+            .addOutputLines(
+                    "/com/google/frobber/Client.java",
+                    "package com.google.frobber;",
+                    "",
+                    "import com.google.errorprone.annotations.InlineMe;",
+                    "public interface Client {",
+                    "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+                    "  @Deprecated",
+                    "  default String bar() {",
+                    "    return String.valueOf(bar_migrated());",
+                    "  }",
+                    "  default Integer bar_migrated() {",
+                    "    return Integer.valueOf(bar());",
+                    "  }",
+                    "}")
+            .doTest();
+  }
+
+  @Test
   public void testBuildAnnotation_withImports() {
     assertThat(
             InlineMeData.buildAnnotation(
