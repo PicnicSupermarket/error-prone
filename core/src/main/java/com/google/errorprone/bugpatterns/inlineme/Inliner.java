@@ -20,12 +20,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
-import static com.google.errorprone.util.ASTHelpers.getReceiver;
-import static com.google.errorprone.util.ASTHelpers.getSymbol;
-import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
+import static com.google.errorprone.bugpatterns.BugChecker.*;
+import static com.google.errorprone.util.ASTHelpers.*;
 import static com.google.errorprone.util.MoreAnnotations.asStringValue;
 import static com.google.errorprone.util.MoreAnnotations.getValue;
 import static com.google.errorprone.util.SideEffectAnalysis.hasSideEffect;
+import static com.sun.tools.javac.tree.JCTree.*;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.CharMatcher;
@@ -38,25 +38,38 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.NewClassTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.util.ASTHelpers;
 import com.google.errorprone.util.MoreAnnotations;
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Scope;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
+
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -69,7 +82,7 @@ import java.util.stream.Stream;
     severity = WARNING,
     tags = Inliner.FINDING_TAG)
 public final class Inliner extends BugChecker
-    implements MethodInvocationTreeMatcher, NewClassTreeMatcher {
+    implements MethodInvocationTreeMatcher, NewClassTreeMatcher, MethodTreeMatcher {
 
   public static final String FINDING_TAG = "JavaInlineMe";
 
@@ -112,9 +125,21 @@ public final class Inliner extends BugChecker
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
-    if (!hasAnnotation(symbol, INLINE_ME, state)) {
+    if (!hasAnnotation(symbol, INLINE_ME, state)
+        && ((Symbol.ClassSymbol) symbol.owner).getInterfaces().isEmpty()) {
       return Description.NO_MATCH;
     }
+
+    Scope.WriteableScope scope =
+        ((Symbol.ClassSymbol) symbol.owner).getInterfaces().get(0).tsym.members();
+    //    Scope scope = type.tsym.members();
+    for (Symbol sym : scope.getSymbolsByName(symbol.name)) {
+      if (sym instanceof MethodSymbol) {
+        String s = "";
+      }
+    }
+    //    MethodSymbol methodSymbol = (MethodSymbol) sym;       if (predicate.apply(methodSymbol)) {
+    //         return methodSymbol;       }
     ImmutableList<String> callingVars =
         tree.getArguments().stream().map(state::getSourceForNode).collect(toImmutableList());
 
@@ -140,6 +165,50 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
+  // XXX: I know this is a rather weird idea, but I had to try it....
+  @Override
+  public Description matchMethod(MethodTree tree, VisitorState state) {
+    MethodSymbol symbol = getSymbol(tree);
+    Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) symbol.owner;
+    if (classSymbol.getInterfaces().isEmpty()) {
+      return Description.NO_MATCH;
+    }
+
+    ImmutableList<Iterable<Symbol>> iterables =
+        classSymbol.getInterfaces().stream()
+            .map(i -> i.tsym)
+            .map(a -> a.members().getSymbolsByName((Name) tree.getName()))
+            .collect(toImmutableList());
+
+    ImmutableList<Attribute.Compound> collect =
+        iterables.stream()
+            .map(i -> i.iterator().next().getAnnotationMirrors())
+            .flatMap(Collection::stream)
+            .filter(
+                i ->
+                    i.getAnnotationType()
+                        .toString()
+                        .equals("com.google.errorprone.annotations.InlineMe"))
+            .collect(toImmutableList());
+
+    if (collect.isEmpty()) {
+      return Description.NO_MATCH;
+    } else {
+      SuggestedFix.Builder builder = SuggestedFix.builder().addImport(InlineMe.class.toString());
+      builder.prefixWith(tree, collect.get(0) + "\n");
+      return describeMatch(tree, builder.build());
+      //      Attribute replacement =
+      // collect.get(0).member(Names.instance(state.context).fromString("replacement"));
+      //      AnnotationTree annotationTree =
+      //              ASTHelpers.getAnnotationWithSimpleName(tree.getModifiers().getAnnotations(),
+      // InlineMe.class.getSimpleName());
+      //      SuggestedFix.Builder replacement1 =
+      // SuggestedFixes.addValuesToAnnotationArgument(annotationTree, "replacement",
+      // ImmutableList.of(replacement.getValue().toString()), state);
+      //      return describeMatch(tree, replacement1.build());
+    }
+  }
+
   private Description match(
       ExpressionTree tree,
       MethodSymbol symbol,
@@ -147,7 +216,7 @@ public final class Inliner extends BugChecker
       String receiverString,
       ExpressionTree receiver,
       VisitorState state) {
-    checkState(hasAnnotation(symbol, INLINE_ME, state));
+    //    checkState(hasAnnotation(symbol, INLINE_ME, state));
 
     Api api = Api.create(symbol, state);
     if (!matchesApiPrefixes(api)) {
@@ -303,9 +372,7 @@ public final class Inliner extends BugChecker
     abstract String extraMessage();
 
     final String deprecationMessage() {
-      return shortName()
-          + " is deprecated and should be inlined"
-          + extraMessage();
+      return shortName() + " is deprecated and should be inlined" + extraMessage();
     }
 
     /** Returns {@code FullyQualifiedClassName#methodName}. */
