@@ -78,7 +78,7 @@ import java.util.stream.Stream;
     severity = WARNING,
     tags = Inliner.FINDING_TAG)
 public final class Inliner extends BugChecker
-    implements MethodInvocationTreeMatcher, NewClassTreeMatcher, MethodTreeMatcher {
+    implements MethodInvocationTreeMatcher, MethodTreeMatcher, NewClassTreeMatcher {
 
   public static final String FINDING_TAG = "JavaInlineMe";
 
@@ -152,7 +152,6 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
-  // XXX: I know this is a rather weird idea, but I had to try it....
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);

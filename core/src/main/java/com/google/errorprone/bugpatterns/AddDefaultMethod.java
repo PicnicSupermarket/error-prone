@@ -127,14 +127,14 @@ public final class AddDefaultMethod extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
-    MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
-    ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    if (enclosingClassSymbol == null || !enclosingClassSymbol.isInterface()) {
-      return Description.NO_MATCH;
-    }
-
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
     Inliner inliner = new Unifier(state.context).createInliner();
+
+    MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+    ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
+    if (enclosingClassSymbol == null) { // || !enclosingClassSymbol.isInterface()) {
+      return Description.NO_MATCH;
+    }
 
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
@@ -146,9 +146,10 @@ public final class AddDefaultMethod extends BugChecker
                         state))
             .findFirst();
 
-    if (!suitableMigration.isPresent()
-        || isMethodAlreadyMigrated(methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
+    if (!suitableMigration.isPresent()) {
       return Description.NO_MATCH;
+    } else if (isMethodAlreadyMigrated(methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
+
     }
 
     return describeMatch(
@@ -165,9 +166,10 @@ public final class AddDefaultMethod extends BugChecker
       Name methodName,
       ClassSymbol enclosingClassSymbol) {
     return enclosingClassSymbol
-                .members()
-                .getSymbolsByName(state.getName(methodName + "_migrated"))
-                .iterator().hasNext()
+            .members()
+            .getSymbolsByName(state.getName(methodName + "_migrated"))
+            .iterator()
+            .hasNext()
         && hasAnnotation(methodTree, Deprecated.class, state);
   }
 
@@ -261,8 +263,7 @@ public final class AddDefaultMethod extends BugChecker
             state.context, inlineType(inliner, currentMigration.typeTo()));
 
     undesiredDefaultMethodSymbol.name =
-        undesiredDefaultMethodSymbol.name.append(
-            state.getName("_migrated"));
+        undesiredDefaultMethodSymbol.name.append(state.getName("_migrated"));
     JCMethodDecl desiredDefaultMethod =
         treeMaker.MethodDef(
             undesiredDefaultMethodSymbol,
