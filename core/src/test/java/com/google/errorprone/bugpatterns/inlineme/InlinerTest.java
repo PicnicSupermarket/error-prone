@@ -252,6 +252,55 @@ public class InlinerTest {
   }
 
   @Test
+  public void testInterfaceSuggestionWithRemovalOfImplementation() {
+    refactoringTestHelper
+            .addInputLines(
+                    "Client.java",
+                    "package com.google.frobber;",
+                    "import com.google.errorprone.annotations.InlineMe;",
+                    "public interface Client {",
+                    "  @Deprecated",
+                    "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+                    "  default String bar() {",
+                    "    return String.valueOf(bar_migrated());",
+                    "  }",
+                    "",
+                    "  default Integer bar_migrated() {",
+                    "    return Integer.valueOf(bar());",
+                    "  }",
+                    "}")
+            .expectUnchanged()
+            .addInputLines(
+                    "ClientImpl.java",
+                    "package com.google.frobber;",
+                    "",
+                    "public final class ClientImpl implements Client {",
+                    "}")
+            .expectUnchanged()
+            .addInputLines(
+                    "Magic.java",
+                    "package com.google.frobber;",
+                    "",
+                    "public final class Magic {",
+                    "  public void test() {",
+                    "    ClientImpl impl = new ClientImpl();",
+                    "    String s = impl.bar();",
+                    "  }",
+                    "}")
+            .addOutputLines(
+                    "Magic.java",
+                    "package com.google.frobber;",
+                    "",
+                    "public final class Magic {",
+                    "  public void test() {",
+                    "    ClientImpl impl = new ClientImpl();",
+                    "    String s = String.valueOf(impl.bar_migrated());",
+                    "  }",
+                    "}")
+            .doTest();
+  }
+
+  @Test
   public void testStaticMethod_explicitTypeParam() {
     refactoringTestHelper
         .addInputLines(
