@@ -27,7 +27,85 @@ public class AddDefaultMethodTest {
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
-  // add test for where we already migrated the interface, so that we can then add the _migrated variant
+  @Test
+  public void positive_UpdateImplBecauseInterfaceIsUpdated() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  @Deprecated",
+            "  default java.lang.String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default java.lang.Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "",
+            "  Number baz();",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Bar.java",
+            "public final class Bar {",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Bar.java",
+            "public final class Bar {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void positive_rewriteInterfaceAndImplementation() {
+    helper
+        .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
+        .addOutputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  @Deprecated",
+            "  default java.lang.String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default java.lang.Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "",
+            "  Number baz();",
+            "}")
+        .addInputLines(
+            "Bar.java",
+            "public final class Bar {",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "}")
+        .doTest();
+  }
 
   @Test
   public void positive_addNewMethodImplementationAndDeprecateOldOne() {
