@@ -126,7 +126,10 @@ public final class Inliner extends BugChecker
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
-    if (!hasAnnotation(symbol, INLINE_ME, state)) {
+    MethodTree enclosingMethod = findEnclosingMethod(state);
+    if (!hasAnnotation(symbol, INLINE_ME, state)
+        || !(enclosingMethod != null
+            && !enclosingMethod.getName().toString().contains("_migrated"))) {
       return Description.NO_MATCH;
     }
 
