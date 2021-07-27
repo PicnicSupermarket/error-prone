@@ -27,8 +27,35 @@ public class AddDefaultMethodTest {
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
+  // add test for where we already migrated the interface, so that we can then add the _migrated variant
+
   @Test
-  public void positive_StringMigration() {
+  public void positive_addNewMethodImplementationAndDeprecateOldOne() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "public final class Foo {",
+            "  public String bar() {",
+            "    return \"content\";",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void positive_StringMigrationWithInterface() {
     helper
         .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
         .addOutputLines(
