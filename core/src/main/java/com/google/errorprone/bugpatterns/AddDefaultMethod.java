@@ -167,9 +167,7 @@ public final class AddDefaultMethod extends BugChecker
     return enclosingClassSymbol
                 .members()
                 .getSymbolsByName(state.getName(methodName + "_migrated"))
-                .iterator()
-                .next()
-            != null
+                .iterator().hasNext()
         && hasAnnotation(methodTree, Deprecated.class, state);
   }
 
@@ -232,6 +230,7 @@ public final class AddDefaultMethod extends BugChecker
       VisitorState state) {
     TreeMaker treeMaker = state.getTreeMaker();
 
+    // XXX: Also retrieve the imports and add to the builder?
     String implNewMethod =
         getBodyForDefaultMethodInInterface(
             methodSymbol.getSimpleName(),
