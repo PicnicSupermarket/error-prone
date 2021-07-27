@@ -156,6 +156,7 @@ public class InlinerTest {
     refactoringTestHelper
         .addInputLines(
             "Client.java",
+            "package com.google.foo;",
             "import com.google.errorprone.annotations.InlineMe;",
             "public interface Client {",
             "  @Deprecated",
@@ -170,18 +171,26 @@ public class InlinerTest {
         .expectUnchanged()
         .addInputLines(
             "Caller.java",
+            "package com.google.foo;",
+            "import com.google.foo.Client;",
             "public final class Caller implements Client {",
             "  @Override public String before() {",
             "    return \"\";",
             "  }",
             "}")
-        .addOutputLines(
-            "out/Caller.java",
-            "public final class Caller implements Client {",
-            "  @Override public String before() {",
-            "    return \"\";",
-            "  }",
-            "}")
+            .expectUnchanged()
+//        .addOutputLines(
+//            "[com.google.foo.Caller]",
+////            "out/Caller.java",
+//            "package com.google.foo;",
+//            "import com.google.foo.Client;",
+//            "import com.google.errorprone.annotations.InlineMe;",
+//            "public final class Caller implements Client {",
+//            "  @InlineMe(replacement = \"this.after()\")",
+//            "  @Override public String before() {",
+//            "    return \"\";",
+//            "  }",
+//            "}")
         //        .expectUnchanged()
         //        .addInputLines(
         //            "com/google/foo/Test.java",
@@ -235,7 +244,7 @@ public class InlinerTest {
             "  }",
             "}")
         .addOutputLines(
-            "out/Caller.java",
+            "com/google/foo/Caller.java",
             "package com.google.foo;",
             "public final class Caller {",
             "  public void doTest() {",
