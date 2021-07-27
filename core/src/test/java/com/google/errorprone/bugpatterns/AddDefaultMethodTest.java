@@ -49,6 +49,27 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  public void negative_DontDoubleMigrate() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  @Deprecated",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "",
+            "  Number baz();",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
   public void negative_dontMigrateClass() {
     helper
         .addInputLines(
