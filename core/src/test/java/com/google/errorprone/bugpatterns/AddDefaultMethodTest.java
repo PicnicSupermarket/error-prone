@@ -36,7 +36,7 @@ public class AddDefaultMethodTest {
             "Foo.java",
             "public final class Foo {",
             "  public String bar() {",
-            "    return \"content\";",
+            "    return \"1\";",
             "  }",
             "}")
         .addOutputLines(

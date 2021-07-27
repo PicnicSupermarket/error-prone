@@ -17,6 +17,7 @@
 package com.google.errorprone.bugpatterns;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
@@ -43,6 +44,7 @@ import com.google.errorprone.apply.SourceFile;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
+import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.migration.MigrationCodeTransformer;
 import com.google.errorprone.refaster.CouldNotResolveImportException;
@@ -65,8 +67,8 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
-import com.sun.tools.javac.util.Names;
 import com.sun.tools.javac.util.Position;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -146,21 +148,48 @@ public final class AddDefaultMethod extends BugChecker
                         state))
             .findFirst();
 
-    if (!suitableMigration.isPresent()) {
+    if (!suitableMigration.isPresent()
+        || isMethodAlreadyMigratedInEnclosingClass(
+            methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
       return Description.NO_MATCH;
-    } else if (isMethodAlreadyMigrated(methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
+    } else if (!enclosingClassSymbol.isInterface()) {
+      SuggestedFix.Builder fix = SuggestedFix.builder();
+      ImmutableList<Description> descriptions =
+          ImmutableList.of(
+              describeMatch(
+                  methodTree, SuggestedFix.prefixWith(methodTree, "@Deprecated" + methodTree)),
+              describeMatch(
+                  methodTree,
+                  SuggestedFixes.renameMethod(
+                      methodTree, methodTree.getName().toString() + "_migrated", state)),
+              getMigrationReplacementForNormalMethod(suitableMigration.get(), state),
+              getDescriptionToUpdateMethodTreeType(
+                  methodTree, inlineType(inliner, suitableMigration.get().typeTo()), state));
 
+      descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
+
+      return describeMatch(methodTree, fix.build());
+    } else if (enclosingClassSymbol.isInterface()) {
+      return describeMatch(
+          methodTree,
+          SuggestedFix.replace(
+              methodTree,
+              getMigrationReplacementForMethod(
+                  methodSymbol, suitableMigration.get(), inliner, state)));
     }
-
-    return describeMatch(
-        methodTree,
-        SuggestedFix.replace(
-            methodTree,
-            getMigrationReplacementForMethod(
-                methodSymbol, suitableMigration.get(), inliner, state)));
+    return Description.NO_MATCH;
   }
 
-  private static boolean isMethodAlreadyMigrated(
+  private Description getDescriptionToUpdateMethodTreeType(
+      MethodTree methodTree, Type newType, VisitorState state) {
+    SuggestedFix.Builder builder = SuggestedFix.builder();
+    String qualifiedName = SuggestedFixes.qualifyType(state, builder, newType);
+    return describeMatch(
+        methodTree.getReturnType(),
+        builder.replace(methodTree.getReturnType(), qualifiedName).build());
+  }
+
+  private static boolean isMethodAlreadyMigratedInEnclosingClass(
       MethodTree methodTree,
       VisitorState state,
       Name methodName,
@@ -179,6 +208,17 @@ public final class AddDefaultMethod extends BugChecker
     } catch (CouldNotResolveImportException e) {
       throw new IllegalStateException("Couldn't inline UType", e);
     }
+  }
+
+  private Description getMigrationReplacementForNormalMethod(
+      MigrationCodeTransformer migrationCodeTransformer, VisitorState state) {
+
+    java.util.List<Description> matches = new ArrayList<>();
+    migrationCodeTransformer.transformFrom().apply(state.getPath(), state.context, matches::add);
+
+    // XXX: This is dangerous, but for now, the first match is always the match of the return type,
+    // and we don't need that. Change if that is necessary.
+    return matches.get(1);
   }
 
   private String getBodyForDefaultMethodInInterface(
