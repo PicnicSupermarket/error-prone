@@ -121,18 +121,9 @@ public final class Inliner extends BugChecker
     MethodSymbol symbol = getSymbol(tree);
     //    if (!hasDirectAnnotationWithSimpleName(symbol, INLINE_ME)) {
     if (!hasAnnotation(symbol, INLINE_ME, state)) {
-      //    || ((Symbol.ClassSymbol) symbol.owner).getInterfaces().isEmpty()) {
       return Description.NO_MATCH;
     }
 
-    //    Scope.WriteableScope scope =
-    //        ((Symbol.ClassSymbol) symbol.owner).getInterfaces().get(0).tsym.members();
-    //    //    Scope scope = type.tsym.members();
-    //    for (Symbol sym : scope.getSymbolsByName(symbol.name)) {
-    //      if (sym instanceof MethodSymbol) {
-    //        String s = "";
-    //      }
-    //    }
     ImmutableList<String> callingVars =
         tree.getArguments().stream().map(state::getSourceForNode).collect(toImmutableList());
 
@@ -163,7 +154,7 @@ public final class Inliner extends BugChecker
   public Description matchMethod(MethodTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
     Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) symbol.owner;
-    if (classSymbol.getInterfaces().isEmpty()) {
+    if (classSymbol.getInterfaces().isEmpty() || hasAnnotation(tree, InlineMe.class, state)) {
       return Description.NO_MATCH;
     }
 
@@ -191,6 +182,8 @@ public final class Inliner extends BugChecker
           SuggestedFix.builder().addImport(InlineMe.class.getCanonicalName());
       builder.prefixWith(tree, collect.get(0) + "\n");
       return describeMatch(tree, builder.build());
+      // XXX: There should be a better way to add the annotation instead of just using
+      // `collect.get(0)`.
       //      Attribute replacement =
       // collect.get(0).member(Names.instance(state.context).fromString("replacement"));
       //      AnnotationTree annotationTree =
