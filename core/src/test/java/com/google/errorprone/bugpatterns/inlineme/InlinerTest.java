@@ -178,40 +178,76 @@ public class InlinerTest {
             "    return \"\";",
             "  }",
             "}")
-            .expectUnchanged()
-//        .addOutputLines(
-//            "[com.google.foo.Caller]",
-////            "out/Caller.java",
-//            "package com.google.foo;",
-//            "import com.google.foo.Client;",
-//            "import com.google.errorprone.annotations.InlineMe;",
-//            "public final class Caller implements Client {",
-//            "  @InlineMe(replacement = \"this.after()\")",
-//            "  @Override public String before() {",
-//            "    return \"\";",
-//            "  }",
-//            "}")
-        //        .expectUnchanged()
-        //        .addInputLines(
-        //            "com/google/foo/Test.java",
-        //            "package com.google.foo;",
-        //            "import com.google.foo.Caller;",
-        //            "public class Test {",
-        //            "  public void test() {",
-        //            "    Caller call = new Caller();",
-        //            "    String s = call.before();",
-        //            "  }",
-        //            "}")
-        //        .addOutputLines(
-        //            "com/google/foo/Test.java",
-        //            "package com.google.foo;",
-        //            "import com.google.foo.Caller;",
-        //            "public class Test {",
-        //            "  public void test() {",
-        //            "    Caller call = new Caller();",
-        //            "    String s = call.after();",
-        //            "  }",
-        //            "}")
+        .addOutputLines(
+            "out/Caller.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.errorprone.annotations.InlineMeValidationDisabled;",
+            "import com.google.foo.Client;",
+            "public final class Caller implements Client {",
+            "  @com.google.errorprone.annotations.InlineMe(replacement=\"this.after()\")",
+            "  @InlineMeValidationDisabled(\"Migration Method\")",
+            "  @Override public String before() {",
+            "    return \"\";",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testMethod_lastStepUpdateCaller() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"this.after()\")",
+            "  default String before() {",
+            "    return after();",
+            "  }",
+            "  default String after() {",
+            "    return \"frobber\";",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Caller.java",
+            "package com.google.foo;",
+            "import com.google.foo.Client;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.errorprone.annotations.InlineMeValidationDisabled;",
+            "public final class Caller implements Client {",
+            "  @Deprecated  ",
+            "  @InlineMe(replacement=\"this.after()\")",
+            "  @InlineMeValidationDisabled(\"Migration Method\")",
+            "  @Override ",
+            "  public String before() {",
+            "    return \"\";",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "com/google/foo/Test.java",
+            "package com.google.foo;",
+            "import com.google.foo.Caller;",
+            "public class Test {",
+            "  public void test() {",
+            "    Caller call = new Caller();",
+            "    String s = call.before();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "com/google/foo/Test.java",
+            "package com.google.foo;",
+            "import com.google.foo.Caller;",
+            "public class Test {",
+            "  public void test() {",
+            "    Caller call = new Caller();",
+            "    String s = call.after();",
+            "  }",
+            "}")
         .doTest();
   }
 
