@@ -22,6 +22,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import static com.google.errorprone.util.ASTHelpers.enclosingPackage;
+import static com.google.errorprone.util.ASTHelpers.findEnclosingMethod;
 import static com.google.errorprone.util.ASTHelpers.getReceiver;
 import static com.google.errorprone.util.ASTHelpers.getSymbol;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
@@ -119,8 +120,10 @@ public final class Inliner extends BugChecker
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
-    //    if (!hasDirectAnnotationWithSimpleName(symbol, INLINE_ME)) {
-    if (!hasAnnotation(symbol, INLINE_ME, state)) {
+    MethodTree enclosingMethod = findEnclosingMethod(state);
+    if (!hasAnnotation(symbol, INLINE_ME, state)
+        || !(enclosingMethod != null
+            && !enclosingMethod.getName().toString().contains("_migrated"))) {
       return Description.NO_MATCH;
     }
 
