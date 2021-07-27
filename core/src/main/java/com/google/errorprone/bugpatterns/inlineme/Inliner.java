@@ -39,6 +39,7 @@ import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.annotations.InlineMe;
+import com.google.errorprone.annotations.InlineMeValidationDisabled;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.NewClassTreeMatcher;
@@ -126,18 +127,9 @@ public final class Inliner extends BugChecker
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
     if (!hasAnnotation(symbol, INLINE_ME, state)) {
-//    || ((Symbol.ClassSymbol) symbol.owner).getInterfaces().isEmpty()) {
       return Description.NO_MATCH;
     }
 
-//    Scope.WriteableScope scope =
-//        ((Symbol.ClassSymbol) symbol.owner).getInterfaces().get(0).tsym.members();
-//    //    Scope scope = type.tsym.members();
-//    for (Symbol sym : scope.getSymbolsByName(symbol.name)) {
-//      if (sym instanceof MethodSymbol) {
-//        String s = "";
-//      }
-//    }
     ImmutableList<String> callingVars =
         tree.getArguments().stream().map(state::getSourceForNode).collect(toImmutableList());
 
@@ -168,7 +160,7 @@ public final class Inliner extends BugChecker
   public Description matchMethod(MethodTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
     Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) symbol.owner;
-    if (classSymbol.getInterfaces().isEmpty()) {
+    if (classSymbol.getInterfaces().isEmpty() || hasAnnotation(tree, InlineMe.class, state)) {
       return Description.NO_MATCH;
     }
 
@@ -192,9 +184,15 @@ public final class Inliner extends BugChecker
     if (collect.isEmpty()) {
       return Description.NO_MATCH;
     } else {
-      SuggestedFix.Builder builder = SuggestedFix.builder().addImport(InlineMe.class.getCanonicalName());
-      builder.prefixWith(tree, collect.get(0) + "\n");
+      SuggestedFix.Builder builder =
+          SuggestedFix.builder()
+              .addImport(InlineMe.class.getCanonicalName())
+              .addImport(InlineMeValidationDisabled.class.getCanonicalName())
+              .prefixWith(
+                  tree, collect.get(0) + "\n @InlineMeValidationDisabled(\"Migration Method\") \n");
       return describeMatch(tree, builder.build());
+      // XXX: There should be a better way to add the annotation instead of just using
+      // `collect.get(0)`.
       //      Attribute replacement =
       // collect.get(0).member(Names.instance(state.context).fromString("replacement"));
       //      AnnotationTree annotationTree =
@@ -214,7 +212,7 @@ public final class Inliner extends BugChecker
       String receiverString,
       ExpressionTree receiver,
       VisitorState state) {
-        checkState(hasAnnotation(symbol, INLINE_ME, state));
+    checkState(hasAnnotation(symbol, INLINE_ME, state));
 
     Api api = Api.create(symbol, state);
     if (!matchesApiPrefixes(api)) {
