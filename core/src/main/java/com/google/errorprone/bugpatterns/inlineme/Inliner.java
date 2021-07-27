@@ -125,21 +125,19 @@ public final class Inliner extends BugChecker
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
-    if (!hasAnnotation(symbol, INLINE_ME, state)
-        && ((Symbol.ClassSymbol) symbol.owner).getInterfaces().isEmpty()) {
+    if (!hasAnnotation(symbol, INLINE_ME, state)) {
+//    || ((Symbol.ClassSymbol) symbol.owner).getInterfaces().isEmpty()) {
       return Description.NO_MATCH;
     }
 
-    Scope.WriteableScope scope =
-        ((Symbol.ClassSymbol) symbol.owner).getInterfaces().get(0).tsym.members();
-    //    Scope scope = type.tsym.members();
-    for (Symbol sym : scope.getSymbolsByName(symbol.name)) {
-      if (sym instanceof MethodSymbol) {
-        String s = "";
-      }
-    }
-    //    MethodSymbol methodSymbol = (MethodSymbol) sym;       if (predicate.apply(methodSymbol)) {
-    //         return methodSymbol;       }
+//    Scope.WriteableScope scope =
+//        ((Symbol.ClassSymbol) symbol.owner).getInterfaces().get(0).tsym.members();
+//    //    Scope scope = type.tsym.members();
+//    for (Symbol sym : scope.getSymbolsByName(symbol.name)) {
+//      if (sym instanceof MethodSymbol) {
+//        String s = "";
+//      }
+//    }
     ImmutableList<String> callingVars =
         tree.getArguments().stream().map(state::getSourceForNode).collect(toImmutableList());
 
@@ -194,7 +192,7 @@ public final class Inliner extends BugChecker
     if (collect.isEmpty()) {
       return Description.NO_MATCH;
     } else {
-      SuggestedFix.Builder builder = SuggestedFix.builder().addImport(InlineMe.class.toString());
+      SuggestedFix.Builder builder = SuggestedFix.builder().addImport(InlineMe.class.getCanonicalName());
       builder.prefixWith(tree, collect.get(0) + "\n");
       return describeMatch(tree, builder.build());
       //      Attribute replacement =
@@ -216,7 +214,7 @@ public final class Inliner extends BugChecker
       String receiverString,
       ExpressionTree receiver,
       VisitorState state) {
-    //    checkState(hasAnnotation(symbol, INLINE_ME, state));
+        checkState(hasAnnotation(symbol, INLINE_ME, state));
 
     Api api = Api.create(symbol, state);
     if (!matchesApiPrefixes(api)) {
