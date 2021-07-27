@@ -97,6 +97,7 @@ public final class AddDefaultMethod extends BugChecker
     //
     // Argument against blanket classpath scanning: only some combinations may make sense?
     String migrationDefinitionUri =
+//            ImmutableList.of
         // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
         // "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
         "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
@@ -236,7 +237,7 @@ public final class AddDefaultMethod extends BugChecker
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
 
-    String existingMethodWithDefaultImpl = undesiredDefaultMethodDecl.toString();
+    String existingMethodWithDefaultImpl = "  @Deprecated\n" + undesiredDefaultMethodDecl;
     existingMethodWithDefaultImpl =
         existingMethodWithDefaultImpl.replace("\"null\"", implExistingMethod);
 
