@@ -174,11 +174,7 @@ public final class Inliner extends BugChecker
         iterables.stream()
             .map(i -> i.iterator().next().getAnnotationMirrors())
             .flatMap(Collection::stream)
-            .filter(
-                i ->
-                    i.getAnnotationType()
-                        .toString()
-                        .equals("com.google.errorprone.annotations.InlineMe"))
+            .filter(i -> i.getAnnotationType().toString().equals(INLINE_ME))
             .collect(toImmutableList());
 
     if (collect.isEmpty()) {
@@ -202,6 +198,21 @@ public final class Inliner extends BugChecker
       // SuggestedFixes.addValuesToAnnotationArgument(annotationTree, "replacement",
       // ImmutableList.of(replacement.getValue().toString()), state);
       //      return describeMatch(tree, replacement1.build());
+
+      //            AnnotationTree inlineMe =
+      // getAnnotationWithSimpleName(tree.getModifiers().getAnnotations(), "InlineMe");
+      //      Attribute.Compound annotation =
+      //              ASTHelpers.getSymbol(tree).getRawAttributes().stream()
+      //                      .filter(a ->
+      // a.type.tsym.getQualifiedName().contentEquals(VALIDATION_DISABLED))
+      //                      .collect(onlyElement());
+      //      String stringReplacement = Iterables.getOnlyElement(getStrings(annotation,
+      // "replacement"));
+      //      InlinabilityResult inlinabilityResult =
+      //              InlinabilityResult.forMethod(tree, state, true);
+      //      //      XXX: This is the right way of creating the annotation
+      //      InlineMeData.buildExpectedInlineMeAnnotation(state, inlinabilityResult.body())
+      //              .buildAnnotation();
     }
   }
 
