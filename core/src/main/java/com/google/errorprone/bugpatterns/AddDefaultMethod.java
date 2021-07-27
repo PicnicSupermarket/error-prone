@@ -19,6 +19,7 @@ package com.google.errorprone.bugpatterns;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
 import static com.sun.tools.javac.code.Symbol.PackageSymbol;
@@ -97,7 +98,7 @@ public final class AddDefaultMethod extends BugChecker
     //
     // Argument against blanket classpath scanning: only some combinations may make sense?
     String migrationDefinitionUri =
-//            ImmutableList.of
+        //            ImmutableList.of
         // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
         // "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
         "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
@@ -145,7 +146,8 @@ public final class AddDefaultMethod extends BugChecker
                         state))
             .findFirst();
 
-    if (!suitableMigration.isPresent()) {
+    if (!suitableMigration.isPresent()
+        || isMethodAlreadyMigrated(methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
       return Description.NO_MATCH;
     }
 
@@ -157,7 +159,21 @@ public final class AddDefaultMethod extends BugChecker
                 methodSymbol, suitableMigration.get(), inliner, state)));
   }
 
-  private Type inlineType(Inliner inliner, UType uType) {
+  private static boolean isMethodAlreadyMigrated(
+      MethodTree methodTree,
+      VisitorState state,
+      Name methodName,
+      ClassSymbol enclosingClassSymbol) {
+    return enclosingClassSymbol
+                .members()
+                .getSymbolsByName(state.getName(methodName + "_migrated"))
+                .iterator()
+                .next()
+            != null
+        && hasAnnotation(methodTree, Deprecated.class, state);
+  }
+
+  private static Type inlineType(Inliner inliner, UType uType) {
     try {
       return uType.inline(inliner);
     } catch (CouldNotResolveImportException e) {
@@ -176,7 +192,7 @@ public final class AddDefaultMethod extends BugChecker
     TreePath compUnitTreePath = new TreePath(compilationUnit);
 
     if (migratingToDesired) {
-      methodName = Names.instance(state.context).fromString(methodName + "_migrated");
+      methodName = state.getName(methodName + "_migrated");
     }
     JCExpression identExpr = treeMaker.Ident(methodName).setType(currentType);
     JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, List.nil());
@@ -247,7 +263,7 @@ public final class AddDefaultMethod extends BugChecker
 
     undesiredDefaultMethodSymbol.name =
         undesiredDefaultMethodSymbol.name.append(
-            Names.instance(state.context).fromString("_migrated"));
+            state.getName("_migrated"));
     JCMethodDecl desiredDefaultMethod =
         treeMaker.MethodDef(
             undesiredDefaultMethodSymbol,
