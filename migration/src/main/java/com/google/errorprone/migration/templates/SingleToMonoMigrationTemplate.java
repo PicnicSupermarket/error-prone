@@ -28,14 +28,10 @@ public final class SingleToMonoMigrationTemplate {
 
   static final class SingleToMono {
     @MigrationTemplate(value = false)
-    static final class MigrateStringToIntegerSecond<T> {
+    static final class MigrateSingleToMono<T> {
       @BeforeTemplate
       Single<T> before(Single<T> single) {
         return single;
-      }
-
-      public Single<String> bar() {
-        return Single.just("value");
       }
 
       @AfterTemplate
