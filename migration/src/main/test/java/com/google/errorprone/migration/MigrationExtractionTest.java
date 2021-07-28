@@ -76,7 +76,7 @@ public class MigrationExtractionTest extends MigrationCompilerBasedTest {
 
     File file =
         new File(
-            "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.java");
+            "../migration/src/main/java/com/google/errorprone/migration/templates/FirstMigrationTemplate.java");
     Path path = file.toPath();
 
     JavacFileManager fileManager = new JavacFileManager(new Context(), false, UTF_8);
