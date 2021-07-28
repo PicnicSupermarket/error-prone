@@ -236,7 +236,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
           returnMethodSymbol);
     } else {
       checkState(
-          types.isSameType(type, returnMethodSymbol.getReturnType()),
+          types.isSameType(type, returnType) ||
+                  (type.tsym.equals(returnType.tsym) && type.tsym.getTypeParameters().equals(returnType.tsym.getTypeParameters())),
           "%s parameterType doesn't match %s returnType of the other definition",
           paramMethodSymbol,
           returnMethodSymbol);

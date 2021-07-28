@@ -28,6 +28,21 @@ public class AddDefaultMethodTest {
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
   @Test
+  public void positive_singleToMonoMigration() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public final class Foo {",
+            "  public Single<String> bar() {",
+            "    return Single.just(\"value\");",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
   public void positive_UpdateImplBecauseInterfaceIsUpdated() {
     helper
         .addInputLines(

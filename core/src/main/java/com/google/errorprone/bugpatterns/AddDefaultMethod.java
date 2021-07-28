@@ -54,6 +54,7 @@ import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
@@ -68,6 +69,7 @@ import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Position;
+import com.sun.tools.javac.util.PropagatedException;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -103,7 +105,8 @@ public final class AddDefaultMethod extends BugChecker
         //            ImmutableList.of
         // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
         // "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
-        "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
+        // "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
+        "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration";
 
     try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
@@ -134,7 +137,7 @@ public final class AddDefaultMethod extends BugChecker
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    if (enclosingClassSymbol == null) { // || !enclosingClassSymbol.isInterface()) {
+    if (enclosingClassSymbol == null) {
       return Description.NO_MATCH;
     }
 
@@ -143,9 +146,16 @@ public final class AddDefaultMethod extends BugChecker
             .filter(
                 migration ->
                     ASTHelpers.isSameType(
-                        inlineType(inliner, migration.typeFrom()),
-                        methodSymbol.getReturnType(),
-                        state))
+                            inlineType(inliner, migration.typeFrom()),
+                            methodSymbol.getReturnType(),
+                            state))
+//                        || (inlineType(inliner, migration.typeFrom())
+//                                .tsym
+//                                .equals(methodSymbol.getReturnType().tsym)
+//                            && inlineType(inliner, migration.typeFrom())
+//                                .tsym
+//                                .getTypeParameters()
+//                                .equals(methodSymbol.getReturnType().tsym.getTypeParameters())))
             .findFirst();
 
     if (!suitableMigration.isPresent()
@@ -164,7 +174,7 @@ public final class AddDefaultMethod extends BugChecker
                   methodTree,
                   SuggestedFixes.renameMethod(
                       methodTree, methodTree.getName().toString() + "_migrated", state)),
-              getMigrationReplacementForNormalMethod(suitableMigration.get(), state),
+              getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state),
               getDescriptionToUpdateMethodTreeType(
                   methodTree, inlineType(inliner, suitableMigration.get().typeTo()), state));
 
@@ -183,19 +193,18 @@ public final class AddDefaultMethod extends BugChecker
   }
 
   private boolean isInterfaceAlreadyMigratedOrNotImplementingOne(
-      MethodTree methodTree,
-      ClassSymbol enclosingClassSymbol,
-      VisitorState state) {
+      MethodTree methodTree, ClassSymbol enclosingClassSymbol, VisitorState state) {
     List<Type> interfaces = enclosingClassSymbol.getInterfaces();
 
-    return interfaces.isEmpty() || interfaces.stream()
-        .map(i -> i.tsym)
-        .anyMatch(
-            a ->
-                a.members()
-                    .getSymbolsByName(state.getName(methodTree.getName() + "_migrated()"))
-                    .iterator()
-                    .hasNext());
+    return interfaces.isEmpty()
+        || interfaces.stream()
+            .map(i -> i.tsym)
+            .anyMatch(
+                a ->
+                    a.members()
+                        .getSymbolsByName(state.getName(methodTree.getName() + "_migrated()"))
+                        .iterator()
+                        .hasNext());
   }
 
   private Description getDescriptionToUpdateMethodTreeType(
@@ -229,14 +238,19 @@ public final class AddDefaultMethod extends BugChecker
   }
 
   private Description getMigrationReplacementForNormalMethod(
-      MigrationCodeTransformer migrationCodeTransformer, VisitorState state) {
+      MethodTree methodTree, MigrationCodeTransformer migrationCodeTransformer, VisitorState state) {
+
+    JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
+    TreePath compUnitTreePath = new TreePath(compilationUnit);
+    TreePath methodPath = new TreePath(compUnitTreePath, methodTree.getBody());
 
     java.util.List<Description> matches = new ArrayList<>();
-    migrationCodeTransformer.transformFrom().apply(state.getPath(), state.context, matches::add);
+    migrationCodeTransformer.transformFrom().apply(methodPath, state.context, matches::add);
 
     // XXX: This is dangerous, but for now, the first match is always the match of the return type,
     // and we don't need that. Change if that is necessary.
-    return matches.get(1);
+    // The idea behind the last index is that it returns the biggest expression that is matched.
+    return matches.get(matches.size() - 1);
   }
 
   private String getBodyForDefaultMethodInInterface(
