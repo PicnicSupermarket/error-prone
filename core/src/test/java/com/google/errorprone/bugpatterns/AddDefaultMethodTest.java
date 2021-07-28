@@ -68,7 +68,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void positive_rewriteInterfaceAndImplementation() {
+  public void positive_rewriteInterfaceAndNonImplementingClass() {
     helper
         .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
         .addOutputLines(
@@ -93,8 +93,8 @@ public class AddDefaultMethodTest {
             "  }",
             "}")
         .addOutputLines(
-            "Foo.java",
-            "public final class Foo {",
+            "Bar.java",
+            "public final class Bar {",
             "  @Deprecated",
             "  public String bar() {",
             "    return \"1\";",
@@ -103,6 +103,39 @@ public class AddDefaultMethodTest {
             "  public Integer bar_migrated() {",
             "    return Integer.valueOf(\"1\");",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void positive_rewriteInterfaceNotImplementation() {
+    helper
+        .addInputLines(
+            "Bar.java",
+            "public final class Bar implements Foo {",
+            "  @Override",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "  public Number baz() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
+        .addOutputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  @Deprecated",
+            "  default java.lang.String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default java.lang.Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "",
+            "  Number baz();",
             "}")
         .doTest();
   }

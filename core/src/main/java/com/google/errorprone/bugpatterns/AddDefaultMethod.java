@@ -152,7 +152,9 @@ public final class AddDefaultMethod extends BugChecker
         || isMethodAlreadyMigratedInEnclosingClass(
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
       return Description.NO_MATCH;
-    } else if (!enclosingClassSymbol.isInterface()) {
+    } else if (!enclosingClassSymbol.isInterface()
+        && isInterfaceAlreadyMigratedOrNotImplementingOne(
+            methodTree, enclosingClassSymbol, state)) {
       SuggestedFix.Builder fix = SuggestedFix.builder();
       ImmutableList<Description> descriptions =
           ImmutableList.of(
@@ -178,6 +180,22 @@ public final class AddDefaultMethod extends BugChecker
                   methodSymbol, suitableMigration.get(), inliner, state)));
     }
     return Description.NO_MATCH;
+  }
+
+  private boolean isInterfaceAlreadyMigratedOrNotImplementingOne(
+      MethodTree methodTree,
+      ClassSymbol enclosingClassSymbol,
+      VisitorState state) {
+    List<Type> interfaces = enclosingClassSymbol.getInterfaces();
+
+    return interfaces.isEmpty() || interfaces.stream()
+        .map(i -> i.tsym)
+        .anyMatch(
+            a ->
+                a.members()
+                    .getSymbolsByName(state.getName(methodTree.getName() + "_migrated()"))
+                    .iterator()
+                    .hasNext());
   }
 
   private Description getDescriptionToUpdateMethodTreeType(
