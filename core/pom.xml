@@ -43,6 +43,28 @@
          the Maven shade includes section below, so it will be packaged with
          the error-prone JAR file that we distribute.  -->
 
+    <!-- TODO licenses -->
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+      <version>3.4.8</version>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-test</artifactId>
+      <version>3.4.8</version>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor.addons</groupId>
+      <artifactId>reactor-adapter</artifactId>
+      <version>3.4.3</version>
+    </dependency>
+    <dependency>
+      <groupId>io.reactivex.rxjava2</groupId>
+      <artifactId>rxjava</artifactId>
+      <version>2.2.21</version>
+    </dependency>
+
     <dependency>
       <!-- Apache 2.0 -->
       <groupId>com.google.errorprone</groupId>
@@ -365,12 +387,12 @@
       <artifactId>compile-testing</artifactId>
       <version>0.18</version>
     </dependency>
-      <dependency>
-          <groupId>com.google.testing.compile</groupId>
-          <artifactId>compile-testing</artifactId>
-          <version>0.18</version>
-          <scope>compile</scope>
-      </dependency>
+<!--    <dependency>-->
+<!--        <groupId>com.google.testing.compile</groupId>-->
+<!--        <artifactId>compile-testing</artifactId>-->
+<!--        <version>0.18</version>-->
+<!--        <scope>compile</scope>-->
+<!--    </dependency>-->
   </dependencies>
 
   <build>
