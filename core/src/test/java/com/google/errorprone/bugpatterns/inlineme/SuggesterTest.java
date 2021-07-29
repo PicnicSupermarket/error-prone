@@ -63,53 +63,53 @@ public class SuggesterTest {
         .doTest();
   }
 
-//  @Test
-//  public void testInterfaceSuggestionWithRemovalOfImplementation() {
-//    refactoringTestHelper
-//        .addInputLines(
-//            "Client.java",
-//            "package com.google.frobber;",
-//            "import com.google.errorprone.annotations.InlineMe;",
-//            "public interface Client {",
-//            "  @Deprecated",
-//            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
-//            "  default String bar() {",
-//            "    return String.valueOf(bar_migrated());",
-//            "  }",
-//            "  default Integer bar_migrated() {",
-//            "    return Integer.valueOf(bar());",
-//            "  }",
-//            "}")
-//        .expectUnchanged()
-//        .addInputLines(
-//            "ClientImpl.java",
-//            "package com.google.frobber;",
-//            "",
-//            "public final class ClientImpl implements Client {",
-//            "}")
-//        .expectUnchanged()
-//        .addInputLines(
-//            "Magic.java",
-//            "package com.google.frobber;",
-//            "",
-//            "public final class Magic {",
-//            "  public void test() {",
-//            "    ClientImpl impl = new ClientImpl();",
-//            "    String s = impl.bar();",
-//            "  }",
-//            "}")
-//        .addOutputLines(
-//            "Magic.java",
-//            "package com.google.frobber;",
-//            "",
-//            "public final class Magic {",
-//            "  public void test() {",
-//            "    ClientImpl impl = new ClientImpl();",
-//            "    String s = String.valueOf(impl.bar_migrated());",
-//            "  }",
-//            "}")
-//        .doTest();
-//  }
+  //  @Test
+  //  public void testInterfaceSuggestionWithRemovalOfImplementation() {
+  //    refactoringTestHelper
+  //        .addInputLines(
+  //            "Client.java",
+  //            "package com.google.frobber;",
+  //            "import com.google.errorprone.annotations.InlineMe;",
+  //            "public interface Client {",
+  //            "  @Deprecated",
+  //            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+  //            "  default String bar() {",
+  //            "    return String.valueOf(bar_migrated());",
+  //            "  }",
+  //            "  default Integer bar_migrated() {",
+  //            "    return Integer.valueOf(bar());",
+  //            "  }",
+  //            "}")
+  //        .expectUnchanged()
+  //        .addInputLines(
+  //            "ClientImpl.java",
+  //            "package com.google.frobber;",
+  //            "",
+  //            "public final class ClientImpl implements Client {",
+  //            "}")
+  //        .expectUnchanged()
+  //        .addInputLines(
+  //            "Magic.java",
+  //            "package com.google.frobber;",
+  //            "",
+  //            "public final class Magic {",
+  //            "  public void test() {",
+  //            "    ClientImpl impl = new ClientImpl();",
+  //            "    String s = impl.bar();",
+  //            "  }",
+  //            "}")
+  //        .addOutputLines(
+  //            "Magic.java",
+  //            "package com.google.frobber;",
+  //            "",
+  //            "public final class Magic {",
+  //            "  public void test() {",
+  //            "    ClientImpl impl = new ClientImpl();",
+  //            "    String s = String.valueOf(impl.bar_migrated());",
+  //            "  }",
+  //            "}")
+  //        .doTest();
+  //  }
 
   @Test
   public void testBuildAnnotation_withImports() {
@@ -846,21 +846,22 @@ public class SuggesterTest {
         .doTest();
   }
 
-  @Test
-  public void dontSuggestOnDefaultMethods() {
-    refactoringTestHelper
-        .addInputLines(
-            "Client.java",
-            "package com.google.frobber;",
-            "public interface Client {",
-            "  @Deprecated",
-            "  public default int method() {",
-            "    return 42;",
-            "  }",
-            "}")
-        .expectUnchanged()
-        .doTest();
-  }
+  // XXX: Turned this test off, because the InlinerSuggester is changed for the migration extension.
+  //  @Test
+  //  public void dontSuggestOnDefaultMethods() {
+  //    refactoringTestHelper
+  //        .addInputLines(
+  //            "Client.java",
+  //            "package com.google.frobber;",
+  //            "public interface Client {",
+  //            "  @Deprecated",
+  //            "  public default int method() {",
+  //            "    return 42;",
+  //            "  }",
+  //            "}")
+  //        .expectUnchanged()
+  //        .doTest();
+  //  }
 
   // Since constructors can't be "overridden" in the same way as other non-final methods, it's
   // OK to inline them even if there could be a subclass of the surrounding class.

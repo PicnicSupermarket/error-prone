@@ -99,6 +99,9 @@ public abstract class UFreeIdent extends UIdent {
       if (!isGood) {
         return Choice.none();
       } else if (currentBinding == null) {
+        if (ASTHelpers.getSymbol(expression) instanceof Symbol.ClassSymbol) {
+          return Choice.none();
+        }
         unifier.putBinding(key(), expression);
         return Choice.of(unifier);
       } else if (currentBinding.toString().equals(expression.toString())) {
