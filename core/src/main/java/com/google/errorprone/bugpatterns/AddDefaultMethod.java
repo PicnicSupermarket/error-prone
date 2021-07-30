@@ -93,6 +93,7 @@ public final class AddDefaultMethod extends BugChecker
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
+  // XXX: What would be a better way to provide the imports to the SuggestedFix?
   private Collection<String> importsToAdd;
 
   private static ImmutableList<MigrationCodeTransformer> loadMigrationTransformer() {
