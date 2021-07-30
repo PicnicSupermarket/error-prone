@@ -17,6 +17,7 @@
 package com.google.errorprone.bugpatterns;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,20 +28,20 @@ public class AddDefaultMethodTest {
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
-  @Test
-  public void positive_singleToMonoMigration() {
-    helper
-        .addInputLines(
-            "Foo.java",
-            "import io.reactivex.Single;",
-            "public final class Foo {",
-            "  public Single<String> bar() {",
-            "    return Single.just(\"value\");",
-            "  }",
-            "}")
-        .expectUnchanged()
-        .doTest();
-  }
+//  @Test
+//  public void positive_singleToMonoMigration() {
+//    helper
+//        .addInputLines(
+//            "Foo.java",
+//            "import io.reactivex.Single;",
+//            "public final class Foo {",
+//            "  public Single<String> bar() {",
+//            "    return Single.just(\"value\");",
+//            "  }",
+//            "}")
+//        .expectUnchanged()
+//        .doTest();
+//  }
 
   @Test
   public void positive_UpdateImplBecauseInterfaceIsUpdated() {
@@ -223,12 +224,13 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void negative_dontMigrateClass() {
+  @Ignore
+  public void negative_dontMigrateClassWithUndesiredReturnType() {
     helper
         .addInputLines(
-            "Foo.java", "public class Foo {", "  String bar() {", "    return \"\";", "  }", "}")
+            "Foo.java", "public class Foo {", "  Integer bar() {", "    return \"\";", "  }", "}")
         .addOutputLines(
-            "Foo.java", "public class Foo {", "  String bar() {", "    return \"\";", "  }", "}")
+            "Foo.java", "public class Foo {", "  Integer bar() {", "    return \"\";", "  }", "}")
         .doTest();
   }
 }

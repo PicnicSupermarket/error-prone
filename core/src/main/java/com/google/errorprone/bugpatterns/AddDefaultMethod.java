@@ -104,9 +104,9 @@ public final class AddDefaultMethod extends BugChecker
     String migrationDefinitionUri =
         //            ImmutableList.of
         // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
-        // "../migration/src/main/java/com/google/errorprone/migration/StringToInteger.migration";
-        // "../migration/src/main/java/com/google/errorprone/migration/AlsoStringToIntegerSecond.migration";
-        "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration";
+//         "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration";
+         "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration";
+//        "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration";
 
     try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
         ObjectInputStream ois = new ObjectInputStream(is)) {
@@ -146,16 +146,9 @@ public final class AddDefaultMethod extends BugChecker
             .filter(
                 migration ->
                     ASTHelpers.isSameType(
-                            inlineType(inliner, migration.typeFrom()),
-                            methodSymbol.getReturnType(),
-                            state))
-//                        || (inlineType(inliner, migration.typeFrom())
-//                                .tsym
-//                                .equals(methodSymbol.getReturnType().tsym)
-//                            && inlineType(inliner, migration.typeFrom())
-//                                .tsym
-//                                .getTypeParameters()
-//                                .equals(methodSymbol.getReturnType().tsym.getTypeParameters())))
+                        inlineType(inliner, migration.typeFrom()),
+                        methodSymbol.getReturnType(),
+                        state))
             .findFirst();
 
     if (!suitableMigration.isPresent()
@@ -238,7 +231,9 @@ public final class AddDefaultMethod extends BugChecker
   }
 
   private Description getMigrationReplacementForNormalMethod(
-      MethodTree methodTree, MigrationCodeTransformer migrationCodeTransformer, VisitorState state) {
+      MethodTree methodTree,
+      MigrationCodeTransformer migrationCodeTransformer,
+      VisitorState state) {
 
     JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
     TreePath compUnitTreePath = new TreePath(compilationUnit);

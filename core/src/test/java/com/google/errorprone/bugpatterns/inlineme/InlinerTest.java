@@ -151,52 +151,9 @@ public class InlinerTest {
         .doTest();
   }
 
-  // XXX: Check this one, because should it first do the interface?
   @Test
-  public void testMethod_withReturnStatement() {
-    refactoringTestHelper
-        .addInputLines(
-            "Client.java",
-            "package com.google.foo;",
-            "import com.google.errorprone.annotations.InlineMe;",
-            "public interface Client {",
-            "  @Deprecated",
-            "  @InlineMe(replacement = \"this.after()\")",
-            "  default String before() {",
-            "    return after();",
-            "  }",
-            "  default String after() {",
-            "    return \"frobber\";",
-            "  }",
-            "}")
-        .expectUnchanged()
-        .addInputLines(
-            "Caller.java",
-            "package com.google.foo;",
-            "import com.google.foo.Client;",
-            "public final class Caller implements Client {",
-            "  @Override public String before() {",
-            "    return \"\";",
-            "  }",
-            "}")
-        .addOutputLines(
-            "out/Caller.java",
-            "package com.google.foo;",
-            "import com.google.foo.Client;",
-            "public final class Caller implements Client {",
-                "  @Deprecated",
-                "  @Override",
-                "  public String before() {",
-                "    return \"\";",
-                "  }",
-                "  public String before_migrated() {",
-                "    return Integer.valueOf(\"\");",
-                "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
+  @Ignore // XXX: The middle "class" here is something which is not in the Inliner anymore. Update
+          // the test.
   public void testMethod_lastStepUpdateCaller() {
     refactoringTestHelper
         .addInputLines(
