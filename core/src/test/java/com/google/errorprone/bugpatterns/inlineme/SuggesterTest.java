@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -821,6 +822,8 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore // XXX: Turned off specific behavior which causes the Suggester to not do anything with
+          // final.
   public void suggestedFinalOnOtherwiseGoodMethod() {
     refactoringTestHelper
         .addInputLines(
