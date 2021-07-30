@@ -92,6 +92,7 @@ public final class AddDefaultMethod extends BugChecker
       Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
   private static ImmutableList<MigrationCodeTransformer> loadMigrationTransformer() {
+    ImmutableList.Builder<MigrationCodeTransformer> migrations = new ImmutableList.Builder<>();
     // XXX: Make nice. Potential API:
     // 1. Accept `ErrorProneFlags` specifying paths.
     // 2. Fall back to classpath scanning, just like RefasterCheck.
@@ -101,23 +102,25 @@ public final class AddDefaultMethod extends BugChecker
     // Accept single `CompositeCodeTransformer`?
     //
     // Argument against blanket classpath scanning: only some combinations may make sense?
-    String migrationDefinitionUri =
-        //            ImmutableList.of
-        // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
+    ImmutableList<String> migrationDefinitionUris = ImmutableList.of(
+//         "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
 //         "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration";
-         "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration";
-//        "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration";
+            "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
-    try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
-        ObjectInputStream ois = new ObjectInputStream(is)) {
-      return unwrap((CodeTransformer) ois.readObject())
-          .filter(MigrationCodeTransformer.class::isInstance)
-          .map(MigrationCodeTransformer.class::cast)
-          .collect(toImmutableList());
-    } catch (IOException | ClassNotFoundException e) {
-      // XXX: @Stephan, which exception to throw here?
-      throw new IllegalStateException("Failed to read the Refaster migration template", e);
+    for (String migrationDefinitionUri : migrationDefinitionUris) {
+      try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
+          ObjectInputStream ois = new ObjectInputStream(is)) {
+        migrations.addAll(unwrap((CodeTransformer) ois.readObject())
+            .filter(MigrationCodeTransformer.class::isInstance)
+            .map(MigrationCodeTransformer.class::cast)
+            .collect(toImmutableList()));
+      } catch (IOException | ClassNotFoundException e) {
+        // XXX: @Stephan, which exception to throw here?
+        throw new IllegalStateException("Failed to read the Refaster migration template", e);
+      }
     }
+    return migrations.build();
   }
 
   // XXX: depending on decision above we don't need this.
