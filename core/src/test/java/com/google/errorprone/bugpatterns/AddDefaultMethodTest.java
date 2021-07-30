@@ -29,7 +29,7 @@ public class AddDefaultMethodTest {
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
   @Test
-  public void positive_singleToMonoMigration() {
+  public void positive_singleToMonoClassMigration() {
     helper
         .addInputLines(
             "Foo.java",
@@ -39,7 +39,45 @@ public class AddDefaultMethodTest {
             "    return Single.just(\"value\");",
             "  }",
             "}")
-        .expectUnchanged()
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public Single<String> bar() {",
+            "    return Single.just(\"value\");",
+            "  }",
+            "  public Mono<String> bar_migrated() {",
+            "    return Single.just(\"value\").as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void positive_singleToMonoInterfaceMigration() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "interface Foo {",
+            "  Single<String> bar();",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import io.reactivex.Single;",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default io.reactivex.Single<String> bar() {",
+            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
+            "  }",
+            "  default reactor.core.publisher.Mono<String> bar_migrated() {",
+            "    return bar().as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
         .doTest();
   }
 
