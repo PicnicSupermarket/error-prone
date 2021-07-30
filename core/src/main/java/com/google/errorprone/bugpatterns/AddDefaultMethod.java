@@ -43,6 +43,7 @@ import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
+import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
@@ -76,6 +77,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -91,6 +93,8 @@ public final class AddDefaultMethod extends BugChecker
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
+  private Collection<String> importsToAdd;
+
   private static ImmutableList<MigrationCodeTransformer> loadMigrationTransformer() {
     ImmutableList.Builder<MigrationCodeTransformer> migrations = new ImmutableList.Builder<>();
     // XXX: Make nice. Potential API:
@@ -102,19 +106,23 @@ public final class AddDefaultMethod extends BugChecker
     // Accept single `CompositeCodeTransformer`?
     //
     // Argument against blanket classpath scanning: only some combinations may make sense?
-    ImmutableList<String> migrationDefinitionUris = ImmutableList.of(
-//         "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
-//         "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration";
+    ImmutableList<String> migrationDefinitionUris =
+        ImmutableList.of(
+            //
+            // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
+            //
+            // "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration";
             "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
             "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
       try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
           ObjectInputStream ois = new ObjectInputStream(is)) {
-        migrations.addAll(unwrap((CodeTransformer) ois.readObject())
-            .filter(MigrationCodeTransformer.class::isInstance)
-            .map(MigrationCodeTransformer.class::cast)
-            .collect(toImmutableList()));
+        migrations.addAll(
+            unwrap((CodeTransformer) ois.readObject())
+                .filter(MigrationCodeTransformer.class::isInstance)
+                .map(MigrationCodeTransformer.class::cast)
+                .collect(toImmutableList()));
       } catch (IOException | ClassNotFoundException e) {
         // XXX: @Stephan, which exception to throw here?
         throw new IllegalStateException("Failed to read the Refaster migration template", e);
@@ -178,12 +186,14 @@ public final class AddDefaultMethod extends BugChecker
 
       return describeMatch(methodTree, fix.build());
     } else if (enclosingClassSymbol.isInterface()) {
-      return describeMatch(
+      SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
+      suggestedFix.replace(
           methodTree,
-          SuggestedFix.replace(
-              methodTree,
-              getMigrationReplacementForMethod(
-                  methodSymbol, suitableMigration.get(), inliner, state)));
+          getMigrationReplacementForMethod(methodSymbol, suitableMigration.get(), inliner, state));
+      importsToAdd.forEach(imp -> suggestedFix.addImport(imp.replace("import ", "")));
+      importsToAdd = new ArrayList<>();
+
+      return describeMatch(methodTree, suggestedFix.build());
     }
     return Description.NO_MATCH;
   }
@@ -324,7 +334,7 @@ public final class AddDefaultMethod extends BugChecker
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
 
-    String existingMethodWithDefaultImpl = "  @Deprecated\n" + undesiredDefaultMethodDecl;
+    String existingMethodWithDefaultImpl = "  @Deprecated  " + undesiredDefaultMethodDecl;
     existingMethodWithDefaultImpl =
         existingMethodWithDefaultImpl.replace("\"null\"", implExistingMethod);
 
@@ -380,7 +390,16 @@ public final class AddDefaultMethod extends BugChecker
     DescriptionBasedDiff diff =
         DescriptionBasedDiff.create(compilationUnit, STATIC_FIRST_ORGANIZER);
     // XXX: Make nicer.
+    Fix fix = description.fixes.get(0);
+    SuggestedFix.Builder builder = SuggestedFix.builder();
+    if (fix instanceof SuggestedFix) {
+      importsToAdd = fix.getImportsToAdd();
+      for (String imp : fix.getImportsToAdd()) {
+        builder.removeImport(imp.replace("import ", ""));
+      }
+    }
     diff.handleFix(description.fixes.get(0));
+    diff.handleFix(builder.build());
 
     SourceFile sourceFile = SourceFile.create(sourceFileObject);
     diff.applyDifferences(sourceFile);
