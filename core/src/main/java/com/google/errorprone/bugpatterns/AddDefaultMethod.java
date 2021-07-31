@@ -162,6 +162,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       return Description.NO_MATCH;
     }
 
+
+
     // Option 1: Why is the `unify` not working?
     Unifier unifier = new Unifier(state.context);
     ImmutableList<MigrationCodeTransformer> migrationCodeTransformers =
@@ -184,6 +186,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
     // Option 3: ???
     RefasterRule<?, ?> refasterRule = (RefasterRule<?, ?>) migrationCodeTransformer.transformTo();
+
+
 
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
