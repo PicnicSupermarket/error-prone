@@ -107,8 +107,17 @@ public final class RemoveMethodsAfterMigration extends BugChecker implements Met
                         state))
             .findFirst();
 
+    boolean isMigrated =
+        enclosingClassSymbol
+            .members()
+            .getSymbolsByName(state.getName(methodTree.getName() + "_migrated"))
+            .iterator()
+            .hasNext();
+
     SuggestedFix deleteMethodFix = SuggestedFix.delete(methodTree);
-    if (suitableMigration.isPresent() && SuggestedFixes.compilesWithFix(deleteMethodFix, state)) {
+    if (suitableMigration.isPresent()
+        && isMigrated
+        && SuggestedFixes.compilesWithFix(deleteMethodFix, state)) {
       return describeMatch(methodTree, deleteMethodFix);
     }
     return Description.NO_MATCH;

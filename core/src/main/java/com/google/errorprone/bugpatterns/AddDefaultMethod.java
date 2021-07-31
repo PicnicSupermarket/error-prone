@@ -244,8 +244,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             .map(i -> i.tsym)
             .anyMatch(
                 a ->
-                    a.members()
-                        .getSymbolsByName(state.getName(methodTree.getName() + "_migrated()"))
+                    a.members() // XXX: I removed the () from the name after _migrated. Double check this...
+                        .getSymbolsByName(state.getName(methodTree.getName() + "_migrated"))
                         .iterator()
                         .hasNext());
   }
