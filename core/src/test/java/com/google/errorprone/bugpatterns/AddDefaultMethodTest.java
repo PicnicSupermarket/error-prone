@@ -220,6 +220,31 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  public void positive_addNewMethodImplementationForDifficultExpression() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "public final class Foo {",
+            "  public String bar() {",
+            "    return String.valueOf(\"testValue\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return String.valueOf(\"testValue\");",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(String.valueOf(\"testValue\"));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void positive_StringMigrationWithInterface() {
     helper
         .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
@@ -262,13 +287,12 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  @Ignore
   public void negative_dontMigrateClassWithUndesiredReturnType() {
     helper
         .addInputLines(
-            "Foo.java", "public class Foo {", "  Integer bar() {", "    return \"\";", "  }", "}")
+            "Foo.java", "public class Foo {", "  Integer bar() {", "    return 1;", "  }", "}")
         .addOutputLines(
-            "Foo.java", "public class Foo {", "  Integer bar() {", "    return \"\";", "  }", "}")
+            "Foo.java", "public class Foo {", "  Integer bar() {", "    return 1;", "  }", "}")
         .doTest();
   }
 }

@@ -109,12 +109,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
-            //
             // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
-            //
-            "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration",
-            //
-            // "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            // "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration",
+            "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
             "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
@@ -162,8 +159,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       return Description.NO_MATCH;
     }
 
-
-
     // Option 1: Why is the `unify` not working?
     Unifier unifier = new Unifier(state.context);
     ImmutableList<MigrationCodeTransformer> migrationCodeTransformers =
@@ -179,15 +174,14 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     } catch (CouldNotResolveImportException e) {
       e.printStackTrace();
     }
-    List<Type> argumentsOfReturnType =
-        ((JCTree.JCTypeApply) ((JCMethodDecl) methodTree).restype)
-            .arguments.stream().map(e -> e.type).collect(List.collector());
-    state.getTypes().subst(typeToInlined, typeToInlined.getTypeArguments(), argumentsOfReturnType);
+    //    List<Type> argumentsOfReturnType =
+    //        ((JCTree.JCTypeApply) ((JCMethodDecl) methodTree).restype)
+    //            .arguments.stream().map(e -> e.type).collect(List.collector());
+    //    state.getTypes().subst(typeToInlined, typeToInlined.getTypeArguments(),
+    // argumentsOfReturnType);
 
     // Option 3: ???
     RefasterRule<?, ?> refasterRule = (RefasterRule<?, ?>) migrationCodeTransformer.transformTo();
-
-
 
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
@@ -244,7 +238,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             .map(i -> i.tsym)
             .anyMatch(
                 a ->
-                    a.members() // XXX: I removed the () from the name after _migrated. Double check this...
+                    a.members() // XXX: I removed the () from the name after _migrated. Double check
+                                // this...
                         .getSymbolsByName(state.getName(methodTree.getName() + "_migrated"))
                         .iterator()
                         .hasNext());
@@ -295,7 +290,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // XXX: This is dangerous, but for now, the first match is always the match of the return type,
     // and we don't need that. Change if that is necessary.
     // The idea behind the last index is that it returns the biggest expression that is matched.
-    return matches.get(matches.size() - 1);
+    return matches.get(0);
   }
 
   private String getBodyForDefaultMethodInInterface(
