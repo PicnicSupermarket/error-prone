@@ -48,15 +48,17 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.migration.MigrationCodeTransformer;
+import com.google.errorprone.refaster.Choice;
 import com.google.errorprone.refaster.CouldNotResolveImportException;
 import com.google.errorprone.refaster.Inliner;
+import com.google.errorprone.refaster.RefasterRule;
 import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
@@ -70,7 +72,6 @@ import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Position;
-import com.sun.tools.javac.util.PropagatedException;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -88,8 +89,7 @@ import javax.tools.JavaFileObject;
     name = "AddDefaultMethod",
     summary = "First steps in trying to add a default method to an interface",
     severity = ERROR)
-public final class AddDefaultMethod extends BugChecker
-    implements ClassTreeMatcher, MethodTreeMatcher {
+public final class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
 
@@ -112,8 +112,9 @@ public final class AddDefaultMethod extends BugChecker
             //
             // "../migration/src/main/java/com/google/errorprone/migration/FirstMigrationTemplate.migration";
             //
-            // "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration";
-            "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            "../migration/src/main/java/com/google/errorprone/migration/templates/StringToInteger.migration",
+            //
+            // "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
             "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
@@ -142,6 +143,14 @@ public final class AddDefaultMethod extends BugChecker
         .transformers().stream().flatMap(AddDefaultMethod::unwrap);
   }
 
+  private static List<Type> inlineUTypes(Inliner inliner, ImmutableList<UType> types) {
+    try {
+      return inliner.inlineList(types);
+    } catch (CouldNotResolveImportException e) {
+      throw new IllegalArgumentException("Inline failure", e);
+    }
+  }
+
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
@@ -152,6 +161,29 @@ public final class AddDefaultMethod extends BugChecker
     if (enclosingClassSymbol == null) {
       return Description.NO_MATCH;
     }
+
+    // Option 1: Why is the `unify` not working?
+    Unifier unifier = new Unifier(state.context);
+    ImmutableList<MigrationCodeTransformer> migrationCodeTransformers =
+        migrationDefinitions.asList();
+    MigrationCodeTransformer migrationCodeTransformer = migrationCodeTransformers.get(1);
+    Choice<Unifier> unify =
+        migrationCodeTransformer.typeFrom().unify(methodSymbol.getReturnType(), unifier);
+
+    // Option 2: UGLY... but works...
+    Type typeToInlined = null;
+    try {
+      typeToInlined = migrationCodeTransformer.typeTo().inline(inliner);
+    } catch (CouldNotResolveImportException e) {
+      e.printStackTrace();
+    }
+    List<Type> argumentsOfReturnType =
+        ((JCTree.JCTypeApply) ((JCMethodDecl) methodTree).restype)
+            .arguments.stream().map(e -> e.type).collect(List.collector());
+    state.getTypes().subst(typeToInlined, typeToInlined.getTypeArguments(), argumentsOfReturnType);
+
+    // Option 3: ???
+    RefasterRule<?, ?> refasterRule = (RefasterRule<?, ?>) migrationCodeTransformer.transformTo();
 
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
@@ -355,12 +387,6 @@ public final class AddDefaultMethod extends BugChecker
         desiredDefaultMethod.toString().replace("\"null\"", implNewMethod);
 
     return existingMethodWithDefaultImpl + implForMigratedMethod;
-  }
-
-  @Override
-  public Description matchClass(ClassTree tree, VisitorState state) {
-    // XXX: Here go over the interfaces and try to find methods that should be migrated.
-    return Description.NO_MATCH;
   }
 
   private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {
