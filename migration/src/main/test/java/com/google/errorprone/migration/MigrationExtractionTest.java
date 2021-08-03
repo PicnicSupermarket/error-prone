@@ -24,9 +24,7 @@ import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
 import org.junit.Assume;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -34,41 +32,16 @@ import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.file.Path;
 
-import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Tests for Refaster templates.
- *
- * @author lowasser@google.com (Louis Wasserman)
- */
+/** Tests for MigrationResourceCompiler. */
 @RunWith(JUnit4.class)
-public class MigrationExtractionTest
-    extends com.google.errorprone.migration.MigrationCompilerBasedTest {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  // XXX: I know this test doesn't really test the serializability because it is already serialized
-  // before it is a .migration file.
-  @Test
-  public void testReserializationOfMigrationTemplate() {
-    String migrationTemplate =
-        "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration";
-
-    MigrationCodeTransformer migrationDefinition = null;
-    try (FileInputStream is = new FileInputStream(migrationTemplate);
-        ObjectInputStream ois = new ObjectInputStream(is)) {
-      migrationDefinition = (MigrationCodeTransformer) ois.readObject();
-    } catch (IOException | ClassNotFoundException e) {
-      e.printStackTrace();
-    }
-    SerializableTester.reserializeAndAssert(migrationDefinition);
-  }
+public class MigrationExtractionTest extends MigrationCompilerBasedTest {
 
   @Test
   public void migrationExtractionTest() {
@@ -99,5 +72,22 @@ public class MigrationExtractionTest
       Boolean call = task.call();
       assertTrue(call);
     }
+  }
+
+  // XXX: I know this test doesn't really test the serializability because it is already serialized
+  // before it is a .migration file.
+  @Test
+  public void testReserializationOfMigrationTemplate() {
+    String migrationTemplate =
+        "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration";
+
+    MigrationCodeTransformer migrationDefinition = null;
+    try (FileInputStream is = new FileInputStream(migrationTemplate);
+        ObjectInputStream ois = new ObjectInputStream(is)) {
+      migrationDefinition = (MigrationCodeTransformer) ois.readObject();
+    } catch (IOException | ClassNotFoundException e) {
+      e.printStackTrace();
+    }
+    SerializableTester.reserializeAndAssert(migrationDefinition);
   }
 }
