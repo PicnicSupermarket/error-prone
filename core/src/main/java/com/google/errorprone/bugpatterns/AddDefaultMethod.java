@@ -155,20 +155,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       return Description.NO_MATCH;
     }
 
-    MigrationCodeTransformer migrationCodeTransformer = migrationDefinitions.asList().get(1);
-
-    Type typeToInlined;
-    try {
-      typeToInlined = migrationCodeTransformer.typeTo().inline(inliner);
-    } catch (CouldNotResolveImportException e) {
-      // XXX: Better exception.
-      throw new IllegalStateException(e);
-    }
-
-    List<Type> argumentsOfReturnType =
-            ((Type.MethodType) methodSymbol.type).restype.getTypeArguments();
-    Type newMethodReturnType = state.getTypes().subst(typeToInlined, typeToInlined.getTypeArguments(), argumentsOfReturnType);
-
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
             .filter(
@@ -183,7 +169,12 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         || isMethodAlreadyMigratedInEnclosingClass(
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
       return Description.NO_MATCH;
-    } else if (!enclosingClassSymbol.isInterface()
+    }
+
+    Type desiredReturnType =
+        getDesiredReturnTypeForMigration(state, inliner, methodSymbol, suitableMigration);
+
+    if (!enclosingClassSymbol.isInterface()
         && isInterfaceAlreadyMigratedOrNotImplementingOne(
             methodTree, enclosingClassSymbol, state)) {
       SuggestedFix.Builder fix = SuggestedFix.builder();
@@ -196,8 +187,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
                   SuggestedFixes.renameMethod(
                       methodTree, methodTree.getName().toString() + "_migrated", state)),
               getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state),
-              getDescriptionToUpdateMethodTreeType(
-                  methodTree, newMethodReturnType, state));
+              getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state));
 
       descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
 
@@ -206,13 +196,34 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
       suggestedFix.replace(
           methodTree,
-          getMigrationReplacementForMethod(methodSymbol, suitableMigration.get(), inliner, state));
+          getMigrationReplacementForMethod(
+              methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state));
       importsToAdd.forEach(imp -> suggestedFix.addImport(imp.replace("import ", "")));
       importsToAdd = new ArrayList<>();
 
       return describeMatch(methodTree, suggestedFix.build());
     }
     return Description.NO_MATCH;
+  }
+
+  private Type getDesiredReturnTypeForMigration(
+      VisitorState state,
+      Inliner inliner,
+      MethodSymbol methodSymbol,
+      Optional<MigrationCodeTransformer> suitableMigration) {
+    Type desiredReturnType = inlineType(inliner, suitableMigration.get().typeTo());
+    if (!desiredReturnType.getTypeArguments().isEmpty()) {
+      List<Type> argumentsOfDesiredReturnType =
+          ((Type.MethodType) methodSymbol.type).restype.getTypeArguments();
+      desiredReturnType =
+          state
+              .getTypes()
+              .subst(
+                  desiredReturnType,
+                  desiredReturnType.getTypeArguments(),
+                  argumentsOfDesiredReturnType);
+    }
+    return desiredReturnType;
   }
 
   private boolean isInterfaceAlreadyMigratedOrNotImplementingOne(
@@ -325,6 +336,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
   private String getMigrationReplacementForMethod(
       MethodSymbol methodSymbol,
+      Type desiredReturnType,
       MigrationCodeTransformer currentMigration,
       Inliner inliner,
       VisitorState state) {
@@ -358,7 +370,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
     Type methodTypeWithReturnType =
         getMethodTypeWithNewReturnType(
-            state.context, inlineType(inliner, currentMigration.typeTo()));
+            state.context, desiredReturnType);
 
     undesiredDefaultMethodSymbol.name =
         undesiredDefaultMethodSymbol.name.append(state.getName("_migrated"));
