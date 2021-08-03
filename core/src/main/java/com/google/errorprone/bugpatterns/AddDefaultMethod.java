@@ -136,14 +136,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         .transformers().stream().flatMap(AddDefaultMethod::unwrap);
   }
 
-  private static List<Type> inlineUTypes(Inliner inliner, ImmutableList<UType> types) {
-    try {
-      return inliner.inlineList(types);
-    } catch (CouldNotResolveImportException e) {
-      throw new IllegalArgumentException("Inline failure", e);
-    }
-  }
-
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
