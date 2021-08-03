@@ -155,27 +155,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       return Description.NO_MATCH;
     }
 
-    // Option 1: Why is the `unify` not working?
-//    Unifier unifier = new Unifier(state.context);
-    ImmutableList<MigrationCodeTransformer> migrationCodeTransformers =
-        migrationDefinitions.asList();
-    MigrationCodeTransformer migrationCodeTransformer = migrationCodeTransformers.get(1);
-//
-//    // 1. Construct `UMethodDecl` with type param and `migrationCodeTransformer.typeFrom()` return
-//    // type.
-//    // E.g.: void <T> method(Single<T> param) { }
-//    // 2. constructedMethodDecl.unify(
-//
-//    Choice<Unifier> unify =
-//        migrationCodeTransformer.typeFrom().unify(methodSymbol.getReturnType(), unifier);
+    MigrationCodeTransformer migrationCodeTransformer = migrationDefinitions.asList().get(1);
 
-    // Single<T>
-    // class Foo<T> { Single<T> field; }
-    // void <T> method(Single<T> param) { }
-    // Single<String>
-
-    // Option 2: UGLY... but works...
-    Type typeToInlined = null;
+    Type typeToInlined;
     try {
       typeToInlined = migrationCodeTransformer.typeTo().inline(inliner);
     } catch (CouldNotResolveImportException e) {
@@ -185,11 +167,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
     List<Type> argumentsOfReturnType =
             ((Type.MethodType) methodSymbol.type).restype.getTypeArguments();
-
     Type newMethodReturnType = state.getTypes().subst(typeToInlined, typeToInlined.getTypeArguments(), argumentsOfReturnType);
-
-    // Option 3: ???
-//    RefasterRule<?, ?> refasterRule = (RefasterRule<?, ?>) migrationCodeTransformer.transformTo();
 
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
