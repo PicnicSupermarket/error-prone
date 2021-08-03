@@ -41,7 +41,6 @@ import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
-import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.SuggestedFix;
@@ -56,9 +55,7 @@ import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
-import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
@@ -72,7 +69,6 @@ import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Position;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -160,28 +156,40 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     }
 
     // Option 1: Why is the `unify` not working?
-    Unifier unifier = new Unifier(state.context);
+//    Unifier unifier = new Unifier(state.context);
     ImmutableList<MigrationCodeTransformer> migrationCodeTransformers =
         migrationDefinitions.asList();
     MigrationCodeTransformer migrationCodeTransformer = migrationCodeTransformers.get(1);
-    Choice<Unifier> unify =
-        migrationCodeTransformer.typeFrom().unify(methodSymbol.getReturnType(), unifier);
+//
+//    // 1. Construct `UMethodDecl` with type param and `migrationCodeTransformer.typeFrom()` return
+//    // type.
+//    // E.g.: void <T> method(Single<T> param) { }
+//    // 2. constructedMethodDecl.unify(
+//
+//    Choice<Unifier> unify =
+//        migrationCodeTransformer.typeFrom().unify(methodSymbol.getReturnType(), unifier);
+
+    // Single<T>
+    // class Foo<T> { Single<T> field; }
+    // void <T> method(Single<T> param) { }
+    // Single<String>
 
     // Option 2: UGLY... but works...
     Type typeToInlined = null;
     try {
       typeToInlined = migrationCodeTransformer.typeTo().inline(inliner);
     } catch (CouldNotResolveImportException e) {
-      e.printStackTrace();
+      // XXX: Better exception.
+      throw new IllegalStateException(e);
     }
-    //    List<Type> argumentsOfReturnType =
-    //        ((JCTree.JCTypeApply) ((JCMethodDecl) methodTree).restype)
-    //            .arguments.stream().map(e -> e.type).collect(List.collector());
-    //    state.getTypes().subst(typeToInlined, typeToInlined.getTypeArguments(),
-    // argumentsOfReturnType);
+
+    List<Type> argumentsOfReturnType =
+            ((Type.MethodType) methodSymbol.type).restype.getTypeArguments();
+
+    Type newMethodReturnType = state.getTypes().subst(typeToInlined, typeToInlined.getTypeArguments(), argumentsOfReturnType);
 
     // Option 3: ???
-    RefasterRule<?, ?> refasterRule = (RefasterRule<?, ?>) migrationCodeTransformer.transformTo();
+//    RefasterRule<?, ?> refasterRule = (RefasterRule<?, ?>) migrationCodeTransformer.transformTo();
 
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
@@ -211,7 +219,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
                       methodTree, methodTree.getName().toString() + "_migrated", state)),
               getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state),
               getDescriptionToUpdateMethodTreeType(
-                  methodTree, inlineType(inliner, suitableMigration.get().typeTo()), state));
+                  methodTree, newMethodReturnType, state));
 
       descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
 
@@ -239,7 +247,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             .anyMatch(
                 a ->
                     a.members() // XXX: I removed the () from the name after _migrated. Double check
-                                // this...
+                        // this...
                         .getSymbolsByName(state.getName(methodTree.getName() + "_migrated"))
                         .iterator()
                         .hasNext());

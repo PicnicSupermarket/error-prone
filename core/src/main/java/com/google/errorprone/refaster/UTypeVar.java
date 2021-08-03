@@ -92,6 +92,9 @@ public class UTypeVar extends UType {
 
   @Override
   public Choice<Unifier> visitType(Type target, Unifier unifier) {
+//
+//    unifier.putBinding(name, target);
+
     // This is only called when we're trying to unify overloads, in which case
     // type variables don't matter.
     return Choice.condition(!target.isPrimitive(), unifier);
