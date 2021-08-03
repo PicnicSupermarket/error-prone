@@ -18,11 +18,7 @@ package com.google.errorprone.migration;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.jimfs.Configuration;
-import com.google.common.jimfs.Jimfs;
-import com.google.errorprone.refaster.annotation.AfterTemplate;
-import com.google.errorprone.refaster.annotation.BeforeTemplate;
-import com.google.errorprone.refaster.annotation.MigrationTemplate;
+import com.google.common.testing.SerializableTester;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
@@ -37,13 +33,15 @@ import org.junit.runners.JUnit4;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.Files;
+import java.io.ObjectInputStream;
 import java.nio.file.Path;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for Refaster templates.
@@ -55,19 +53,21 @@ public class MigrationExtractionTest
     extends com.google.errorprone.migration.MigrationCompilerBasedTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  // XXX: I know this test doesn't really test the serializability because it is already serialized
+  // before it is a .migration file.
   @Test
-  public void test() {
+  public void testReserializationOfMigrationTemplate() {
+    String migrationTemplate =
+        "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration";
 
-    String refasterUri =
-        "src/main/java/com/google/errorprone/bugpatterns/FirstMigrationTemplate.refaster";
-    compile(
-        "class FullyQualifiedIdentExample {",
-        "  public java.math.RoundingMode example() {",
-        "    return java.math.RoundingMode.FLOOR;",
-        "  }",
-        "}");
-
-    assertThat(false).isFalse();
+    MigrationCodeTransformer migrationDefinition = null;
+    try (FileInputStream is = new FileInputStream(migrationTemplate);
+        ObjectInputStream ois = new ObjectInputStream(is)) {
+      migrationDefinition = (MigrationCodeTransformer) ois.readObject();
+    } catch (IOException | ClassNotFoundException e) {
+      e.printStackTrace();
+    }
+    SerializableTester.reserializeAndAssert(migrationDefinition);
   }
 
   @Test
@@ -97,45 +97,7 @@ public class MigrationExtractionTest
                   ImmutableList.of(),
                   fileManager.getJavaFileObjects(path));
       Boolean call = task.call();
-      assertThat(true);
-      //      assertThat(Files.readAllLines(path, UTF_8))
-      //          .containsExactly(
-      //              "package com.google.errorprone.migration;",
-      //              "",
-      //              "import com.google.errorprone.refaster.annotation.AfterTemplate;",
-      //              "import com.google.errorprone.refaster.annotation.BeforeTemplate;",
-      //              "import com.google.errorprone.refaster.annotation.MigrationTemplate;",
-      //              "",
-      //              "public final class FirstMigrationTemplate {",
-      //              "  private FirstMigrationTemplate() {}",
-      //              "",
-      //              "  @MigrationTemplate(value = false)",
-      //              "  static final class MigrateStringToInteger {",
-      //              "    @BeforeTemplate",
-      //              "    String before(String s) {",
-      //              "      return s;",
-      //              "    }",
-      //              "",
-      //              "    @AfterTemplate",
-      //              "    Integer after(String s) {",
-      //              "      return Integer.valueOf(s);",
-      //              "    }",
-      //              "  }",
-      //              "",
-      //              "  @MigrationTemplate(value = true)",
-      //              "  static final class MigrateIntegerToString {",
-      //              "    @BeforeTemplate",
-      //              "    Integer before(Integer s) {",
-      //              "      return s;",
-      //              "    }",
-      //              "",
-      //              "    @AfterTemplate",
-      //              "    String after(Integer s) {",
-      //              "      return String.valueOf(s);",
-      //              "    }",
-      //              "  }",
-      //              "}")
-      //          .inOrder();
+      assertTrue(call);
     }
   }
 }
