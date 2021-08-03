@@ -62,7 +62,7 @@ public class AddDefaultMethodTest {
         .addInputLines(
             "Foo.java",
             "import io.reactivex.Single;",
-            "interface Foo {",
+            "public interface Foo {",
             "  Single<String> bar();",
             "}")
         .addOutputLines(

@@ -36,12 +36,6 @@ public final class UnnecessarilyFullyQualifiedTest {
             "interface Test {",
             "  java.util.List foo();",
             "  java.util.List bar();",
-            "  java.lang.String fooz();",
-            "  java.lang.String foox();",
-            "",
-            "  default io.reactivex.Single<java.lang.String> baz() {",
-            "    return Single.just(\"value\");",
-            "  }",
             "}")
         .addOutputLines(
             "Test.java", //
