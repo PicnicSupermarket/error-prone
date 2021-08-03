@@ -57,6 +57,13 @@
             <version>2.2.21</version>
         </dependency>
 
+        <dependency>
+            <!-- Apache 2.0 -->
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava-testlib</artifactId>
+            <version>${guava.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <!-- Apache 2.0 -->
