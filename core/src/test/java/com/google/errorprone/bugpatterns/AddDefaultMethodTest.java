@@ -67,14 +67,14 @@ public class AddDefaultMethodTest {
             "}")
         .addOutputLines(
             "Foo.java",
-            "import reactor.adapter.rxjava.RxJava2Adapter;",
             "import io.reactivex.Single;",
-            "public interface Foo {",
+                "import reactor.adapter.rxjava.RxJava2Adapter;",
+                "public interface Foo {",
             "  @Deprecated",
-            "  default io.reactivex.Single<String> bar() {",
+            "  default io.reactivex.Single<java.lang.String> bar() {",
             "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
             "  }",
-            "  default reactor.core.publisher.Mono<String> bar_migrated() {",
+            "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated() {",
             "    return bar().as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
