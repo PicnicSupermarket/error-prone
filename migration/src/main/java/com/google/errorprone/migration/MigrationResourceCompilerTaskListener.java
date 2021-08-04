@@ -67,6 +67,7 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     this.context = context;
   }
 
+  // XXX: It doesn't cross-check the `extends Number` (e.g.). I mean the validation of the MigrationTemplates.
   @Override
   public void finished(TaskEvent taskEvent) {
     if (taskEvent.getKind() != TaskEvent.Kind.ANALYZE

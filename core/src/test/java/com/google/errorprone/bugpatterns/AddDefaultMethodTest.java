@@ -17,7 +17,6 @@
 package com.google.errorprone.bugpatterns;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -68,8 +67,8 @@ public class AddDefaultMethodTest {
         .addOutputLines(
             "Foo.java",
             "import io.reactivex.Single;",
-                "import reactor.adapter.rxjava.RxJava2Adapter;",
-                "public interface Foo {",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public interface Foo {",
             "  @Deprecated",
             "  default io.reactivex.Single<java.lang.String> bar() {",
             "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
@@ -81,6 +80,7 @@ public class AddDefaultMethodTest {
         .doTest();
   }
 
+  // XXX: Doesn't impl the interface, check this! However, this works already.
   @Test
   public void positive_UpdateImplBecauseInterfaceIsUpdated() {
     helper
@@ -266,7 +266,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void negative_DontDoubleMigrate() {
+  public void negative_DontMigrateAlreadyMigratedInterface() {
     helper
         .addInputLines(
             "Foo.java",
@@ -293,6 +293,21 @@ public class AddDefaultMethodTest {
             "Foo.java", "public class Foo {", "  Integer bar() {", "    return 1;", "  }", "}")
         .addOutputLines(
             "Foo.java", "public class Foo {", "  Integer bar() {", "    return 1;", "  }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void migrateMaybeNumberToMonoNumber() {
+    helper
+        .addInputLines(
+            "Foo.java",
+                "import io.reactivex.Maybe;",
+                "public interface Foo {",
+            "  Maybe<Integer> bar1();",
+            "  Maybe<Number> bar2();",
+            "  Maybe<Object> bar3();",
+            "}")
+        .expectUnchanged()
         .doTest();
   }
 }

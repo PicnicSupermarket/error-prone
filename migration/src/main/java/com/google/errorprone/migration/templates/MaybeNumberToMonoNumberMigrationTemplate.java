@@ -41,7 +41,7 @@ public final class MaybeNumberToMonoNumberMigrationTemplate {
     }
 
     @MigrationTemplate(value = true)
-    static final class MigrateMonoNumberToMaybeNumber<T> {
+    static final class MigrateMonoNumberToMaybeNumber<T extends Number> {
       @BeforeTemplate
       Mono<T> before(Mono<T> mono) {
         return mono;

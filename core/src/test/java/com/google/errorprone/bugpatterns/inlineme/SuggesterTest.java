@@ -64,53 +64,39 @@ public class SuggesterTest {
         .doTest();
   }
 
-  //  @Test
-  //  public void testInterfaceSuggestionWithRemovalOfImplementation() {
-  //    refactoringTestHelper
-  //        .addInputLines(
-  //            "Client.java",
-  //            "package com.google.frobber;",
-  //            "import com.google.errorprone.annotations.InlineMe;",
-  //            "public interface Client {",
-  //            "  @Deprecated",
-  //            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
-  //            "  default String bar() {",
-  //            "    return String.valueOf(bar_migrated());",
-  //            "  }",
-  //            "  default Integer bar_migrated() {",
-  //            "    return Integer.valueOf(bar());",
-  //            "  }",
-  //            "}")
-  //        .expectUnchanged()
-  //        .addInputLines(
-  //            "ClientImpl.java",
-  //            "package com.google.frobber;",
-  //            "",
-  //            "public final class ClientImpl implements Client {",
-  //            "}")
-  //        .expectUnchanged()
-  //        .addInputLines(
-  //            "Magic.java",
-  //            "package com.google.frobber;",
-  //            "",
-  //            "public final class Magic {",
-  //            "  public void test() {",
-  //            "    ClientImpl impl = new ClientImpl();",
-  //            "    String s = impl.bar();",
-  //            "  }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Magic.java",
-  //            "package com.google.frobber;",
-  //            "",
-  //            "public final class Magic {",
-  //            "  public void test() {",
-  //            "    ClientImpl impl = new ClientImpl();",
-  //            "    String s = String.valueOf(impl.bar_migrated());",
-  //            "  }",
-  //            "}")
-  //        .doTest();
-  //  }
+  // XXX: Go over this variant where the interface is already migrated.
+    @Test
+    public void testMigratedInterfaceClientSuggestion() {
+      refactoringTestHelper
+          .addInputLines(
+              "Client.java",
+              "package com.google.frobber;",
+              "import com.google.errorprone.annotations.InlineMe;",
+              "public interface Client {",
+              "  @Deprecated",
+              "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+              "  default String bar() {",
+              "    return String.valueOf(bar_migrated());",
+              "  }",
+              "  default Integer bar_migrated() {",
+              "    return Integer.valueOf(bar());",
+              "  }",
+              "}")
+          .expectUnchanged()
+          .addInputLines(
+              "ClientImpl.java",
+              "package com.google.frobber;",
+              "",
+              "public final class ClientImpl implements Client {",
+              "  @Override",
+              "  @Deprecated",
+              "  public String bar() {",
+              "    return \"1\";",
+              "  }",
+              "}")
+          .expectUnchanged()
+          .doTest();
+    }
 
   @Test
   public void testBuildAnnotation_withImports() {
