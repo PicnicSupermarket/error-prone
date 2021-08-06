@@ -301,13 +301,37 @@ public class AddDefaultMethodTest {
     helper
         .addInputLines(
             "Foo.java",
-                "import io.reactivex.Maybe;",
-                "public interface Foo {",
+            "import io.reactivex.Maybe;",
+            "public interface Foo {",
             "  Maybe<Integer> bar1();",
             "  Maybe<Number> bar2();",
             "  Maybe<Object> bar3();",
             "}")
-        .expectUnchanged()
+        .addOutputLines(
+            "out/Foo.java",
+            "import io.reactivex.Maybe;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "",
+            "public interface Foo {",
+            "  @Deprecated  ",
+            "  default io.reactivex.Maybe<java.lang.Integer> bar1() {",
+            "    return bar1_migrated().as(RxJava2Adapter::monoToMaybe);",
+            "  }",
+            "",
+            "  default reactor.core.publisher.Mono<java.lang.Integer> bar1_migrated() {",
+            "    return bar1().as(RxJava2Adapter::maybeToMono);",
+            "  }",
+            "  @Deprecated  ",
+            "  default io.reactivex.Maybe<java.lang.Number> bar2() {",
+            "    return bar2_migrated().as(RxJava2Adapter::monoToMaybe);",
+            "  }",
+            "",
+            "  default reactor.core.publisher.Mono<java.lang.Number> bar2_migrated() {",
+            "    return bar2().as(RxJava2Adapter::maybeToMono);",
+            "  }",
+            "",
+            "  Maybe<Object> bar3();",
+            "}")
         .doTest();
   }
 }

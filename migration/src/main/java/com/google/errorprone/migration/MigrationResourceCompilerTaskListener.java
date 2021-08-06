@@ -18,6 +18,7 @@ package com.google.errorprone.migration;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.sun.tools.javac.code.Symbol.*;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
 import static com.sun.tools.javac.code.Symbol.MethodSymbol;
 import static com.sun.tools.javac.code.Symbol.PackageSymbol;
@@ -67,7 +68,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     this.context = context;
   }
 
-  // XXX: It doesn't cross-check the `extends Number` (e.g.). I mean the validation of the MigrationTemplates.
+  // XXX: It doesn't cross-check the `extends Number` (e.g.). I mean the validation of the
+  // MigrationTemplates.
   @Override
   public void finished(TaskEvent taskEvent) {
     if (taskEvent.getKind() != TaskEvent.Kind.ANALYZE
@@ -210,6 +212,9 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
     validateParamsOfTemplate(fromMigrationDefinition, types);
     validateParamsOfTemplate(toMigrationDefinition, types);
 
+    validateTypeArgumentHasSameBounds(
+        fromMigrationDefinition.get(1), toMigrationDefinition.get(0), types);
+
     validateReturnTypeMatchesParamType(fromMigrationDefinition.get(0), types);
     validateReturnTypeMatchesParamType(toMigrationDefinition.get(0), types);
 
@@ -219,6 +224,27 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         types, toAfterTemplateMethodSymbol, fromAfterTemplateMethodSymbol);
     validateParamTypeWithReturnType(
         types, fromAfterTemplateMethodSymbol, toAfterTemplateMethodSymbol);
+  }
+
+  private void validateTypeArgumentHasSameBounds(
+      MethodSymbol fromMigrationDefinitionAfter,
+      MethodSymbol toMigrationDefinitionBefore,
+      Types types) {
+    List<TypeVariableSymbol> fromAfterTypeParam =
+        fromMigrationDefinitionAfter.params.get(0).getTypeParameters();
+    if (fromAfterTypeParam.isEmpty()) {
+      return;
+    }
+    List<TypeVariableSymbol> afterToTypeParam =
+        toMigrationDefinitionBefore.params.get(0).getTypeParameters();
+    checkState(
+        types.isSameType(
+                fromAfterTypeParam.get(0).type.getUpperBound(),
+                afterToTypeParam.get(0).type.getUpperBound())
+            && types.isSameType(
+                fromAfterTypeParam.get(0).type.getLowerBound(),
+                afterToTypeParam.get(0).type.getLowerBound()),
+        "The bounds of the parameters of the before templates are not equal.");
   }
 
   private void validateParamTypeWithReturnType(
@@ -237,8 +263,9 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
           returnMethodSymbol);
     } else {
       checkState(
-          types.isSameType(type, returnType) ||
-                  (type.tsym.equals(returnType.tsym) && type.tsym.getTypeParameters().equals(returnType.tsym.getTypeParameters())),
+          types.isSameType(type, returnType)
+              || (type.tsym.equals(returnType.tsym)
+                  && type.tsym.getTypeParameters().equals(returnType.tsym.getTypeParameters())),
           "%s parameterType doesn't match %s returnType of the other definition",
           paramMethodSymbol,
           returnMethodSymbol);
