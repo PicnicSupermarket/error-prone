@@ -49,8 +49,8 @@ public class MigrationExtractionTest extends MigrationCompilerBasedTest {
 
     ImmutableList<String> migrationTemplates =
         ImmutableList.of(
-            "../migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFluxMigrationTemplate.java",
             "../migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumberMigrationTemplate.java",
+            "../migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFluxMigrationTemplate.java",
             "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMonoMigrationTemplate.java",
             "../migration/src/main/java/com/google/errorprone/migration/templates/FirstMigrationTemplate.java");
     for (String migrationTemplate : migrationTemplates) {

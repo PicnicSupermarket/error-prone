@@ -150,9 +150,10 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         migrationDefinitions.stream()
             .filter(
                 migration ->
-                    ASTHelpers.isSameType(
-                        inlineType(inliner, migration.typeFrom()),
+                    isMethodTypeUndesiredMigrationType(
+                        inliner.types(),
                         methodSymbol.getReturnType(),
+                        inlineType(inliner, migration.typeFrom()),
                         state))
             .findFirst();
 
@@ -161,23 +162,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
       return Description.NO_MATCH;
     }
-
-    // XXX: Why is it not using the upperbound `Number` if we inlineType?
-    Optional<MigrationCodeTransformer> testSuitableMigration =
-        migrationDefinitions.stream()
-            .filter(
-                migration ->
-                    isMethodTypeUndesiredMigrationType(
-                        inliner.types(),
-                        methodSymbol.getReturnType(),
-                        inlineType(inliner, migration.typeFrom()),
-                        state))
-            .findFirst();
-
-    // XXX: InlineType doesn't use the bounds... that are known in the migration.
-    //    ((UClassType)suitableMigration.get().typeFrom()).typeArguments(); // not public...
-    Type migrationTypeFrom =
-        getUndesiredReturnTypeForMigration(state, inliner, methodSymbol, suitableMigration.get());
 
     Type desiredReturnType =
         getDesiredReturnTypeForMigration(state, inliner, methodSymbol, suitableMigration.get());
@@ -270,6 +254,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       MigrationCodeTransformer suitableMigration) {
     Type undesiredReturnType = inlineType(inliner, suitableMigration.typeFrom());
     if (!undesiredReturnType.getTypeArguments().isEmpty()) {
+      // XXX: Not use these typeArgument?
       List<Type> argumentsOfDesiredReturnType =
           ((Type.MethodType) methodSymbol.type).restype.getTypeArguments();
       undesiredReturnType =
