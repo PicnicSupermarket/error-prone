@@ -21,6 +21,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.Locale;
+
 /** {@link AddDefaultMethod}Test */
 @RunWith(JUnit4.class)
 public class AddDefaultMethodTest {
@@ -80,7 +82,6 @@ public class AddDefaultMethodTest {
         .doTest();
   }
 
-  // XXX: Doesn't impl the interface, check this! However, this works already.
   @Test
   public void positive_UpdateImplBecauseInterfaceIsUpdated() {
     helper
@@ -101,14 +102,18 @@ public class AddDefaultMethodTest {
         .expectUnchanged()
         .addInputLines(
             "Bar.java",
-            "public final class Bar {",
+            "public final class Bar implements Foo {",
             "  public String bar() {",
             "    return \"1\";",
+            "  }",
+            "",
+            "  public Number baz() {",
+            "    return 1;",
             "  }",
             "}")
         .addOutputLines(
             "Bar.java",
-            "public final class Bar {",
+            "public final class Bar implements Foo {",
             "  @Deprecated",
             "  public String bar() {",
             "    return \"1\";",
@@ -116,6 +121,10 @@ public class AddDefaultMethodTest {
             "",
             "  public Integer bar_migrated() {",
             "    return Integer.valueOf(\"1\");",
+            "  }",
+            "",
+            "  public Number baz() {",
+            "    return 1;",
             "  }",
             "}")
         .doTest();
@@ -331,6 +340,54 @@ public class AddDefaultMethodTest {
             "  }",
             "",
             "  Maybe<Object> bar3();",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void deleteOldImplMethodTheMigrationInfoIsAvailable() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  @Deprecated",
+            "  default java.lang.String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default java.lang.Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "",
+            "  Number baz();",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Bar.java",
+            "public final class Bar implements Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "",
+            "  public Number baz() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Bar.java",
+            "public final class Bar implements Foo {",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "",
+            "  public Number baz() {",
+            "    return 1;",
+            "  }",
             "}")
         .doTest();
   }
