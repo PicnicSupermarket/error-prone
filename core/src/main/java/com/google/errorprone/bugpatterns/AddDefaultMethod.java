@@ -16,6 +16,22 @@
 
 package com.google.errorprone.bugpatterns;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
+import static com.sun.tools.javac.code.Flags.DEFAULT;
+import static com.sun.tools.javac.code.Symbol.ClassSymbol;
+import static com.sun.tools.javac.code.Symbol.PackageSymbol;
+import static com.sun.tools.javac.tree.JCTree.JCBlock;
+import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import static com.sun.tools.javac.tree.JCTree.JCExpression;
+import static com.sun.tools.javac.tree.JCTree.JCLiteral;
+import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import static com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
+import static com.sun.tools.javac.tree.JCTree.JCReturn;
+
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugPattern;
@@ -52,10 +68,6 @@ import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Position;
-
-import javax.lang.model.type.TypeKind;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -65,16 +77,9 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
-import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
-import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
-import static com.sun.tools.javac.code.Flags.DEFAULT;
-import static com.sun.tools.javac.code.Symbol.ClassSymbol;
-import static com.sun.tools.javac.code.Symbol.PackageSymbol;
-import static com.sun.tools.javac.tree.JCTree.*;
+import javax.lang.model.type.TypeKind;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
 
 @BugPattern(
     name = "AddDefaultMethod",
@@ -317,8 +322,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
   }
 
   private static Type inlineType(Inliner inliner, UType uType) {
+    // XXX: Explain new `Inliner` creation.
     try {
-      return uType.inline(inliner);
+      return uType.inline(new Inliner(inliner.getContext(), inliner.bindings));
     } catch (CouldNotResolveImportException e) {
       throw new IllegalStateException("Couldn't inline UType", e);
     }
