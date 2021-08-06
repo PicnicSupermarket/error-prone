@@ -31,7 +31,7 @@ import java.lang.annotation.Annotation;
 public abstract class MigrationCodeTransformer implements CodeTransformer, Serializable {
 
   public static MigrationCodeTransformer create(
-          CodeTransformer transformFrom, CodeTransformer transformTo, UType typeFrom, UType typeTo) {
+      CodeTransformer transformFrom, CodeTransformer transformTo, UType typeFrom, UType typeTo) {
     return new AutoValue_MigrationCodeTransformer(transformFrom, transformTo, typeFrom, typeTo);
   }
 

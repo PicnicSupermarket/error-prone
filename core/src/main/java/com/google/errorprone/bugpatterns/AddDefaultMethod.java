@@ -157,9 +157,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
                         state))
             .findFirst();
 
-    if (!suitableMigration.isPresent()
-        || isMethodAlreadyMigratedInEnclosingClass(
-            methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
+    if (!suitableMigration.isPresent()) {
       return Description.NO_MATCH;
     }
 
@@ -169,6 +167,13 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     if (!enclosingClassSymbol.isInterface()
         && isInterfaceAlreadyMigratedOrNotImplementingOne(
             methodTree, enclosingClassSymbol, state)) {
+
+      if (!enclosingClassSymbol.getInterfaces().isEmpty()
+          && isMethodAlreadyMigratedInEnclosingClass(
+              methodTree, state, methodSymbol.getSimpleName(), enclosingClassSymbol)) {
+        return describeMatch(methodTree, SuggestedFix.delete(methodTree));
+      }
+
       SuggestedFix.Builder fix = SuggestedFix.builder();
       ImmutableList<Description> descriptions =
           ImmutableList.of(
@@ -184,7 +189,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
 
       return describeMatch(methodTree, fix.build());
-    } else if (enclosingClassSymbol.isInterface()) {
+    } else if (enclosingClassSymbol.isInterface()
+        && !isMethodAlreadyMigratedInEnclosingClass(
+            methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
       SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
       suggestedFix.replace(
           methodTree,
@@ -247,27 +254,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     return desiredReturnType;
   }
 
-  private Type getUndesiredReturnTypeForMigration(
-      VisitorState state,
-      Inliner inliner,
-      MethodSymbol methodSymbol,
-      MigrationCodeTransformer suitableMigration) {
-    Type undesiredReturnType = inlineType(inliner, suitableMigration.typeFrom());
-    if (!undesiredReturnType.getTypeArguments().isEmpty()) {
-      // XXX: Not use these typeArgument?
-      List<Type> argumentsOfDesiredReturnType =
-          ((Type.MethodType) methodSymbol.type).restype.getTypeArguments();
-      undesiredReturnType =
-          state
-              .getTypes()
-              .subst(
-                  undesiredReturnType,
-                  undesiredReturnType.getTypeArguments(),
-                  argumentsOfDesiredReturnType);
-    }
-    return undesiredReturnType;
-  }
-
   private boolean isInterfaceAlreadyMigratedOrNotImplementingOne(
       MethodTree methodTree, ClassSymbol enclosingClassSymbol, VisitorState state) {
     List<Type> interfaces = enclosingClassSymbol.getInterfaces();
@@ -277,8 +263,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             .map(i -> i.tsym)
             .anyMatch(
                 a ->
-                    a.members() // XXX: I removed the () from the name after _migrated. Double check
-                        // this...
+                    a.members()
                         .getSymbolsByName(state.getName(methodTree.getName() + "_migrated"))
                         .iterator()
                         .hasNext());
