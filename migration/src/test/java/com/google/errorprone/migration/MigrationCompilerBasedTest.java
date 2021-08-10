@@ -16,7 +16,6 @@
 
 package com.google.errorprone.migration;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
@@ -38,7 +37,6 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import java.io.IOException;
 import java.util.Map;
-
 
 public class MigrationCompilerBasedTest {
   protected Context context;

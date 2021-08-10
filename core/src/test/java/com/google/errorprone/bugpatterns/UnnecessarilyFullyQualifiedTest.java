@@ -32,7 +32,6 @@ public final class UnnecessarilyFullyQualifiedTest {
     helper
         .addInputLines(
             "Test.java", //
-            "import io.reactivex.Single;",
             "interface Test {",
             "  java.util.List foo();",
             "  java.util.List bar();",

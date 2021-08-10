@@ -64,38 +64,38 @@ public class SuggesterTest {
         .doTest();
   }
 
-  // XXX: Go over this variant where the interface is already migrated.
     @Test
+    @Ignore // This adds the InlineMe, but now we added that it should migrate this method, so add `_migrated()` and then remove the old implementation.
     public void testMigratedInterfaceClientSuggestion() {
-      refactoringTestHelper
-          .addInputLines(
-              "Client.java",
-              "package com.google.frobber;",
-              "import com.google.errorprone.annotations.InlineMe;",
-              "public interface Client {",
-              "  @Deprecated",
-              "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
-              "  default String bar() {",
-              "    return String.valueOf(bar_migrated());",
-              "  }",
-              "  default Integer bar_migrated() {",
-              "    return Integer.valueOf(bar());",
-              "  }",
-              "}")
-          .expectUnchanged()
-          .addInputLines(
-              "ClientImpl.java",
-              "package com.google.frobber;",
-              "",
-              "public final class ClientImpl implements Client {",
-              "  @Override",
-              "  @Deprecated",
-              "  public String bar() {",
-              "    return \"1\";",
-              "  }",
-              "}")
-          .expectUnchanged()
-          .doTest();
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.frobber;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "ClientImpl.java",
+            "package com.google.frobber;",
+            "",
+            "public final class ClientImpl implements Client {",
+            "  @Override",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
     }
 
   @Test

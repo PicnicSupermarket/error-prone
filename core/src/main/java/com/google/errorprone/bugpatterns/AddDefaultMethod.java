@@ -140,8 +140,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
     Inliner inliner = new Unifier(state.context).createInliner();
 
-    if (true)
-      throw new RuntimeException("Hey, at least it runs!!!");
+//    if (true)
+//      throw new RuntimeException("Hey, at least it runs!!!");
     
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);

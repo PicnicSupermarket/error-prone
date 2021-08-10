@@ -122,13 +122,13 @@ public abstract class RefasterRule<M extends TemplateMatch, T extends Template<M
 
   RefasterRule() {}
 
-  public abstract String qualifiedTemplateClass();
+  abstract String qualifiedTemplateClass();
 
-  public abstract ImmutableList<UTypeVar> typeVariables();
+  abstract ImmutableList<UTypeVar> typeVariables();
 
-  public abstract ImmutableList<T> beforeTemplates();
+  abstract ImmutableList<T> beforeTemplates();
 
-  public abstract ImmutableList<T> afterTemplates();
+  abstract ImmutableList<T> afterTemplates();
 
   @Override
   public abstract ImmutableClassToInstanceMap<Annotation> annotations();
