@@ -104,10 +104,10 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
-            "../migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
-            "../migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
-            "../migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
-            "../migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
       try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
@@ -140,9 +140,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
     Inliner inliner = new Unifier(state.context).createInliner();
 
-//    if (true)
-//      throw new RuntimeException("Hey, at least it runs!!!");
-    
+    //    if (true)
+    //      throw new RuntimeException("Hey, at least it runs!!!");
+
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
     if (enclosingClassSymbol == null) {
