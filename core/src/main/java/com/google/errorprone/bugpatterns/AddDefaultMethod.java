@@ -104,10 +104,10 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
+            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
+            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
+            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
       try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
