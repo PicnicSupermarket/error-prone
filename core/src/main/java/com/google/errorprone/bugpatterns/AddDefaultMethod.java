@@ -19,11 +19,13 @@ package com.google.errorprone.bugpatterns;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
 import static com.sun.tools.javac.code.Symbol.PackageSymbol;
+import static com.sun.tools.javac.code.Type.*;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import static com.sun.tools.javac.tree.JCTree.JCExpression;
@@ -104,10 +106,10 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
-            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
-            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
-            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
-            "/home/sschroevers/workspace/picnic/error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
       try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
@@ -139,9 +141,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
     Inliner inliner = new Unifier(state.context).createInliner();
-
-    //    if (true)
-    //      throw new RuntimeException("Hey, at least it runs!!!");
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
@@ -177,6 +176,13 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         return describeMatch(methodTree, SuggestedFix.delete(methodTree));
       }
 
+      // To prevent index out of bounds
+      Description migrationReplacementForNormalMethod =
+          getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state);
+      if (migrationReplacementForNormalMethod.equals(Description.NO_MATCH)) {
+        return Description.NO_MATCH;
+      }
+
       SuggestedFix.Builder fix = SuggestedFix.builder();
       ImmutableList<Description> descriptions =
           ImmutableList.of(
@@ -195,11 +201,17 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     } else if (enclosingClassSymbol.isInterface()
         && !isMethodAlreadyMigratedInEnclosingClass(
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
-      SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
-      suggestedFix.replace(
-          methodTree,
+      String migrationReplacement =
           getMigrationReplacementForMethod(
-              methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state));
+              methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state);
+
+      if (migrationReplacement.isEmpty()) {
+        throw new RuntimeException("is empty line 209");
+        //        return Description.NO_MATCH;
+      }
+
+      SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
+      suggestedFix.replace(methodTree, migrationReplacement);
       importsToAdd.forEach(imp -> suggestedFix.addImport(imp.replace("import ", "")));
       importsToAdd = new ArrayList<>();
 
@@ -210,6 +222,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
   private static boolean isMethodTypeUndesiredMigrationType(
       Types types, Type methodReturnType, Type undesiredMigrationReturnType, VisitorState state) {
+    if (undesiredMigrationReturnType == null) {
+      return false;
+    }
     if (undesiredMigrationReturnType.getTypeArguments().isEmpty()) {
       return types.isSameType(methodReturnType, undesiredMigrationReturnType);
     }
@@ -243,9 +258,12 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       MethodSymbol methodSymbol,
       MigrationCodeTransformer suitableMigration) {
     Type desiredReturnType = inlineType(inliner, suitableMigration.typeTo());
-    if (!desiredReturnType.getTypeArguments().isEmpty()) {
+    if (desiredReturnType != null
+        && !desiredReturnType.getTypeArguments().isEmpty()
+        && methodSymbol.type
+            instanceof MethodType) { // Type$ForAll cannot be  cast to Type$MethodType.
       List<Type> argumentsOfDesiredReturnType =
-          ((Type.MethodType) methodSymbol.type).restype.getTypeArguments();
+          ((MethodType) methodSymbol.type).restype.getTypeArguments();
       desiredReturnType =
           state
               .getTypes()
@@ -299,7 +317,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     try {
       return uType.inline(new Inliner(inliner.getContext(), inliner.bindings));
     } catch (CouldNotResolveImportException e) {
-      throw new IllegalStateException("Couldn't inline UType", e);
+      return null;
+      //      throw new IllegalStateException("Couldn't inline UType" + uType.getClass() + ";" +
+      // uType, e);
     }
   }
 
@@ -318,6 +338,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // XXX: This is dangerous, but for now, the first match is always the match of the return type,
     // and we don't need that. Change if that is necessary.
     // The idea behind the last index is that it returns the biggest expression that is matched.
+    if (matches.isEmpty()) {
+      return Description.NO_MATCH;
+    }
     return matches.get(0);
   }
 
@@ -356,6 +379,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     java.util.List<Description> matches = new ArrayList<>();
     transformer.apply(methodInvocationPath, updatedContext, matches::add);
 
+    if (matches.isEmpty()) {
+      return "";
+    }
     JavaFileObject javaFileObject;
     try {
       javaFileObject = applyDiff(source, compilationUnit, matches.get(0));
@@ -390,6 +416,12 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             currentMigration.transformTo(),
             state);
 
+    if (implNewMethod.isEmpty() || implExistingMethod.isEmpty()) {
+      throw new RuntimeException("is empty line 417" + methodSymbol);
+
+      //      return "";
+    }
+
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
     JCMethodDecl undesiredDefaultMethodDecl =
@@ -418,7 +450,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
   private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {
     Symtab instance = Symtab.instance(context);
-    return new Type.MethodType(List.nil(), newReturnType, List.nil(), instance.methodClass);
+    return new MethodType(List.nil(), newReturnType, List.nil(), instance.methodClass);
   }
 
   private JCBlock getBlockWithReturnNull(TreeMaker treeMaker) {

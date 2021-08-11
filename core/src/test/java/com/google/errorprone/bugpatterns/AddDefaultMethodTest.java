@@ -17,6 +17,9 @@
 package com.google.errorprone.bugpatterns;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import io.reactivex.Single;
+import java.util.function.Function;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,6 +55,61 @@ public class AddDefaultMethodTest {
             "  }",
             "  public Mono<String> bar_migrated() {",
             "    return Single.just(\"value\").as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void firstParameterChange() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public final class Foo {",
+            "  public Single<String> bar(String s, Integer i) {",
+            "    return Single.just(s);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public Single<String> bar(String s, Integer i) {",
+            "    return Single.just(s);",
+            "  }",
+            "  public Mono<String> bar_migrated(String s, Integer i) {",
+            "    return Single.just(s).as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void twoTypeParameters() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "public interface Foo {",
+            "  public Single<Function<Integer, String>> bar();",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  default io.reactivex.Single<java.util.function.Function<java.lang.Integer, java.lang.String>> bar() {",
+            "     return bar_migrated().as(RxJava2Adapter::monoToSingle);",
+            "  }",
+            "  default reactor.core.publisher.Mono<java.util.function.Function<java.lang.Integer, java.lang.String>> bar_migrated() {",
+            "     return bar().as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
         .doTest();
@@ -387,6 +445,68 @@ public class AddDefaultMethodTest {
             "",
             "  public Number baz() {",
             "    return 1;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test // The `null` here doesn't make sense, but it is about testing the type parameters.
+  @Ignore
+  public void classWithTypeParameter() {
+    helper
+        .addInputLines(
+            "Test.java",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "public final class Test<T> {",
+            "  public Single<Function<Integer, T>> test() {",
+            "    return null;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Test.java",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Test<T> {",
+            "  @Deprecated",
+            "  public Single<Function<Integer, T>> test() {",
+            "     return null;",
+            "  }",
+            "  public Mono<Function<Integer,T>> test_migrated() {",
+            "     return null.as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test // The `null` here doesn't make sense, but it is about testing the type parameters.
+  @Ignore
+  public void methodWithTypeParameterAndClassWithTypeParameter() {
+    helper
+        .addInputLines(
+            "Test.java",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "public final class Test<T> {",
+            "  public <R> Single<Function<R, T>> test() {",
+            "    return null;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Test.java",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Test<T> {",
+            "  @Deprecated",
+            "  public <R> Single<Function<R, T>> test() {",
+            "     return null;",
+            "  }",
+            "  public <R> Mono<Function<R, T>> test_migrated() {",
+            "     return null.as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
         .doTest();
