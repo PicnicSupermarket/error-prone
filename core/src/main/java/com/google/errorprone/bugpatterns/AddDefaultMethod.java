@@ -206,8 +206,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
               methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state);
 
       if (migrationReplacement.isEmpty()) {
-        throw new RuntimeException("is empty line 209");
-        //        return Description.NO_MATCH;
+        return Description.NO_MATCH;
       }
 
       SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
@@ -317,9 +316,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     try {
       return uType.inline(new Inliner(inliner.getContext(), inliner.bindings));
     } catch (CouldNotResolveImportException e) {
-      return null;
-      //      throw new IllegalStateException("Couldn't inline UType" + uType.getClass() + ";" +
-      // uType, e);
+      throw new IllegalStateException("Couldn't inline UType" + uType.getClass() + ";" + uType, e);
     }
   }
 
@@ -415,12 +412,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             true,
             currentMigration.transformTo(),
             state);
-
-    if (implNewMethod.isEmpty() || implExistingMethod.isEmpty()) {
-      throw new RuntimeException("is empty line 417" + methodSymbol);
-
-      //      return "";
-    }
 
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;

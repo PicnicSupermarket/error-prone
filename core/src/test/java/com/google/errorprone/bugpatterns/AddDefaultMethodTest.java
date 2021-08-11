@@ -33,6 +33,61 @@ public class AddDefaultMethodTest {
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
   @Test
+  public void createBanner() {
+    helper
+        .addInputLines(
+            "BannerInterface.java",
+            "public interface BannerInterface {",
+            "  String getBannerId();",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Banner.java",
+            "import javax.annotation.concurrent.Immutable;",
+            "@Immutable",
+            "public final class Banner implements BannerInterface {",
+            "  private final String bannerId; ",
+            "",
+            "  public Banner(String bannerId) {",
+            "    this.bannerId = bannerId;",
+            "  }",
+            "",
+            "  @Override",
+            "  public String getBannerId() {",
+            "    return bannerId;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BannerRequest.java",
+            "import javax.annotation.concurrent.Immutable;",
+            "",
+            "@Immutable",
+            "public final class BannerRequest implements BannerInterface {",
+            "  private final String bannerId; ",
+            "",
+            "  public BannerRequest(String bannerId) {",
+            "    this.bannerId = bannerId;",
+            "  }",
+            "",
+            "  @Override",
+            "  public String getBannerId() {",
+            "    return bannerId;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BannerService.java",
+            "import io.reactivex.Single;",
+            "",
+            "public interface BannerService {",
+            "  Single<Banner> createBanner(BannerRequest bannerRequest);",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
   public void positive_singleToMonoClassMigration() {
     helper
         .addInputLines(
@@ -103,7 +158,7 @@ public class AddDefaultMethodTest {
             "import io.reactivex.Single;",
             "import java.util.function.Function;",
             "import reactor.adapter.rxjava.RxJava2Adapter;",
-            "public final class Foo {",
+            "public interface Foo {",
             "  @Deprecated",
             "  default io.reactivex.Single<java.util.function.Function<java.lang.Integer, java.lang.String>> bar() {",
             "     return bar_migrated().as(RxJava2Adapter::monoToSingle);",
