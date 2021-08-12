@@ -116,14 +116,14 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void firstParameterChange() {
+  public void firstParameterChangeForClass() {
     helper
         .addInputLines(
             "Foo.java",
             "import io.reactivex.Single;",
             "public final class Foo {",
-            "  public Single<String> bar(String s, Integer i) {",
-            "    return Single.just(s);",
+            "  public Single<String> bar(String bannerId, Integer testName) {",
+            "    return Single.just(bannerId);",
             "  }",
             "}")
         .addOutputLines(
@@ -133,13 +133,40 @@ public class AddDefaultMethodTest {
             "import reactor.core.publisher.Mono;",
             "public final class Foo {",
             "  @Deprecated",
-            "  public Single<String> bar(String s, Integer i) {",
-            "    return Single.just(s);",
+            "  public Single<String> bar(String bannerId, Integer testName) {",
+            "    return Single.just(bannerId);",
             "  }",
-            "  public Mono<String> bar_migrated(String s, Integer i) {",
-            "    return Single.just(s).as(RxJava2Adapter::singleToMono);",
+            "  public Mono<String> bar_migrated(String stringName, Integer testName) {",
+            "    return Single.just(bannerId).as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
+        .doTest();
+  }
+
+  @Test
+  public void interfaceParametersChange() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public interface Foo {",
+            "  String bar(String bannerId, Integer testName);",
+            "}")
+        .expectUnchanged()
+        //        .addOutputLines(
+        //            "Foo.java",
+        //            "import io.reactivex.Single;",
+        //            "import reactor.adapter.rxjava.RxJava2Adapter;",
+        //            "import reactor.core.publisher.Mono;",
+        //            "public final class Foo {",
+        //            "  @Deprecated",
+        //            "  public Single<String> bar(String bannerId, Integer testName) {",
+        //            "    return Single.just(bannerId);",
+        //            "  }",
+        //            "  public Mono<String> bar_migrated(String stringName, Integer testName) {",
+        //            "    return Single.just(bannerId).as(RxJava2Adapter::singleToMono);",
+        //            "  }",
+        //            "}")
         .doTest();
   }
 
