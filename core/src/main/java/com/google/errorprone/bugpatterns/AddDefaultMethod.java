@@ -19,13 +19,13 @@ package com.google.errorprone.bugpatterns;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
-import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
 import static com.sun.tools.javac.code.Symbol.PackageSymbol;
 import static com.sun.tools.javac.code.Type.*;
+import static com.sun.tools.javac.tree.JCTree.*;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import static com.sun.tools.javac.tree.JCTree.JCExpression;
@@ -56,6 +56,7 @@ import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
@@ -203,11 +204,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
       String migrationReplacement =
           getMigrationReplacementForMethod(
-              methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state);
-
-      if (migrationReplacement.isEmpty()) {
-        return Description.NO_MATCH;
-      }
+              methodTree, methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state);
 
       SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
       suggestedFix.replace(methodTree, migrationReplacement);
@@ -346,7 +343,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       Type currentType,
       boolean migratingToDesired,
       CodeTransformer transformer,
-      VisitorState state) {
+      VisitorState state,
+      MethodTree methodTree) {
     TreeMaker treeMaker = state.getTreeMaker();
     JCCompilationUnit compilationUnit = treeMaker.TopLevel(List.nil());
     TreePath compUnitTreePath = new TreePath(compilationUnit);
@@ -354,8 +352,15 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     if (migratingToDesired) {
       methodName = state.getName(methodName + "_migrated");
     }
+
+    java.util.List<? extends VariableTree> parameters = methodTree.getParameters();
+    List<JCExpression> params = parameters.stream()
+            .filter(JCVariableDecl.class::isInstance)
+            .map(JCVariableDecl.class::cast)
+            .map(treeMaker::Ident)
+            .collect(List.collector());
     JCExpression identExpr = treeMaker.Ident(methodName).setType(currentType);
-    JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, List.nil());
+    JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, params);
     methodInvocation.setType(currentType);
     // XXX: here pass typeparams and params... In the List.nil() ^
 
@@ -364,7 +369,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     SimpleEndPosTable endPosTable = new SimpleEndPosTable();
     String fullSource = methodInvocation.toString();
     endPosTable.storeEnd(methodInvocation, fullSource.length());
-    endPosTable.storeEnd(identExpr, identExpr.toString().length());
+    endPosTable.storeEnd(identExpr,  identExpr.toString().length());
+    params.forEach(p -> endPosTable.storeEnd(p, fullSource.indexOf(p.toString()) + p.toString().length()));
 
     JavaFileObject source = JavaFileObjects.forSourceString("XXX", fullSource);
     compilationUnit.sourcefile = source;
@@ -389,6 +395,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
   }
 
   private String getMigrationReplacementForMethod(
+      MethodTree methodTree,
       MethodSymbol methodSymbol,
       Type desiredReturnType,
       MigrationCodeTransformer currentMigration,
@@ -403,7 +410,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             methodSymbol.getReturnType(),
             false,
             currentMigration.transformFrom(),
-            state);
+            state,
+            methodTree);
 
     String implExistingMethod =
         getBodyForDefaultMethodInInterface(
@@ -411,9 +419,11 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             inlineType(inliner, currentMigration.typeTo()),
             true,
             currentMigration.transformTo(),
-            state);
+            state,
+            methodTree);
 
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
+    undesiredDefaultMethodSymbol.params = methodSymbol.params;
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
@@ -432,6 +442,11 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             undesiredDefaultMethodSymbol,
             methodTypeWithReturnType,
             getBlockWithReturnNull(treeMaker));
+    java.util.List<? extends VariableTree> parameters = methodTree.getParameters();
+    desiredDefaultMethod.params = parameters.stream()
+            .filter(JCVariableDecl.class::isInstance)
+            .map(JCVariableDecl.class::cast)
+            .collect(List.collector());
 
     String implForMigratedMethod =
         desiredDefaultMethod.toString().replace("\"null\"", implNewMethod);
