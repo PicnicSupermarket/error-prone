@@ -152,21 +152,19 @@ public class AddDefaultMethodTest {
             "public interface Foo {",
             "  String bar(String bannerId, Integer testName);",
             "}")
-        .expectUnchanged()
-        //        .addOutputLines(
-        //            "Foo.java",
-        //            "import io.reactivex.Single;",
-        //            "import reactor.adapter.rxjava.RxJava2Adapter;",
-        //            "import reactor.core.publisher.Mono;",
-        //            "public final class Foo {",
-        //            "  @Deprecated",
-        //            "  public Single<String> bar(String bannerId, Integer testName) {",
-        //            "    return Single.just(bannerId);",
-        //            "  }",
-        //            "  public Mono<String> bar_migrated(String stringName, Integer testName) {",
-        //            "    return Single.just(bannerId).as(RxJava2Adapter::singleToMono);",
-        //            "  }",
-        //            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default java.lang.String bar(java.lang.String bannerId, java.lang.Integer testName) {",
+            "    return String.valueOf(bar_migrated(bannerId, testName));",
+            "  }",
+            "",
+            "  default java.lang.Integer bar_migrated(String bannerId, Integer testName) {",
+            "    return Integer.valueOf(bar(bannerId, testName));",
+            "  }",
+            "}")
         .doTest();
   }
 
