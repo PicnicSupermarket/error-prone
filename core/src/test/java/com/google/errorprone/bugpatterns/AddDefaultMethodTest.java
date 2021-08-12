@@ -169,6 +169,35 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  public void supportMultiLineBlockWithOneReturn() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public final class Foo {",
+            "  public String bar(String name) {",
+            "    Integer test = 1 + 1;",
+            "    return String.valueOf(test) + name;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "import io.reactivex.Single;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public String bar(String name) {",
+            "    Integer test = 1 + 1;",
+            "    return String.valueOf(test) + name;",
+            "  }",
+            "",
+            "  public Integer bar_migrated(String name) {",
+            "    Integer test = 1 + 1;",
+            "    return Integer.valueOf(String.valueOf(test) + name);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void twoTypeParameters() {
     helper
         .addInputLines(
