@@ -110,7 +110,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             // /home/sschroevers/workspace/picnic/error-prone/migration/
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
-            // "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+//             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
@@ -424,9 +424,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
     undesiredDefaultMethodSymbol.params = methodSymbol.params;
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
-    // XXX: @Stephan, createBanner test.
-    //  treeMaker.Params(undesiredDefaultMethodSymbol.type.getParameterTypes(), methodSymbol)
-    // returns -> .BannerRequest bannerRequest
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
 
