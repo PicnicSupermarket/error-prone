@@ -107,9 +107,10 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
+            // /home/sschroevers/workspace/picnic/error-prone/migration/
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            // "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
@@ -171,10 +172,13 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         && isInterfaceAlreadyMigratedOrNotImplementingOne(
             methodTree, enclosingClassSymbol, state)) {
 
-      if (!enclosingClassSymbol.getInterfaces().isEmpty()
-          && isMethodAlreadyMigratedInEnclosingClass(
-              methodTree, state, methodSymbol.getSimpleName(), enclosingClassSymbol)) {
+      boolean isAlreadyMigratedInClass =
+          isMethodAlreadyMigratedInEnclosingClass(
+              methodTree, state, methodSymbol.getSimpleName(), enclosingClassSymbol);
+      if (!enclosingClassSymbol.getInterfaces().isEmpty() && isAlreadyMigratedInClass) {
         return describeMatch(methodTree, SuggestedFix.delete(methodTree));
+      } else if (isAlreadyMigratedInClass) {
+        return Description.NO_MATCH;
       }
 
       // To prevent index out of bounds
@@ -354,7 +358,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     }
 
     java.util.List<? extends VariableTree> parameters = methodTree.getParameters();
-    List<JCExpression> params = parameters.stream()
+    List<JCExpression> params =
+        parameters.stream()
             .filter(JCVariableDecl.class::isInstance)
             .map(JCVariableDecl.class::cast)
             .map(treeMaker::Ident)
@@ -369,8 +374,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     SimpleEndPosTable endPosTable = new SimpleEndPosTable();
     String fullSource = methodInvocation.toString();
     endPosTable.storeEnd(methodInvocation, fullSource.length());
-    endPosTable.storeEnd(identExpr,  identExpr.toString().length());
-    params.forEach(p -> endPosTable.storeEnd(p, fullSource.indexOf(p.toString()) + p.toString().length()));
+    endPosTable.storeEnd(identExpr, identExpr.toString().length());
+    params.forEach(
+        p -> endPosTable.storeEnd(p, fullSource.indexOf(p.toString()) + p.toString().length()));
 
     JavaFileObject source = JavaFileObjects.forSourceString("XXX", fullSource);
     compilationUnit.sourcefile = source;
@@ -425,6 +431,9 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
     undesiredDefaultMethodSymbol.params = methodSymbol.params;
     undesiredDefaultMethodSymbol.flags_field = DEFAULT;
+    // XXX: @Stephan, createBanner test.
+    //  treeMaker.Params(undesiredDefaultMethodSymbol.type.getParameterTypes(), methodSymbol)
+    // returns -> .BannerRequest bannerRequest
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
 
@@ -443,7 +452,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
             methodTypeWithReturnType,
             getBlockWithReturnNull(treeMaker));
     java.util.List<? extends VariableTree> parameters = methodTree.getParameters();
-    desiredDefaultMethod.params = parameters.stream()
+    desiredDefaultMethod.params =
+        parameters.stream()
             .filter(JCVariableDecl.class::isInstance)
             .map(JCVariableDecl.class::cast)
             .collect(List.collector());
