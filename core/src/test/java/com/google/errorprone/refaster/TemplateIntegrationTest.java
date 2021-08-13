@@ -146,7 +146,7 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   }
 
   @Test
-  @Ignore // this should work but temporarily disable :grimacing:
+  @Ignore // this should work but temporarily disabled
   public void staticField() throws IOException {
     runTest("StaticFieldTemplate");
   }

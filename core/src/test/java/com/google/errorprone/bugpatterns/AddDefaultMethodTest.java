@@ -17,14 +17,10 @@
 package com.google.errorprone.bugpatterns;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import io.reactivex.Single;
-import java.util.function.Function;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Locale;
 
 /** {@link AddDefaultMethod}Test */
 @RunWith(JUnit4.class)
@@ -33,45 +29,51 @@ public class AddDefaultMethodTest {
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
 
   @Test
+  public void dontMigrateAlreadyMigratedMethodWithParams() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "public class Foo {",
+            "  @Deprecated",
+            "  public String bar(String test) {",
+            "    return String.valueOf(bar_migrated(test));",
+            "  }",
+            "",
+            "  public Integer bar_migrated(String test) {",
+            "    return Integer.valueOf(bar(test));",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
   public void createBanner() {
     helper
         .addInputLines(
-            "BannerInterface.java",
-            "public interface BannerInterface {",
-            "  String getBannerId();",
-            "}")
-        .expectUnchanged()
-        .addInputLines(
             "Banner.java",
-            "import javax.annotation.concurrent.Immutable;",
-            "@Immutable",
-            "public final class Banner implements BannerInterface {",
-            "  private final String bannerId; ",
+            "public final class Banner {",
+            "  private final Integer bannerId; ",
             "",
-            "  public Banner(String bannerId) {",
+            "  public Banner(Integer bannerId) {",
             "    this.bannerId = bannerId;",
             "  }",
             "",
-            "  @Override",
-            "  public String getBannerId() {",
+            "  public Integer getBannerId() {",
             "    return bannerId;",
             "  }",
             "}")
         .expectUnchanged()
         .addInputLines(
             "BannerRequest.java",
-            "import javax.annotation.concurrent.Immutable;",
+            "public final class BannerRequest {",
+            "  private final Integer bannerId; ",
             "",
-            "@Immutable",
-            "public final class BannerRequest implements BannerInterface {",
-            "  private final String bannerId; ",
-            "",
-            "  public BannerRequest(String bannerId) {",
+            "  public BannerRequest(Integer bannerId) {",
             "    this.bannerId = bannerId;",
             "  }",
             "",
-            "  @Override",
-            "  public String getBannerId() {",
+            "  public Integer getBannerId() {",
             "    return bannerId;",
             "  }",
             "}")
@@ -80,10 +82,25 @@ public class AddDefaultMethodTest {
             "BannerService.java",
             "import io.reactivex.Single;",
             "",
-            "public interface BannerService {",
+            "interface BannerService {",
             "  Single<Banner> createBanner(BannerRequest bannerRequest);",
             "}")
-        .expectUnchanged()
+        .addOutputLines(
+            "BannerService.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "",
+            "interface BannerService {",
+            "  @Deprecated",
+            "  default Single<Banner> createBanner(BannerRequest bannerRequest) {",
+            "    return createBanner_migrated(bannerRequest).as(RxJava2Adapter::monoToSingle);",
+            "  }",
+            "",
+            "  default Mono<Banner> createBanner_migrated(BannerRequest bannerRequest) {",
+            "    return createBanner(bannerRequest).as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
         .doTest();
   }
 
@@ -136,7 +153,7 @@ public class AddDefaultMethodTest {
             "  public Single<String> bar(String bannerId, Integer testName) {",
             "    return Single.just(bannerId);",
             "  }",
-            "  public Mono<String> bar_migrated(String stringName, Integer testName) {",
+            "  public Mono<String> bar_migrated(String bannerId, Integer testName) {",
             "    return Single.just(bannerId).as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
@@ -181,6 +198,7 @@ public class AddDefaultMethodTest {
             "  }",
             "}")
         .addOutputLines(
+            "Foo.java",
             "import io.reactivex.Single;",
             "public final class Foo {",
             "  @Deprecated",
@@ -616,6 +634,70 @@ public class AddDefaultMethodTest {
             "  }",
             "  public <R> Mono<Function<R, T>> test_migrated() {",
             "     return null.as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void linkageError() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Flowable;",
+            "public class Foo {",
+            "  public Flowable<String> flowable(String text) {",
+            "    return Flowable.just(text, text);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Flowable;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Flux;",
+            "public class Foo {",
+            "  @Deprecated",
+            "  public Flowable<String> flowable(String text) {",
+            "    return Flowable.just(text, text);",
+            "  }",
+            "  public Flux<String> flowable_migrated(String text) {",
+            "    return Flowable.just(text, text).as(RxJava2Adapter::flowableToFlux);",
+            "  }",
+            "}")
+        .addInputLines(
+            "Bar.java",
+            "import static com.google.common.collect.ImmutableList.toImmutableList;",
+            "import io.reactivex.Flowable;",
+            "import com.google.common.collect.ImmutableList;",
+            "",
+            "public final class Bar {",
+            "  private Foo foo = new Foo();",
+            "",
+            "  public Flowable<String> baz() {",
+            "    ImmutableList.of(1, 2).stream().map((e)->e + 1).collect(toImmutableList());",
+            "    return foo.flowable(\"name\").map((e)->e + e);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Bar.java",
+            "import static com.google.common.collect.ImmutableList.toImmutableList;",
+            "import com.google.common.collect.ImmutableList;",
+            "import io.reactivex.Flowable;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Flux;",
+            "",
+            "public final class Bar {",
+            "  private Foo foo = new Foo();",
+            "",
+            "  @Deprecated",
+            "  public Flowable<String> baz() {",
+            "    ImmutableList.of(1, 2).stream().map((e)->e + 1).collect(toImmutableList());",
+            "    return foo.flowable(\"name\").map((e)->e + e);",
+            "  }",
+            "",
+            "  public Flux<String> baz_migrated() {",
+            "    ImmutableList.of(1, 2).stream().map(e -> e + 1).collect(toImmutableList());",
+            "    return foo.flowable(\"name\").map(e -> e + e).as(RxJava2Adapter::flowableToFlux);",
             "  }",
             "}")
         .doTest();
