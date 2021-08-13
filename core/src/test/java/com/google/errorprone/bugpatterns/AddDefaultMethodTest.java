@@ -52,6 +52,7 @@ public class AddDefaultMethodTest {
     helper
         .addInputLines(
             "Banner.java",
+            "package test.foo;",
             "public final class Banner {",
             "  private final Integer bannerId; ",
             "",
@@ -66,6 +67,7 @@ public class AddDefaultMethodTest {
         .expectUnchanged()
         .addInputLines(
             "BannerRequest.java",
+            "package test.foo;",
             "public final class BannerRequest {",
             "  private final Integer bannerId; ",
             "",
@@ -80,6 +82,7 @@ public class AddDefaultMethodTest {
         .expectUnchanged()
         .addInputLines(
             "BannerService.java",
+            "package test.foo;",
             "import io.reactivex.Single;",
             "",
             "interface BannerService {",
@@ -87,17 +90,17 @@ public class AddDefaultMethodTest {
             "}")
         .addOutputLines(
             "BannerService.java",
+            "package test.foo;",
             "import io.reactivex.Single;",
             "import reactor.adapter.rxjava.RxJava2Adapter;",
-            "import reactor.core.publisher.Mono;",
             "",
             "interface BannerService {",
             "  @Deprecated",
-            "  default Single<Banner> createBanner(BannerRequest bannerRequest) {",
+            "  default io.reactivex.Single<test.foo.Banner> createBanner(test.foo.BannerRequest bannerRequest) {",
             "    return createBanner_migrated(bannerRequest).as(RxJava2Adapter::monoToSingle);",
             "  }",
             "",
-            "  default Mono<Banner> createBanner_migrated(BannerRequest bannerRequest) {",
+            "  default reactor.core.publisher.Mono<test.foo.Banner> createBanner_migrated(BannerRequest bannerRequest) {",
             "    return createBanner(bannerRequest).as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
@@ -105,7 +108,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void positive_singleToMonoClassMigration() {
+  public void singleToMonoClassMigration() {
     helper
         .addInputLines(
             "Foo.java",
@@ -127,6 +130,31 @@ public class AddDefaultMethodTest {
             "  }",
             "  public Mono<String> bar_migrated() {",
             "    return Single.just(\"value\").as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void singleToMonoInterfaceMigration() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public interface Foo {",
+            "  Single<String> bar();",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default io.reactivex.Single<java.lang.String> bar() {",
+            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
+            "  }",
+            "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated() {",
+            "    return bar().as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
         .doTest();
@@ -237,31 +265,6 @@ public class AddDefaultMethodTest {
             "  }",
             "  default reactor.core.publisher.Mono<java.util.function.Function<java.lang.Integer, java.lang.String>> bar_migrated() {",
             "     return bar().as(RxJava2Adapter::singleToMono);",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void positive_singleToMonoInterfaceMigration() {
-    helper
-        .addInputLines(
-            "Foo.java",
-            "import io.reactivex.Single;",
-            "public interface Foo {",
-            "  Single<String> bar();",
-            "}")
-        .addOutputLines(
-            "Foo.java",
-            "import io.reactivex.Single;",
-            "import reactor.adapter.rxjava.RxJava2Adapter;",
-            "public interface Foo {",
-            "  @Deprecated",
-            "  default io.reactivex.Single<java.lang.String> bar() {",
-            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
-            "  }",
-            "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated() {",
-            "    return bar().as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
         .doTest();

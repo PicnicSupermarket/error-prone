@@ -181,13 +181,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         return Description.NO_MATCH;
       }
 
-      // To prevent index out of bounds
-      Description migrationReplacementForNormalMethod =
-          getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state);
-      if (migrationReplacementForNormalMethod.equals(Description.NO_MATCH)) {
-        return Description.NO_MATCH;
-      }
-
       SuggestedFix.Builder fix = SuggestedFix.builder();
       ImmutableList<Description> descriptions =
           ImmutableList.of(
