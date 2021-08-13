@@ -152,9 +152,7 @@ public class InlinerTest {
   }
 
   @Test
-  @Ignore // XXX: The middle "class" here is something which is not in the Inliner anymore. Update
-          // the test.
-  public void testMethod_lastStepUpdateCaller() {
+  public void updateCallersAfterInterfaceAndMethodAreMigrated() {
     refactoringTestHelper
         .addInputLines(
             "Client.java",
@@ -162,12 +160,12 @@ public class InlinerTest {
             "import com.google.errorprone.annotations.InlineMe;",
             "public interface Client {",
             "  @Deprecated",
-            "  @InlineMe(replacement = \"this.after()\")",
-            "  default String before() {",
-            "    return after();",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
             "  }",
-            "  default String after() {",
-            "    return \"frobber\";",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
             "  }",
             "}")
         .expectUnchanged()
@@ -175,15 +173,10 @@ public class InlinerTest {
             "Caller.java",
             "package com.google.foo;",
             "import com.google.foo.Client;",
-            "import com.google.errorprone.annotations.InlineMe;",
-            "import com.google.errorprone.annotations.InlineMeValidationDisabled;",
             "public final class Caller implements Client {",
-            "  @Deprecated  ",
-            "  @InlineMe(replacement=\"this.after()\")",
-            "  @InlineMeValidationDisabled(\"Migration Method\")",
-            "  @Override ",
-            "  public String before() {",
-            "    return \"\";",
+            // the content of the `bar` was initially: return "1";
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
             "  }",
             "}")
         .expectUnchanged()
@@ -194,7 +187,7 @@ public class InlinerTest {
             "public class Test {",
             "  public void test() {",
             "    Caller call = new Caller();",
-            "    String s = call.before();",
+            "    String s = call.bar();",
             "  }",
             "}")
         .addOutputLines(
@@ -204,7 +197,7 @@ public class InlinerTest {
             "public class Test {",
             "  public void test() {",
             "    Caller call = new Caller();",
-            "    String s = call.after();",
+            "    String s = String.valueOf(call.bar_migrated());",
             "  }",
             "}")
         .doTest();
