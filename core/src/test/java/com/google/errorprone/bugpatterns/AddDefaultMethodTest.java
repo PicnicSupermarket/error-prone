@@ -703,4 +703,37 @@ public class AddDefaultMethodTest {
             "}")
         .doTest();
   }
+
+  @Test
+  @Ignore // Doesn't work yet.
+  public void abstractClass() {
+    helper
+        .addInputLines(
+            "Foo.java", "public abstract class Foo {", "public abstract String bar();", "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  @Ignore // Doesn't work, IllegalArgumentException: expected one element ...
+  // com.google.errorprone.BugCheckerRefactoringTestHelper.getFullyQualifiedName(BugCheckerRefactoringTestHelper.java:341).
+  public void anonymousClass() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "abstract class Foo{",
+            "  abstract String eat();",
+            "}",
+            "",
+            "class TestAnonymousInner{",
+            "  public static void main(String args[]){",
+            "    Foo p = new Foo() {",
+            "    String eat(){ return \"nice fruits\";}",
+            "  };",
+            "  p.eat();",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
 }
