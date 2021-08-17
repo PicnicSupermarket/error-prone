@@ -82,6 +82,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
@@ -107,6 +108,8 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Or:
     // Accept single `CompositeCodeTransformer`?
     // Argument against blanket classpath scanning: only some combinations may make sense?
+    InputStream resourceAsStream1 =
+        AddDefaultMethod.class.getClassLoader().getResourceAsStream("FlowableToFlux.migration");
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
             // /home/sschroevers/workspace/picnic/error-prone/migration/
@@ -148,7 +151,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    if (enclosingClassSymbol == null) {
+    if (enclosingClassSymbol == null || methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
       return Description.NO_MATCH;
     }
 
@@ -231,8 +234,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
   private String getCurrentMethodWithUpdatedBody(MethodTree methodTree, String implExistingMethod) {
     return methodTree
         .toString()
-        .replace(
-            methodTree.getBody().toString(), "{\n return " + implExistingMethod + "; \n}\n");
+        .replace(methodTree.getBody().toString(), "{\n return " + implExistingMethod + "; \n}\n");
   }
 
   private static boolean isMethodTypeUndesiredMigrationType(
