@@ -76,6 +76,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
@@ -106,19 +107,12 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Or:
     // Accept single `CompositeCodeTransformer`?
     // Argument against blanket classpath scanning: only some combinations may make sense?
-//    https://crunchify.com/how-to-add-resources-folder-properties-at-runtime-into-intellijs-classpath-adding-property-files-to-classpath/
-
-    InputStream resourceAsStream1 = AddDefaultMethod.class.getClassLoader().getResourceAsStream("FlowableToFlux.migration");
-    InputStream resourceAsStream = AddDefaultMethod.class.getClassLoader().getResourceAsStream("/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.java");
-    if (resourceAsStream1 != null || resourceAsStream != null) {
-      throw new RuntimeException("omg");
-    }
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
             // /home/sschroevers/workspace/picnic/error-prone/migration/
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
-//             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
+            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
             "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
 
     for (String migrationDefinitionUri : migrationDefinitionUris) {
@@ -189,11 +183,24 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         return Description.NO_MATCH;
       }
 
+      String implExistingMethod =
+          getBodyForDefaultMethodInInterface(
+              methodSymbol.getSimpleName(),
+              inlineType(inliner, suitableMigration.get().typeTo()),
+              true,
+              suitableMigration.get().transformTo(),
+              state,
+              methodTree);
+
       SuggestedFix.Builder fix = SuggestedFix.builder();
       ImmutableList<Description> descriptions =
           ImmutableList.of(
               describeMatch(
-                  methodTree, SuggestedFix.prefixWith(methodTree, "@Deprecated" + methodTree)),
+                  methodTree,
+                  SuggestedFix.prefixWith(
+                      methodTree,
+                      "@Deprecated"
+                          + getCurrentMethodWithUpdatedBody(methodTree, implExistingMethod))),
               describeMatch(
                   methodTree,
                   SuggestedFixes.renameMethod(
@@ -219,6 +226,13 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
       return describeMatch(methodTree, suggestedFix.build());
     }
     return Description.NO_MATCH;
+  }
+
+  private String getCurrentMethodWithUpdatedBody(MethodTree methodTree, String implExistingMethod) {
+    return methodTree
+        .toString()
+        .replace(
+            methodTree.getBody().toString(), "{\n return " + implExistingMethod + "; \n}\n");
   }
 
   private static boolean isMethodTypeUndesiredMigrationType(
