@@ -73,6 +73,7 @@ import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Position;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -105,6 +106,13 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Or:
     // Accept single `CompositeCodeTransformer`?
     // Argument against blanket classpath scanning: only some combinations may make sense?
+//    https://crunchify.com/how-to-add-resources-folder-properties-at-runtime-into-intellijs-classpath-adding-property-files-to-classpath/
+
+    InputStream resourceAsStream1 = AddDefaultMethod.class.getClassLoader().getResourceAsStream("FlowableToFlux.migration");
+    InputStream resourceAsStream = AddDefaultMethod.class.getClassLoader().getResourceAsStream("/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.java");
+    if (resourceAsStream1 != null || resourceAsStream != null) {
+      throw new RuntimeException("omg");
+    }
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
             // /home/sschroevers/workspace/picnic/error-prone/migration/

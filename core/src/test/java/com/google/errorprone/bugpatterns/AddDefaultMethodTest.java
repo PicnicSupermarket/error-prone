@@ -179,7 +179,7 @@ public class AddDefaultMethodTest {
             "public final class Foo {",
             "  @Deprecated",
             "  public Single<String> bar(String bannerId, Integer testName) {",
-            "    return Single.just(bannerId);",
+            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
             "  }",
             "  public Mono<String> bar_migrated(String bannerId, Integer testName) {",
             "    return Single.just(bannerId).as(RxJava2Adapter::singleToMono);",
