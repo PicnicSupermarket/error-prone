@@ -711,6 +711,14 @@ public class AddDefaultMethodTest {
             "Foo.java",
             "public abstract class Foo {",
             "  public String bar() {",
+            "    return \"1\";",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "public abstract class Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
             "    return String.valueOf(bar_migrated());",
             "  }",
             "",
@@ -718,7 +726,6 @@ public class AddDefaultMethodTest {
             "    return Integer.valueOf(\"1\");",
             "  }",
             "}")
-        .expectUnchanged()
         .doTest();
   }
 
