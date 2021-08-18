@@ -33,6 +33,7 @@ import static com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugPattern;
@@ -59,7 +60,6 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
@@ -75,15 +75,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
-import javax.lang.model.type.TypeKind;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
+@AutoService(BugChecker.class)
 @BugPattern(
-    name = "AddDefaultMethod", //UndesiredTypeMigrator? MigrateReturnTypes?
+    name = "AddDefaultMethod", // UndesiredTypeMigrator? MigrateReturnTypes?
     summary = "Rewrite methods with undesired method return types.",
     severity = ERROR)
-public final class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
+public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
 

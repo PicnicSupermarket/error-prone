@@ -18,10 +18,10 @@ package com.google.errorprone.migration;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.sun.tools.javac.code.Symbol.*;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
 import static com.sun.tools.javac.code.Symbol.MethodSymbol;
 import static com.sun.tools.javac.code.Symbol.PackageSymbol;
+import static com.sun.tools.javac.code.Symbol.TypeVariableSymbol;
 import static com.sun.tools.javac.code.Symbol.VarSymbol;
 import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 
@@ -333,7 +333,7 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
       throws IOException {
     try (ObjectOutputStream output = new ObjectOutputStream(target.openOutputStream())) {
       output.writeObject(rules);
-    } catch(Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
   }

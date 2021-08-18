@@ -29,6 +29,7 @@ import static com.google.errorprone.util.MoreAnnotations.asStringValue;
 import static com.google.errorprone.util.MoreAnnotations.getValue;
 import static com.sun.tools.javac.code.Symbol.*;
 
+import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -59,11 +60,14 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+@AutoService(BugChecker.class)
 @BugPattern(
     name = "InlineMockitoStatements",
     summary = "Migrate Mockito statements that call a method annotated with `@InlineMe`.",
     severity = WARNING)
 public class InlineMockitoStatements extends BugChecker implements MethodInvocationTreeMatcher {
+  private static final long serialVersionUID = 1L;
+
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
 

@@ -27,9 +27,7 @@ import java.io.ObjectInputStream;
 import java.net.URL;
 import java.util.stream.Stream;
 
-/**
- * The MigrationTransformersLoader is responsible for retrieving the .migration files.
- */
+/** The MigrationTransformersLoader is responsible for retrieving the .migration files. */
 public final class MigrationTransformersProvider {
 
   public static ImmutableList<MigrationCodeTransformer> loadMigrationTransformers() {
@@ -46,8 +44,8 @@ public final class MigrationTransformersProvider {
         ImmutableList.of(
             "com/google/errorprone/migration_resources/SingleToMono.migration",
             "com/google/errorprone/migration_resources/FlowableToFlux.migration",
-            "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
-            "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration");
+            "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration",
+            "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration");
 
     ClassLoader classLoader = ClassLoader.getSystemClassLoader();
     for (String migrationDefinitionUri : migrationDefinitionUris) {
