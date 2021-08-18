@@ -106,6 +106,28 @@ public final class UnnecessarilyFullyQualifiedTest {
   }
 
   @Test
+  public void inconsistentImportUsage() {
+    helper
+        .addInputLines(
+            "Test.java",
+            "import java.util.List;",
+            "public class Test {",
+            "  public java.util.List foo(List list) {",
+            "    return list;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Test.java",
+            "import java.util.List;",
+            "public class Test {",
+            "  public List foo(List list) {",
+            "    return list;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void clashesWithTypeInSuperType() {
     helper
         .addInputLines(
