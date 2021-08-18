@@ -28,6 +28,30 @@ public final class UnnecessarilyFullyQualifiedTest {
       BugCheckerRefactoringTestHelper.newInstance(UnnecessarilyFullyQualified.class, getClass());
 
   @Test
+  public void javaLang() {
+    helper
+        .addInputLines(
+            "Test.java",
+            "public class Test {",
+            "  @java.lang.Deprecated",
+            "  public java.lang.String foo(java.lang.String s) {",
+            "    java.lang.Integer i = 1;",
+            "    return s;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Test.java",
+            "public class Test {",
+            "  @Deprecated",
+            "  public String foo(String s) {",
+            "    Integer i = 1;",
+            "    return s;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void singleUse() {
     helper
         .addInputLines(
