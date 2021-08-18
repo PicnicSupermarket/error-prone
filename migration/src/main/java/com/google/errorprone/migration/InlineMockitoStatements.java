@@ -43,7 +43,9 @@ import com.google.errorprone.refaster.CouldNotResolveImportException;
 import com.google.errorprone.refaster.Inliner;
 import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
@@ -72,7 +74,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
 
   private static final Matcher<ExpressionTree> MOCKITO_MATCHER_DO_WHEN =
       anyOf(instanceMethod().onDescendantOf("org.mockito.stubbing.Stubber").named("when"));
-  //          staticMethod().onClass("org.mockito.Mockito").named("verify"));
+  //  XXX: staticMethod().onClass("org.mockito.Mockito").named("verify"));
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
@@ -95,28 +97,71 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
         return Description.NO_MATCH;
       }
 
-      List<Description> descriptions =
-          thenReturnArguments.stream()
-              .map(e -> getMigrationReplacementForNormalMethod(e, suitableMigration.get(), state))
-              .collect(Collectors.toList());
-
-      SuggestedFix.Builder fix = SuggestedFix.builder();
-      descriptions.add(
-          describeMatch(
-              whenArgument,
-              SuggestedFixes.renameMethodInvocation(
-                  (MethodInvocationTree) whenArgument,
-                  whenSymbol.getQualifiedName() + "_migrated",
-                  state)));
-      descriptions.add(describeMatch(tree, SuggestedFix.prefixWith(tree, grandParent + ";\n")));
-      descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
-
-      return describeMatch(tree, fix.build());
+      return getDescriptionForDuplicatedLineWithMigratedCalls(
+          tree,
+          whenArgument,
+          whenSymbol,
+          grandParent,
+          getDescriptionsForArguments(state, suitableMigration.get(), thenReturnArguments),
+          state);
     } else if (MOCKITO_MATCHER_DO_WHEN.matches(tree, state)) {
       Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
-      Tree.Kind kind = grandParent.getKind();
+      if (methodWithoutInlineOrMigratedReplacement(ASTHelpers.getSymbol(grandParent), state)) {
+        return Description.NO_MATCH;
+      }
+
+      Tree parent = state.getPath().getParentPath().getLeaf();
+      Symbol whenSymbol = getSymbol(parent);
+
+      Optional<MigrationCodeTransformer> suitableMigration =
+          getSuitableMigrationForMethod(whenSymbol, migrationDefinitions, state);
+      if (!suitableMigration.isPresent()) {
+        return Description.NO_MATCH;
+      }
+
+      List<? extends ExpressionTree> arguments =
+          ((MethodInvocationTree) ((MemberSelectTree) tree.getMethodSelect()).getExpression())
+              .getArguments();
+
+      return getDescriptionForDuplicatedLineWithMigratedCalls(
+          tree,
+          grandParent,
+          whenSymbol,
+          grandParent,
+          getDescriptionsForArguments(state, suitableMigration.get(), arguments),
+          state);
     }
     return Description.NO_MATCH;
+  }
+
+  private Description getDescriptionForDuplicatedLineWithMigratedCalls(
+      MethodInvocationTree originalTree,
+      Tree grandParent,
+      Symbol whenSymbol,
+      Tree s,
+      List<Description> descriptions,
+      VisitorState state) {
+    SuggestedFix.Builder fix = SuggestedFix.builder();
+    descriptions.add(
+        describeMatch(
+            grandParent,
+            SuggestedFixes.renameMethodInvocation(
+                (MethodInvocationTree) grandParent,
+                whenSymbol.getQualifiedName() + "_migrated",
+                state)));
+    descriptions.add(describeMatch(originalTree, SuggestedFix.prefixWith(originalTree, s + ";\n")));
+    descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
+
+    return describeMatch(originalTree, fix.build());
+  }
+
+  private List<Description> getDescriptionsForArguments(
+      VisitorState state,
+      MigrationCodeTransformer suitableMigration,
+      List<? extends ExpressionTree> arguments) {
+    return arguments.stream()
+        .map(e -> getMigrationReplacementForNormalMethod(e, suitableMigration, state))
+        .collect(Collectors.toList());
   }
 
   private Optional<MigrationCodeTransformer> getSuitableMigrationForMethod(

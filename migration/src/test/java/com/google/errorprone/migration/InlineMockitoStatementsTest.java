@@ -128,10 +128,10 @@ public class InlineMockitoStatementsTest {
             "  public void simpleTest() {",
             "    Foo foo = mock(Foo.class);",
             "    doReturn(\"2\").when(foo).getId();",
-            //            "",
-            //            "    when(foo.getId()).thenReturn(\"2\", \"3\");",
-            //            "",
-            //            "    when(foo.getId()).thenAnswer(inv -> String.valueOf(\"1\"));",
+            "",
+            "    doReturn(\"2\", \"3\").when(foo).getId();",
+            "",
+            "    doAnswer(inv -> String.valueOf(\"1\")).when(foo).getId();",
             "  }",
             "}")
         .addOutputLines(
@@ -150,14 +150,12 @@ public class InlineMockitoStatementsTest {
             "    Foo foo = mock(Foo.class);",
             "    doReturn(\"2\").when(foo).getId();",
             "    doReturn(Integer.valueOf(\"2\")).when(foo).getId_migrated();",
-            //            "",
-            //            "    when(foo.getId()).thenReturn(\"2\", \"3\");",
-            //            "    when(foo.getId_migrated()).thenReturn(Integer.valueOf(\"2\"),
-            // Integer.valueOf(\"3\"));",
-            //            "",
-            //            "    when(foo.getId()).thenAnswer(inv -> String.valueOf(\"1\"));",
-            //            "    when(foo.getId_migrated()).thenAnswer(inv ->
-            // Integer.valueOf(String.valueOf(\"1\")));",
+            "",
+            "    doReturn(\"2\", \"3\").when(foo).getId();",
+            "    doReturn(Integer.valueOf(\"2\"), Integer.valueOf(\"3\")).when(foo).getId_migrated();",
+            "",
+            "    doAnswer((inv)->String.valueOf(\"1\")).when(foo).getId();",
+            "    doAnswer(inv -> Integer.valueOf(String.valueOf(\"1\"))).when(foo).getId_migrated();",
             "  }",
             "}")
         .doTest();
