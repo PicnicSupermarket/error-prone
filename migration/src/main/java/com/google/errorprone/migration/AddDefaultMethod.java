@@ -16,7 +16,6 @@
 
 package com.google.errorprone.migration;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
@@ -24,8 +23,7 @@ import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
 import static com.sun.tools.javac.code.Symbol.PackageSymbol;
-import static com.sun.tools.javac.code.Type.*;
-import static com.sun.tools.javac.tree.JCTree.*;
+import static com.sun.tools.javac.code.Type.MethodType;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import static com.sun.tools.javac.tree.JCTree.JCExpression;
@@ -33,12 +31,12 @@ import static com.sun.tools.javac.tree.JCTree.JCLiteral;
 import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import static com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
+import static com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
-import com.google.errorprone.CompositeCodeTransformer;
 import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
@@ -71,80 +69,26 @@ import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Position;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
 import java.io.UncheckedIOException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 @BugPattern(
-    name = "AddDefaultMethod",
-    summary = "First steps in trying to add a default method to an interface",
+    name = "AddDefaultMethod", //UndesiredTypeMigrator? MigrateReturnTypes?
+    summary = "Rewrite methods with undesired method return types.",
     severity = ERROR)
 public final class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
-      Suppliers.memoize(AddDefaultMethod::loadMigrationTransformer);
+      Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
 
   // XXX: What would be a better way to provide the imports to the SuggestedFix?
   private Collection<String> importsToAdd;
-
-  private static ImmutableList<MigrationCodeTransformer> loadMigrationTransformer() {
-    ImmutableList.Builder<MigrationCodeTransformer> migrations = new ImmutableList.Builder<>();
-    // XXX: Make nice. Potential API:
-    // 1. Accept `ErrorProneFlags` specifying paths.
-    // 2. Fall back to classpath scanning, just like RefasterCheck.
-    // Or:
-    // Completely follow RefasterCheck; use regex flag to black-/whitelist.
-    // Or:
-    // Accept single `CompositeCodeTransformer`?
-    // Argument against blanket classpath scanning: only some combinations may make sense?
-    ImmutableList<String> migrationDefinitionUris =
-        ImmutableList.of(
-            "com/google/errorprone/migration_resources/SingleToMono.migration",
-            "com/google/errorprone/migration_resources/FlowableToFlux.migration",
-            "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
-            "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration");
-
-    ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    for (String migrationDefinitionUri : migrationDefinitionUris) {
-      URL resource = classLoader.getResource(migrationDefinitionUri);
-      if (resource == null) {
-        continue;
-      }
-      try (FileInputStream is = new FileInputStream(resource.getPath());
-          ObjectInputStream ois = new ObjectInputStream(is)) {
-        migrations.addAll(
-            unwrap((CodeTransformer) ois.readObject())
-                .filter(MigrationCodeTransformer.class::isInstance)
-                .map(MigrationCodeTransformer.class::cast)
-                .collect(toImmutableList()));
-      } catch (IOException | ClassNotFoundException e) {
-        // XXX: @Stephan, which exception to throw here?
-        throw new IllegalStateException("Failed to read the Refaster migration template", e);
-      }
-    }
-    return migrations.build();
-  }
-
-  // XXX: depending on decision above we don't need this.
-  private static Stream<CodeTransformer> unwrap(CodeTransformer codeTransformer) {
-    if (!(codeTransformer instanceof CompositeCodeTransformer)) {
-      return Stream.of(codeTransformer);
-    }
-
-    return ((CompositeCodeTransformer) codeTransformer)
-        .transformers().stream().flatMap(AddDefaultMethod::unwrap);
-  }
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
@@ -161,7 +105,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
         migrationDefinitions.stream()
             .filter(
                 migration ->
-                    isMethodTypeUndesiredMigrationType(
+                    TypeMigrationHelper.isMethodTypeUndesiredMigrationType(
                         inliner.types(),
                         methodSymbol.getReturnType(),
                         inlineType(inliner, migration.typeFrom()),
@@ -237,38 +181,6 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     return methodTree
         .toString()
         .replace(methodTree.getBody().toString(), "{\n return " + implExistingMethod + "; \n}\n");
-  }
-
-  private static boolean isMethodTypeUndesiredMigrationType(
-      Types types, Type methodReturnType, Type undesiredMigrationReturnType, VisitorState state) {
-    if (undesiredMigrationReturnType == null) {
-      return false;
-    }
-    if (undesiredMigrationReturnType.getTypeArguments().isEmpty()) {
-      return types.isSameType(methodReturnType, undesiredMigrationReturnType);
-    }
-
-    Type undesiredReturnTypeArgument = undesiredMigrationReturnType.getTypeArguments().get(0);
-    boolean isTypeVar = undesiredReturnTypeArgument.getKind() == TypeKind.TYPEVAR;
-
-    if (isTypeVar) {
-      return ASTHelpers.isSameType(methodReturnType, undesiredMigrationReturnType, state)
-          && ASTHelpers.isSubtype(
-              methodReturnType.getTypeArguments().get(0),
-              undesiredReturnTypeArgument.getUpperBound(),
-              state)
-          && ASTHelpers.isSubtype(
-              undesiredReturnTypeArgument.getLowerBound(),
-              methodReturnType.getTypeArguments().get(0),
-              state);
-    } else {
-      return types.isSameType(methodReturnType, undesiredMigrationReturnType)
-          && (methodReturnType.tsym.equals(undesiredMigrationReturnType.tsym)
-              && methodReturnType
-                  .tsym
-                  .getTypeParameters()
-                  .equals(undesiredMigrationReturnType.tsym.getTypeParameters()));
-    }
   }
 
   private Type getDesiredReturnTypeForMigration(
