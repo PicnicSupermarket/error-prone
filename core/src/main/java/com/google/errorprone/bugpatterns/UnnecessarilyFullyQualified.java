@@ -61,9 +61,8 @@ import javax.lang.model.element.Name;
 public final class UnnecessarilyFullyQualified extends BugChecker
     implements CompilationUnitTreeMatcher {
 
-  private static final ImmutableSet<String> EXEMPTED_NAMES =
-      ImmutableSet.of(
-          "Annotation");
+  private static final ImmutableSet<String> EXEMPTED_NAMES = ImmutableSet.of("Annotation");
+  private static final String JAVA_LANG = "java.lang";
 
   @Override
   public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
@@ -171,12 +170,16 @@ public final class UnnecessarilyFullyQualified extends BugChecker
         continue;
       }
       List<TreePath> pathsToFix = getOnlyElement(types.values());
-      if (pathsToFix.stream()
-          .anyMatch(path -> findIdent(nameString, state.withPath(path), VAL_TYP) != null)) {
+      if (!pathsToFix.get(0).getLeaf().toString().contains(JAVA_LANG)
+          && pathsToFix.stream()
+              .anyMatch(path -> findIdent(nameString, state.withPath(path), VAL_TYP) != null)) {
         continue;
       }
       SuggestedFix.Builder fixBuilder = SuggestedFix.builder();
-      fixBuilder.addImport(getOnlyElement(types.keySet()).getQualifiedName().toString());
+      String newImport = getOnlyElement(types.keySet()).getQualifiedName().toString();
+      if (!newImport.contains(JAVA_LANG)) {
+        fixBuilder.addImport(newImport);
+      }
       for (TreePath path : pathsToFix) {
         fixBuilder.replace(path.getLeaf(), nameString);
       }
