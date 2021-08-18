@@ -158,40 +158,6 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
-//  @Override
-//  public Description matchMethod(MethodTree tree, VisitorState state) {
-//    MethodSymbol symbol = getSymbol(tree);
-//    Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) symbol.owner;
-//    if (classSymbol.getInterfaces().isEmpty() || hasAnnotation(tree, InlineMe.class, state)) {
-//      return Description.NO_MATCH;
-//    }
-//
-//    ImmutableList<Iterable<Symbol>> iterables =
-//        classSymbol.getInterfaces().stream()
-//            .map(i -> i.tsym)
-//            .map(a -> a.members().getSymbolsByName((Name) tree.getName()))
-//            .collect(toImmutableList());
-//
-//    ImmutableList<Attribute.Compound> collect =
-//        iterables.stream()
-//            .map(i -> i.iterator().next().getAnnotationMirrors())
-//            .flatMap(Collection::stream)
-//            .filter(i -> i.getAnnotationType().toString().equals(INLINE_ME))
-//            .collect(toImmutableList());
-//
-//    if (collect.isEmpty()) {
-//      return Description.NO_MATCH;
-//    } else {
-//      SuggestedFix.Builder builder =
-//          SuggestedFix.builder()
-//              .addImport(InlineMe.class.getCanonicalName())
-//              .addImport(InlineMeValidationDisabled.class.getCanonicalName())
-//              .prefixWith(
-//                  tree, collect.get(0) + "\n @InlineMeValidationDisabled(\"Migration Method\") \n");
-//      return describeMatch(tree, builder.build());
-//    }
-//  }
-
   private Description match(
       ExpressionTree tree,
       MethodSymbol symbol,
