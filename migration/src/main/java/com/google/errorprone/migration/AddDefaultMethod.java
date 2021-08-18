@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.errorprone.bugpatterns;
+package com.google.errorprone.migration;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -43,12 +43,12 @@ import com.google.errorprone.SubContext;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.SourceFile;
+import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
-import com.google.errorprone.migration.MigrationCodeTransformer;
 import com.google.errorprone.refaster.CouldNotResolveImportException;
 import com.google.errorprone.refaster.Inliner;
 import com.google.errorprone.refaster.UType;
@@ -108,18 +108,20 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
     // Or:
     // Accept single `CompositeCodeTransformer`?
     // Argument against blanket classpath scanning: only some combinations may make sense?
-    InputStream resourceAsStream1 =
-        AddDefaultMethod.class.getClassLoader().getResourceAsStream("FlowableToFlux.migration");
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
-            // /home/sschroevers/workspace/picnic/error-prone/migration/
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/FlowableToFlux.migration",
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/MaybeNumberToMonoNumber.migration",
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/AlsoStringToIntegerSecond.migration",
-            "/home/rick/repos/picnic-error-prone/migration/src/main/java/com/google/errorprone/migration/templates/SingleToMono.migration");
+            "com/google/errorprone/migration_resources/SingleToMono.migration",
+            "com/google/errorprone/migration_resources/FlowableToFlux.migration",
+            "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
+            "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration");
 
+    ClassLoader classLoader = ClassLoader.getSystemClassLoader();
     for (String migrationDefinitionUri : migrationDefinitionUris) {
-      try (FileInputStream is = new FileInputStream(migrationDefinitionUri);
+      URL resource = classLoader.getResource(migrationDefinitionUri);
+      if (resource == null) {
+        continue;
+      }
+      try (FileInputStream is = new FileInputStream(resource.getPath());
           ObjectInputStream ois = new ObjectInputStream(is)) {
         migrations.addAll(
             unwrap((CodeTransformer) ois.readObject())
@@ -151,7 +153,7 @@ public final class AddDefaultMethod extends BugChecker implements MethodTreeMatc
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    if (enclosingClassSymbol == null || methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
+    if (enclosingClassSymbol == null) {
       return Description.NO_MATCH;
     }
 

@@ -333,6 +333,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
       throws IOException {
     try (ObjectOutputStream output = new ObjectOutputStream(target.openOutputStream())) {
       output.writeObject(rules);
+    } catch(Exception e) {
+      e.printStackTrace();
     }
   }
 }

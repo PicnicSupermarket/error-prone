@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.errorprone.migration.templates;
+package com.google.errorprone.migration_resources;
 
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
