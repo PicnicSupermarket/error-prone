@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 The Error Prone Authors.
+ * Copyright 2021 The Error Prone Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.errorprone.bugpatterns;
+package com.google.errorprone.migration;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import org.junit.Ignore;
@@ -27,6 +27,34 @@ import org.junit.runners.JUnit4;
 public class AddDefaultMethodTest {
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
+
+  @Test
+  public void singleToMonoClassMigration() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public final class Foo {",
+            "  public Single<String> bar() {",
+            "    return Single.just(\"value\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public Single<String> bar() {",
+            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
+            "  }",
+            "  public Mono<String> bar_migrated() {",
+            "    return Single.just(\"value\").as(RxJava2Adapter::singleToMono);",
+            "  }",
+            "}")
+        .doTest();
+  }
 
   @Test
   public void dontMigrateAlreadyMigratedMethodWithParams() {
@@ -102,34 +130,6 @@ public class AddDefaultMethodTest {
             "",
             "  default reactor.core.publisher.Mono<test.foo.Banner> createBanner_migrated(BannerRequest bannerRequest) {",
             "    return createBanner(bannerRequest).as(RxJava2Adapter::singleToMono);",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void singleToMonoClassMigration() {
-    helper
-        .addInputLines(
-            "Foo.java",
-            "import io.reactivex.Single;",
-            "public final class Foo {",
-            "  public Single<String> bar() {",
-            "    return Single.just(\"value\");",
-            "  }",
-            "}")
-        .addOutputLines(
-            "Foo.java",
-            "import io.reactivex.Single;",
-            "import reactor.adapter.rxjava.RxJava2Adapter;",
-            "import reactor.core.publisher.Mono;",
-            "public final class Foo {",
-            "  @Deprecated",
-            "  public Single<String> bar() {",
-            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
-            "  }",
-            "  public Mono<String> bar_migrated() {",
-            "    return Single.just(\"value\").as(RxJava2Adapter::singleToMono);",
             "  }",
             "}")
         .doTest();
@@ -705,11 +705,19 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  @Ignore // Doesn't work yet.
   public void abstractClass() {
     helper
         .addInputLines(
-            "Foo.java", "public abstract class Foo {", "public abstract String bar();", "}")
+            "Foo.java",
+            "public abstract class Foo {",
+            "  public String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "}")
         .expectUnchanged()
         .doTest();
   }
