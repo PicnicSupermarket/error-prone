@@ -1182,6 +1182,7 @@ public class InlinerTest {
             "    foo2(value);",
             "  }",
             "  public void foo2(String value) {",
+            "",
             "  }",
             "}")
         .expectUnchanged()
@@ -1206,7 +1207,54 @@ public class InlinerTest {
         .doTest();
   }
 
-  private BugCheckerRefactoringTestHelper bugCheckerWithPrefixFlag(String prefix) {
+  @Test
+  public void dontInlineMockitoExpressions() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated())\")",
+            "  public String getId() {",
+            "    return String.valueOf(getId_migrated());",
+            "  }",
+            "",
+            "  public Integer getId_migrated() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import static org.mockito.Mockito.doReturn;",
+            "import static org.mockito.Mockito.doAnswer;",
+            "import static org.mockito.Mockito.verify;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId()).thenReturn(\"2\");",
+            "    when(foo.getId()).thenAnswer(inv -> inv.getArgument(0));",
+            "    doReturn(\"2\").when(foo).getId();",
+            "    doAnswer(inv -> inv.getArgument(0)).when(foo).getId();",
+            "    verify(foo).getId();",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  private BugCheckerRefactoringTestHelper buildBugCheckerWithPrefixFlag(String prefix) {
     return BugCheckerRefactoringTestHelper.newInstance(Inliner.class, getClass())
         .setArgs("-XepOpt:" + PREFIX_FLAG + "=" + prefix);
   }

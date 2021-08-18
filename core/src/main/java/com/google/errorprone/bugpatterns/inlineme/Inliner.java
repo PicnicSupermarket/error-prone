@@ -21,6 +21,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
+import static com.google.errorprone.matchers.Matchers.anyOf;
+import static com.google.errorprone.matchers.method.MethodMatchers.instanceMethod;
+import static com.google.errorprone.matchers.method.MethodMatchers.staticMethod;
 import static com.google.errorprone.util.ASTHelpers.enclosingPackage;
 import static com.google.errorprone.util.ASTHelpers.findEnclosingMethod;
 import static com.google.errorprone.util.ASTHelpers.getReceiver;
@@ -92,6 +95,12 @@ public final class Inliner extends BugChecker
   private static final String INLINE_ME = "InlineMe";
   private static final String VALIDATION_DISABLED = "InlineMeValidationDisabled";
 
+  private static final com.google.errorprone.matchers.Matcher<ExpressionTree> MOCKITO_MATCHER =
+      anyOf(
+          staticMethod().onClass("org.mockito.Mockito").named("when"),
+          instanceMethod().onDescendantOf("org.mockito.stubbing.Stubber").named("when"),
+          staticMethod().onClass("org.mockito.Mockito").named("verify"));
+
   private final ImmutableSet<String> apiPrefixes;
   private final boolean skipCallsitesWithComments;
   private final boolean checkFixCompiles;
@@ -122,6 +131,7 @@ public final class Inliner extends BugChecker
     MethodSymbol symbol = getSymbol(tree);
     MethodTree enclosingMethod = findEnclosingMethod(state);
     if (!hasAnnotation(symbol, INLINE_ME, state)
+        || isMockMethodThatCannotBeInlined(tree, state)
         || !(enclosingMethod != null
             && !enclosingMethod.getName().toString().contains("_migrated"))) {
       return Description.NO_MATCH;
@@ -207,6 +217,17 @@ public final class Inliner extends BugChecker
       //      InlineMeData.buildExpectedInlineMeAnnotation(state, inlinabilityResult.body())
       //              .buildAnnotation();
     }
+  }
+
+  private static boolean isMockMethodThatCannotBeInlined(
+      MethodInvocationTree tree, VisitorState state) {
+    Tree parent = state.getPath().getParentPath().getLeaf();
+    ExpressionTree receiverExpr = getReceiver(tree);
+    return (parent instanceof MethodInvocationTree
+            && MOCKITO_MATCHER.matches(((MethodInvocationTree) parent).getMethodSelect(), state))
+        || (receiverExpr instanceof MethodInvocationTree
+            && MOCKITO_MATCHER.matches(
+                ((MethodInvocationTree) receiverExpr).getMethodSelect(), state));
   }
 
   private Description match(
