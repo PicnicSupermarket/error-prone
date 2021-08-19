@@ -21,10 +21,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
-import java.net.URL;
 import java.util.stream.Stream;
 
 /** The MigrationTransformersLoader is responsible for retrieving the .migration files. */
@@ -47,13 +46,9 @@ public final class MigrationTransformersProvider {
             "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration",
             "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration");
 
-    ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+    ClassLoader classLoader = MigrationTransformersProvider.class.getClassLoader();
     for (String migrationDefinitionUri : migrationDefinitionUris) {
-      URL resource = classLoader.getResource(migrationDefinitionUri);
-      if (resource == null) {
-        continue;
-      }
-      try (FileInputStream is = new FileInputStream(resource.getPath());
+      try (InputStream is = classLoader.getResourceAsStream(migrationDefinitionUri);
           ObjectInputStream ois = new ObjectInputStream(is)) {
         migrations.addAll(
             unwrap((CodeTransformer) ois.readObject())

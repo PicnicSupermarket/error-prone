@@ -76,7 +76,7 @@
                         <annotationProcessorPaths combine.children="append">
                             <path>
                                 <groupId>com.google.auto.service</groupId>
-                                <artifactId>auto-service-annotations</artifactId>
+                                <artifactId>auto-service</artifactId>
                                 <version>${autoservice.version}</version>
                             </path>
                             <path>
