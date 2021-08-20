@@ -160,4 +160,88 @@ public class InlineMockitoStatementsTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void dontMigrateTwiceWhenThen() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated())\")",
+            "  public String getId() {",
+            "    return String.valueOf(getId_migrated());",
+            "  }",
+            "",
+            "  public Integer getId_migrated() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId()).thenReturn(\"2\");",
+            "    when(foo.getId_migrated()).thenReturn(Integer.valueOf(\"2\"));",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void dontMigrateTwiceDoWhen() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated())\")",
+            "  public String getId() {",
+            "    return String.valueOf(getId_migrated());",
+            "  }",
+            "",
+            "  public Integer getId_migrated() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import static org.mockito.Mockito.doReturn;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "",
+            "    doReturn(\"2\", \"3\").when(foo).getId();",
+            "    doReturn(Integer.valueOf(\"2\"), Integer.valueOf(\"3\")).when(foo).getId_migrated();",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
 }
