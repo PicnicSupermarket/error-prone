@@ -36,7 +36,7 @@ public final class SingleToMonoMigrationTemplate {
 
       @AfterTemplate
       Mono<T> after(Single<T> single) {
-        return single.as(RxJava2Adapter::singleToMono);
+        return RxJava2Adapter.singleToMono(single);
       }
     }
 
@@ -49,7 +49,7 @@ public final class SingleToMonoMigrationTemplate {
 
       @AfterTemplate
       Single<T> after(Mono<T> single) {
-        return single.as(RxJava2Adapter::monoToSingle);
+        return RxJava2Adapter.monoToSingle(single);
       }
     }
   }

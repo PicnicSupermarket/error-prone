@@ -23,7 +23,7 @@ import com.google.errorprone.refaster.annotation.MigrationTemplate;
 public final class StringToIntegerMigrationTemplate {
   private StringToIntegerMigrationTemplate() {}
 
-  static final class StringToInteger {
+  static final class AlsoStringToIntegerSecond {
     @MigrationTemplate(value = false)
     static final class MigrateStringToInteger<S extends String, T extends Integer> {
       @BeforeTemplate
@@ -51,7 +51,7 @@ public final class StringToIntegerMigrationTemplate {
     }
   }
 
-  static final class AlsoStringToIntegerSecond {
+  static final class StringToInteger {
     @MigrationTemplate(value = false)
     static final class MigrateStringToIntegerSecond {
       @BeforeTemplate
