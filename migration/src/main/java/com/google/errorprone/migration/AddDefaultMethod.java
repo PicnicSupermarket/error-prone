@@ -57,6 +57,7 @@ import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
@@ -126,7 +127,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       boolean isAlreadyMigratedInClass =
           isMethodAlreadyMigratedInEnclosingClass(
               methodTree, state, methodSymbol.getSimpleName(), enclosingClassSymbol);
-      if (!enclosingClassSymbol.getInterfaces().isEmpty() && isAlreadyMigratedInClass) {
+      boolean annotatedWithOverrideAndDeprecated = methodSymbol.getAnnotationMirrors().stream().map(Object::toString)
+              .allMatch(it -> it.contains("Deprecated") || it.contains("Override"));
+      if (!enclosingClassSymbol.getInterfaces().isEmpty() && isAlreadyMigratedInClass && annotatedWithOverrideAndDeprecated) {
         return describeMatch(methodTree, SuggestedFix.delete(methodTree));
       } else if (isAlreadyMigratedInClass) {
         return Description.NO_MATCH;
