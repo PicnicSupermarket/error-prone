@@ -229,6 +229,7 @@ public final class Inliner extends BugChecker
         && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
   }
 
+  //  XXX: This is also in FindIdentifiers, where should this method be?
   @Nullable
   private static ClassTree getEnclosingClass(TreePath treePath) {
     while (treePath != null) {
