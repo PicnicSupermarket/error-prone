@@ -131,10 +131,7 @@ public final class Inliner extends BugChecker
     MethodTree enclosingMethod = findEnclosingMethod(state);
     if (!hasAnnotation(symbol, INLINE_ME, state)
         || isMockMethodThatCannotBeInlined(tree, state)
-        || (!(enclosingMethod != null
-                && !enclosingMethod.getName().toString().contains("_migrated"))
-            && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface()
-            && !(state.getPath().getParentPath().getLeaf() instanceof LambdaExpressionTree))) {
+        || isEnclosingMethodAlreadyMigratedInInterface(enclosingMethod, state)) {
       return Description.NO_MATCH;
     }
 
@@ -161,6 +158,15 @@ public final class Inliner extends BugChecker
     }
 
     return match(tree, symbol, callingVars, receiverString, receiver, state);
+  }
+
+  /**
+   * Checks whether the enclosing method is a _migrated method *and* in an interface.
+   */
+  private boolean isEnclosingMethodAlreadyMigratedInInterface(MethodTree enclosingMethod, VisitorState state) {
+    return !(enclosingMethod != null
+            && !enclosingMethod.getName().toString().contains("_migrated"))
+        && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
   }
 
   @Nullable
