@@ -21,12 +21,14 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import static com.google.errorprone.matchers.Matchers.anyOf;
+import static com.google.errorprone.matchers.Matchers.hasIdentifier;
 import static com.google.errorprone.matchers.Matchers.instanceMethod;
 import static com.google.errorprone.matchers.Matchers.staticMethod;
 import static com.google.errorprone.util.ASTHelpers.getSymbol;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.google.errorprone.util.MoreAnnotations.asStringValue;
 import static com.google.errorprone.util.MoreAnnotations.getValue;
+import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
 import static com.sun.tools.javac.code.Symbol.*;
 
 import com.google.auto.service.AutoService;
@@ -46,10 +48,13 @@ import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -90,8 +95,11 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           ((MethodInvocationTree) grandParent).getArguments();
       ExpressionTree whenArgument = Iterables.getOnlyElement(tree.getArguments());
       Symbol whenSymbol = getSymbol(whenArgument);
+
+      boolean methodAlreadyMigrated = isMethodAlreadyMigrated(state, whenSymbol);
+
       if (methodWithoutInlineOrMigratedReplacement(whenSymbol, state)
-          || !(whenArgument instanceof MethodInvocationTree)) {
+          || !(whenArgument instanceof MethodInvocationTree) || methodAlreadyMigrated) {
         return Description.NO_MATCH;
       }
 
@@ -117,9 +125,11 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
       Tree parent = state.getPath().getParentPath().getLeaf();
       Symbol whenSymbol = getSymbol(parent);
 
+      boolean methodAlreadyMigrated = isMethodAlreadyMigrated(state, whenSymbol);
+
       Optional<MigrationCodeTransformer> suitableMigration =
           getSuitableMigrationForMethod(whenSymbol, migrationDefinitions, state);
-      if (!suitableMigration.isPresent()) {
+      if (!suitableMigration.isPresent() || methodAlreadyMigrated) {
         return Description.NO_MATCH;
       }
 
@@ -136,6 +146,36 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           state);
     }
     return Description.NO_MATCH;
+  }
+
+  private boolean isMethodAlreadyMigrated(VisitorState state, Symbol whenSymbol) {
+    TreePath pathToEnclosingMethod = state.findPathToEnclosing(MethodTree.class);
+    HasMember scan = new HasMember(whenSymbol.getQualifiedName() + "_migrated");
+    scan.scan(pathToEnclosingMethod, null);
+    return scan.isAlreadyMigrated();
+  }
+
+  /** AST Visitor that matches identifiers in a Tree */
+  private static class HasMember extends TreePathScanner<Boolean, Void> {
+    private boolean isMigrated = false;
+    private final String name;
+
+    public boolean isAlreadyMigrated() {
+      return isMigrated;
+    }
+    public HasMember(String s) {
+      name = s;
+    }
+
+    @Override
+    public Boolean visitMemberSelect(MemberSelectTree node, Void unused) {
+      if (node.getIdentifier().contentEquals(name)) {
+        isMigrated = true;
+        return null;
+      } else {
+        return super.visitMemberSelect(node, unused);
+      }
+    }
   }
 
   private Description getDescriptionForDuplicatedLineWithMigratedCalls(
