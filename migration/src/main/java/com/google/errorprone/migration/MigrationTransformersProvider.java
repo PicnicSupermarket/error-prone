@@ -47,7 +47,7 @@ public final class MigrationTransformersProvider {
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
              "com/google/errorprone/migration_resources/StringToInteger.migration",
-            // "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
+//             "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
             "com/google/errorprone/migration_resources/SingleToMono.migration",
             "com/google/errorprone/migration_resources/FlowableToFlux.migration",
             "com/google/errorprone/migration_resources/MaybeToMono.migration");
