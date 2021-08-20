@@ -127,9 +127,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       boolean isAlreadyMigratedInClass =
           isMethodAlreadyMigratedInEnclosingClass(
               methodTree, state, methodSymbol.getSimpleName(), enclosingClassSymbol);
-      boolean annotatedWithOverrideAndDeprecated = methodSymbol.getAnnotationMirrors().stream().map(Object::toString)
+      boolean annotatedOnlyWithOverrideAndDeprecated = methodSymbol.getAnnotationMirrors().stream().map(Object::toString)
               .allMatch(it -> it.contains("Deprecated") || it.contains("Override"));
-      if (!enclosingClassSymbol.getInterfaces().isEmpty() && isAlreadyMigratedInClass && annotatedWithOverrideAndDeprecated) {
+      if (!enclosingClassSymbol.getInterfaces().isEmpty() && isAlreadyMigratedInClass && annotatedOnlyWithOverrideAndDeprecated) {
         return describeMatch(methodTree, SuggestedFix.delete(methodTree));
       } else if (isAlreadyMigratedInClass) {
         return Description.NO_MATCH;
