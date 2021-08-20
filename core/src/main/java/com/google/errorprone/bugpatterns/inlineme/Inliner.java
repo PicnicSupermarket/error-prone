@@ -159,15 +159,14 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
-  /**
-   * Checks whether the enclosing method is a _migrated method *and* in an interface.
-   */
-  private boolean isEnclosingMethodAnAlreadyMigratedInterface(MethodTree enclosingMethod, VisitorState state) {
-    return !(enclosingMethod != null
-            && !enclosingMethod.getName().toString().contains("_migrated"))
+  /** Checks whether the enclosing method is a _migrated method *and* in an interface. */
+  private boolean isEnclosingMethodAnAlreadyMigratedInterface(
+      MethodTree enclosingMethod, VisitorState state) {
+    return !(enclosingMethod != null && !enclosingMethod.getName().toString().contains("_migrated"))
         && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
   }
 
+  //  XXX: This is also in FindIdentifiers, where should this method be?
   @Nullable
   private static ClassTree getEnclosingClass(TreePath treePath) {
     while (treePath != null) {
