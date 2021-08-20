@@ -114,7 +114,7 @@ public class InlinerTest {
   }
 
   @Test
-  public void testLambda() {
+  public void migrateLambdaInClass() {
     refactoringTestHelper
         .addInputLines(
             "Client.java",
