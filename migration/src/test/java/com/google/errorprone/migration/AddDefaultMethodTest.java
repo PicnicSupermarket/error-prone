@@ -553,8 +553,9 @@ public class AddDefaultMethodTest {
             "Bar.java",
             "public final class Bar implements Foo {",
             "  @Deprecated",
+            "  @Override",
             "  public String bar() {",
-            "    return \"1\";",
+            "    return String.valueOf(bar_migrated());",
             "  }",
             "",
             "  public Integer bar_migrated() {",
@@ -576,6 +577,45 @@ public class AddDefaultMethodTest {
             "    return 1;",
             "  }",
             "}")
+        .doTest();
+  }
+
+  @Test
+  public void dontDeleteMethodAnnotatedWithOtherThenDeprecatedAndOverride() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  @Deprecated",
+            "  default java.lang.String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default java.lang.Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "",
+            "  Number baz();",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Bar.java",
+            "public final class Bar implements Foo {",
+            "  @Deprecated",
+            "  @SuppressWarnings(value = \"\")",
+            "  public String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "",
+            "  public Number baz() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
         .doTest();
   }
 
