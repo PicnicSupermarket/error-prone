@@ -20,11 +20,16 @@ import static com.google.errorprone.bugpatterns.inlineme.Inliner.PREFIX_FLAG;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.errorprone.scanner.ScannerSupplier;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import reactor.adapter.rxjava.RxJava2Adapter;
+import reactor.core.publisher.Flux;
 
 /** Tests for the {@link Inliner}. */
 @RunWith(JUnit4.class)
@@ -36,6 +41,77 @@ public class InlinerTest {
   private final BugCheckerRefactoringTestHelper refactoringTestHelper =
       BugCheckerRefactoringTestHelper.newInstance(
           ScannerSupplier.fromBugCheckerClasses(Inliner.class, Validator.class), getClass());
+
+  @Test
+  public void dontDoubleInlineInterface() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void nestedMigratedCallShouldMigrate() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Flowable;",
+            "import reactor.core.publisher.Flux;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Foo {",
+            "  @InlineMe(",
+            "    replacement = \"RxJava2Adapter.fluxToFlowable(this.getAll_migrated(activeOnly))\",",
+            "    imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  public Flowable<String> getAll(boolean activeOnly) {",
+            "    return RxJava2Adapter.fluxToFlowable(getAll_migrated(activeOnly));",
+            "  }",
+            "",
+            "  public Flux<String> getAll_migrated(boolean activeOnly) {",
+            "    return RxJava2Adapter.flowableToFlux(Flowable.empty());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Bar.java",
+            "import io.reactivex.Flowable;",
+            "import reactor.core.publisher.Flux;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public class Bar {",
+            "  public Foo foo = new Foo();",
+            "",
+            "  public Flux<String> getBanners_migrated(boolean activeOnly) {",
+            "    return RxJava2Adapter.flowableToFlux(foo.getAll(activeOnly));",
+            "  }",
+            "}")
+        .addOutputLines(
+                "Bar.java",
+                "import io.reactivex.Flowable;",
+                "import reactor.core.publisher.Flux;",
+                "import reactor.adapter.rxjava.RxJava2Adapter;",
+                "public class Bar {",
+                "  public Foo foo = new Foo();",
+                "",
+                "  public Flux<String> getBanners_migrated(boolean activeOnly) {",
+                "    return RxJava2Adapter.flowableToFlux(RxJava2Adapter.fluxToFlowable(foo.getAll_migrated(activeOnly)));",
+                "  }",
+                "}")
+        .doTest();
+  }
 
   @Test
   public void testLambda() {
@@ -57,7 +133,7 @@ public class InlinerTest {
         .expectUnchanged()
         .addInputLines(
             "Foo.java",
-                "package com.google.foo;",
+            "package com.google.foo;",
             "import java.util.function.Function;",
             "",
             "public class Foo implements Client {",
