@@ -30,8 +30,9 @@ import java.util.stream.Stream;
 
 /** The MigrationTransformersLoader is responsible for retrieving the .migration files. */
 public final class MigrationTransformersProvider {
+
   static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
-          Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
+      Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
 
   public static ImmutableList<MigrationCodeTransformer> loadMigrationTransformers() {
     ImmutableList.Builder<MigrationCodeTransformer> migrations = new ImmutableList.Builder<>();
@@ -45,11 +46,11 @@ public final class MigrationTransformersProvider {
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
+             "com/google/errorprone/migration_resources/StringToInteger.migration",
+            // "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
             "com/google/errorprone/migration_resources/SingleToMono.migration",
             "com/google/errorprone/migration_resources/FlowableToFlux.migration",
-            //
-            // "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration",
-            "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration");
+            "com/google/errorprone/migration_resources/MaybeToMono.migration");
 
     ClassLoader classLoader = MigrationTransformersProvider.class.getClassLoader();
     for (String migrationDefinitionUri : migrationDefinitionUris) {

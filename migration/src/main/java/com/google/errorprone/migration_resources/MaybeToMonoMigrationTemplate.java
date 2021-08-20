@@ -19,37 +19,35 @@ package com.google.errorprone.migration_resources;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
-import io.reactivex.Flowable;
+import io.reactivex.Maybe;
 import reactor.adapter.rxjava.RxJava2Adapter;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-public final class FlowableToFluxMigrationTemplate {
-  private FlowableToFluxMigrationTemplate() {}
-
-  static final class FlowableToFlux {
+public class MaybeToMonoMigrationTemplate {
+  static final class MaybeToMono {
     @MigrationTemplate(value = false)
-    static final class MigrateFlowableToFlux<T> {
+    static final class MigrateMaybeToMono<T> {
       @BeforeTemplate
-      Flowable<T> before(Flowable<T> flowable) {
-        return flowable;
+      Maybe<T> before(Maybe<T> maybe) {
+        return maybe;
       }
 
       @AfterTemplate
-      Flux<T> after(Flowable<T> flowable) {
-        return RxJava2Adapter.flowableToFlux(flowable);
+      Mono<T> after(Maybe<T> maybe) {
+        return RxJava2Adapter.maybeToMono(maybe);
       }
     }
 
     @MigrationTemplate(value = true)
-    static final class MigrateFluxToFlowable<T> {
+    static final class MigrateMonoToMaybe<T> {
       @BeforeTemplate
-      Flux<T> before(Flux<T> flux) {
-        return flux;
+      Mono<T> before(Mono<T> mono) {
+        return mono;
       }
 
       @AfterTemplate
-      Flowable<T> after(Flux<T> flux) {
-        return RxJava2Adapter.fluxToFlowable(flux);
+      Maybe<T> after(Mono<T> mono) {
+        return RxJava2Adapter.monoToMaybe(mono);
       }
     }
   }

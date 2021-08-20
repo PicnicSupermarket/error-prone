@@ -58,7 +58,6 @@ import com.sun.tools.javac.tree.JCTree;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @AutoService(BugChecker.class)
@@ -68,9 +67,6 @@ import java.util.stream.Collectors;
     severity = WARNING)
 public class InlineMockitoStatements extends BugChecker implements MethodInvocationTreeMatcher {
   private static final long serialVersionUID = 1L;
-
-  private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
-      MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS;
 
   private static final String INLINE_ME = "com.google.errorprone.annotations.InlineMe";
 
@@ -83,7 +79,8 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
+    ImmutableList<MigrationCodeTransformer> migrationDefinitions =
+        MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS.get();
 
     if (MOCKITO_MATCHER_WHEN.matches(tree, state)) {
       Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
@@ -106,7 +103,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
         return Description.NO_MATCH;
       }
 
-      return getDescriptionForDuplicatedLineWithMigratedCalls(
+      return getDescriptionForMigratedMethod(
           tree,
           whenArgument,
           whenSymbol,
@@ -134,7 +131,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           ((MethodInvocationTree) ((MemberSelectTree) tree.getMethodSelect()).getExpression())
               .getArguments();
 
-      return getDescriptionForDuplicatedLineWithMigratedCalls(
+      return getDescriptionForMigratedMethod(
           tree,
           grandParent,
           whenSymbol,
@@ -176,11 +173,14 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
     }
   }
 
-  private Description getDescriptionForDuplicatedLineWithMigratedCalls(
+  //  XXX: If you want to also have the original method, use this line:
+  //    descriptions.add(describeMatch(originalTree, SuggestedFix.prefixWith(originalTree, suffix +
+  // ";\n")));
+  private Description getDescriptionForMigratedMethod(
       MethodInvocationTree originalTree,
       Tree grandParent,
       Symbol whenSymbol,
-      Tree s,
+      Tree suffix,
       List<Description> descriptions,
       VisitorState state) {
     SuggestedFix.Builder fix = SuggestedFix.builder();
@@ -191,7 +191,6 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
                 (MethodInvocationTree) grandParent,
                 whenSymbol.getQualifiedName() + "_migrated",
                 state)));
-    descriptions.add(describeMatch(originalTree, SuggestedFix.prefixWith(originalTree, s + ";\n")));
     descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
 
     return describeMatch(originalTree, fix.build());
