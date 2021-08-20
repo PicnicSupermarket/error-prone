@@ -228,4 +228,60 @@ public class InlineMockitoStatementsTest {
         .expectUnchanged()
         .doTest();
   }
+
+  @Test
+  public void migrateVerifyStatement() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated())\")",
+            "  public String getId() {",
+            "    return String.valueOf(getId_migrated());",
+            "  }",
+            "",
+            "  public Integer getId_migrated() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import static org.mockito.Mockito.verify;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    verify(foo).getId();",
+            "  }",
+            "}")
+        .addOutputLines(
+                "BarTest.java",
+                "package com.google.test;",
+                "",
+                "import org.junit.Test;",
+                "import static org.mockito.Mockito.mock;",
+                "import static org.mockito.Mockito.when;",
+                "import static org.mockito.Mockito.verify;",
+                "",
+                "public final class BarTest {",
+                "  @Test",
+                "  public void simpleTest() {",
+                "    Foo foo = mock(Foo.class);",
+                "    verify(foo).getId_migrated();",
+                "  }",
+                "}")
+        .doTest();
+  }
 }

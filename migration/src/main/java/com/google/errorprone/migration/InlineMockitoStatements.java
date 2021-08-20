@@ -39,6 +39,7 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.matchers.method.MethodMatchers;
 import com.google.errorprone.refaster.CouldNotResolveImportException;
 import com.google.errorprone.refaster.Inliner;
 import com.google.errorprone.refaster.UType;
@@ -74,8 +75,10 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
       staticMethod().onClass("org.mockito.Mockito").named("when");
 
   private static final Matcher<ExpressionTree> MOCKITO_MATCHER_DO_WHEN =
-      anyOf(instanceMethod().onDescendantOf("org.mockito.stubbing.Stubber").named("when"));
-  //  XXX: staticMethod().onClass("org.mockito.Mockito").named("verify"));
+      instanceMethod().onDescendantOf("org.mockito.stubbing.Stubber").named("when");
+
+  private static final Matcher<ExpressionTree> MOCKITO_VERIFY =
+      staticMethod().onClass("org.mockito.Mockito").named("verify");
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
@@ -138,6 +141,14 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           grandParent,
           getDescriptionsForArguments(state, suitableMigration.get(), arguments),
           state);
+    } else if (MOCKITO_VERIFY.matches(tree, state)) {
+      Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
+      Symbol symbol = getSymbol(grandParent);
+      if (methodWithoutInlineOrMigratedReplacement(symbol, state)) {
+        return Description.NO_MATCH;
+      }
+      return getDescriptionForMigratedMethod(
+          tree, grandParent, symbol, null, new ArrayList<>(), state);
     }
     return Description.NO_MATCH;
   }
