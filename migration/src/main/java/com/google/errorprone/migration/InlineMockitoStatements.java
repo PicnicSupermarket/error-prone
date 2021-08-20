@@ -21,18 +21,15 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import static com.google.errorprone.matchers.Matchers.anyOf;
-import static com.google.errorprone.matchers.Matchers.hasIdentifier;
 import static com.google.errorprone.matchers.Matchers.instanceMethod;
 import static com.google.errorprone.matchers.Matchers.staticMethod;
 import static com.google.errorprone.util.ASTHelpers.getSymbol;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.google.errorprone.util.MoreAnnotations.asStringValue;
 import static com.google.errorprone.util.MoreAnnotations.getValue;
-import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
-import static com.sun.tools.javac.code.Symbol.*;
+import static com.sun.tools.javac.code.Symbol.MethodSymbol;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.BugPattern;
@@ -48,7 +45,6 @@ import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -74,7 +70,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
   private static final long serialVersionUID = 1L;
 
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
-      Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
+      MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS;
 
   private static final String INLINE_ME = "com.google.errorprone.annotations.InlineMe";
 
@@ -99,7 +95,8 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
       boolean methodAlreadyMigrated = isMethodAlreadyMigrated(state, whenSymbol);
 
       if (methodWithoutInlineOrMigratedReplacement(whenSymbol, state)
-          || !(whenArgument instanceof MethodInvocationTree) || methodAlreadyMigrated) {
+          || !(whenArgument instanceof MethodInvocationTree)
+          || methodAlreadyMigrated) {
         return Description.NO_MATCH;
       }
 
@@ -163,6 +160,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
     public boolean isAlreadyMigrated() {
       return isMigrated;
     }
+
     public HasMember(String s) {
       name = s;
     }

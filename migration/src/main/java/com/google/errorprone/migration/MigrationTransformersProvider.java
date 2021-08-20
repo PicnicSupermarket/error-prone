@@ -18,16 +18,20 @@ package com.google.errorprone.migration;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CodeTransformer;
 import com.google.errorprone.CompositeCodeTransformer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /** The MigrationTransformersLoader is responsible for retrieving the .migration files. */
 public final class MigrationTransformersProvider {
+  static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
+          Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
 
   public static ImmutableList<MigrationCodeTransformer> loadMigrationTransformers() {
     ImmutableList.Builder<MigrationCodeTransformer> migrations = new ImmutableList.Builder<>();
@@ -43,7 +47,8 @@ public final class MigrationTransformersProvider {
         ImmutableList.of(
             "com/google/errorprone/migration_resources/SingleToMono.migration",
             "com/google/errorprone/migration_resources/FlowableToFlux.migration",
-            "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration",
+            //
+            // "com/google/errorprone/migration_resources/AlsoStringToIntegerSecond.migration",
             "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration");
 
     ClassLoader classLoader = MigrationTransformersProvider.class.getClassLoader();
@@ -57,7 +62,8 @@ public final class MigrationTransformersProvider {
                 .collect(toImmutableList()));
       } catch (IOException | ClassNotFoundException e) {
         // XXX: @Stephan, which exception to throw here?
-        throw new IllegalStateException("Failed to read the Refaster migration template", e);
+        throw new IllegalStateException(
+            "Failed to read Refaster migration template: " + migrationDefinitionUri, e);
       }
     }
     return migrations.build();
