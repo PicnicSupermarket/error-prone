@@ -416,7 +416,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void positive_addNewMethodImplementationForDifficultExpression() {
+  public void addNewMethodImplementationForDifficultExpression() {
     helper
         .addInputLines(
             "Foo.java",
@@ -438,6 +438,35 @@ public class AddDefaultMethodTest {
             "  }",
             "}")
         .doTest();
+  }
+
+  @Test
+  public void migrateMaybeToMono() {
+    helper
+            .addInputLines(
+                    "Foo.java",
+                    "import io.reactivex.Maybe;",
+                    "public final class Foo {",
+                    "  public Maybe<String> bar() {",
+                    "    return Maybe.just(\"testValue\");",
+                    "  }",
+                    "}")
+            .addOutputLines(
+                    "Foo.java",
+                    "import io.reactivex.Maybe;",
+                    "import reactor.adapter.rxjava.RxJava2Adapter;",
+                    "import reactor.core.publisher.Mono;",
+                    "public final class Foo {",
+                    "  @Deprecated",
+                    "  public Maybe<String> bar() {",
+                    "    return RxJava2Adapter.monoToMaybe(bar_migrated());",
+                    "  }",
+                    "",
+                    "  public Mono<String> bar_migrated() {",
+                    "    return RxJava2Adapter.maybeToMono(Maybe.just(\"testValue\"));",
+                    "  }",
+                    "}")
+            .doTest();
   }
 
   @Test
