@@ -47,10 +47,10 @@ public class AddDefaultMethodTest {
             "public final class Foo {",
             "  @Deprecated",
             "  public Single<String> bar() {",
-            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
             "  }",
             "  public Mono<String> bar_migrated() {",
-            "    return Single.just(\"value\").as(RxJava2Adapter::singleToMono);",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"value\"));",
             "  }",
             "}")
         .doTest();
@@ -76,7 +76,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void createBanner() {
+  public void customClassesAsParamAndReturnTypeRewrite() {
     helper
         .addInputLines(
             "Banner.java",
@@ -125,11 +125,11 @@ public class AddDefaultMethodTest {
             "interface BannerService {",
             "  @Deprecated",
             "  default io.reactivex.Single<test.foo.Banner> createBanner(test.foo.BannerRequest bannerRequest) {",
-            "    return createBanner_migrated(bannerRequest).as(RxJava2Adapter::monoToSingle);",
+            "    return RxJava2Adapter.monoToSingle(createBanner_migrated(bannerRequest));",
             "  }",
             "",
             "  default reactor.core.publisher.Mono<test.foo.Banner> createBanner_migrated(BannerRequest bannerRequest) {",
-            "    return createBanner(bannerRequest).as(RxJava2Adapter::singleToMono);",
+            "    return RxJava2Adapter.singleToMono(createBanner(bannerRequest));",
             "  }",
             "}")
         .doTest();
@@ -151,10 +151,10 @@ public class AddDefaultMethodTest {
             "public interface Foo {",
             "  @Deprecated",
             "  default io.reactivex.Single<java.lang.String> bar() {",
-            "    return bar_migrated().as(RxJava2Adapter::monoToSingle);",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
             "  }",
             "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated() {",
-            "    return bar().as(RxJava2Adapter::singleToMono);",
+            "    return RxJava2Adapter.singleToMono(bar());",
             "  }",
             "}")
         .doTest();
@@ -179,10 +179,10 @@ public class AddDefaultMethodTest {
             "public final class Foo {",
             "  @Deprecated",
             "  public Single<String> bar(String bannerId, Integer testName) {",
-            "    return bar_migrated(bannerId, testName).as(RxJava2Adapter::monoToSingle);",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated(bannerId, testName));",
             "  }",
             "  public Mono<String> bar_migrated(String bannerId, Integer testName) {",
-            "    return Single.just(bannerId).as(RxJava2Adapter::singleToMono);",
+            "    return RxJava2Adapter.singleToMono(Single.just(bannerId));",
             "  }",
             "}")
         .doTest();
@@ -243,7 +243,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void twoTypeParameters() {
+  public void rewriteSingleJavaUtilFunction() {
     helper
         .addInputLines(
             "Foo.java",
@@ -260,10 +260,10 @@ public class AddDefaultMethodTest {
             "public interface Foo {",
             "  @Deprecated",
             "  default io.reactivex.Single<java.util.function.Function<java.lang.Integer, java.lang.String>> bar() {",
-            "     return bar_migrated().as(RxJava2Adapter::monoToSingle);",
+            "     return RxJava2Adapter.monoToSingle(bar_migrated());",
             "  }",
             "  default reactor.core.publisher.Mono<java.util.function.Function<java.lang.Integer, java.lang.String>> bar_migrated() {",
-            "     return bar().as(RxJava2Adapter::singleToMono);",
+            "     return RxJava2Adapter.singleToMono(bar());",
             "  }",
             "}")
         .doTest();
@@ -511,11 +511,11 @@ public class AddDefaultMethodTest {
             "public interface Foo {",
             "  @Deprecated  ",
             "  default io.reactivex.Maybe<java.lang.Integer> bar1() {",
-            "    return bar1_migrated().as(RxJava2Adapter::monoToMaybe);",
+            "    return RxJava2Adapter.monoToMaybe(bar1_migrated());",
             "  }",
             "",
             "  default reactor.core.publisher.Mono<java.lang.Integer> bar1_migrated() {",
-            "    return bar1().as(RxJava2Adapter::maybeToMono);",
+            "    return RxJava2Adapter.monoToMaybe(bar1());",
             "  }",
             "  @Deprecated  ",
             "  default io.reactivex.Maybe<java.lang.Number> bar2() {",
@@ -682,7 +682,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  public void linkageError() {
+  public void multiLineRewriteWhileCallingMethodFromOtherClass() {
     helper
         .addInputLines(
             "Foo.java",
@@ -700,10 +700,10 @@ public class AddDefaultMethodTest {
             "public class Foo {",
             "  @Deprecated",
             "  public Flowable<String> flowable(String text) {",
-            "    return flowable_migrated(text).as(RxJava2Adapter::fluxToFlowable);",
+            "    return RxJava2Adapter.fluxToFlowable(flowable_migrated(text));",
             "  }",
             "  public Flux<String> flowable_migrated(String text) {",
-            "    return Flowable.just(text, text).as(RxJava2Adapter::flowableToFlux);",
+            "    return RxJava2Adapter.flowableToFlux(Flowable.just(text, text));",
             "  }",
             "}")
         .addInputLines(
@@ -733,12 +733,12 @@ public class AddDefaultMethodTest {
             "",
             "  @Deprecated",
             "  public Flowable<String> baz() {",
-            "     return baz_migrated().as(RxJava2Adapter::fluxToFlowable);",
+            "     return RxJava2Adapter.fluxToFlowable(baz_migrated());",
             "  }",
             "",
             "  public Flux<String> baz_migrated() {",
             "    ImmutableList.of(1, 2).stream().map(e -> e + 1).collect(toImmutableList());",
-            "    return foo.flowable(\"name\").map(e -> e + e).as(RxJava2Adapter::flowableToFlux);",
+            "    return RxJava2Adapter.flowableToFlux(foo.flowable(\"name\").map(e -> e + e));",
             "  }",
             "}")
         .doTest();
