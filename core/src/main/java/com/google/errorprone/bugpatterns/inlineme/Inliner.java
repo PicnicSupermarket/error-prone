@@ -48,7 +48,9 @@ import com.google.errorprone.bugpatterns.BugChecker.NewClassTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.util.ASTHelpers;
 import com.google.errorprone.util.MoreAnnotations;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -56,6 +58,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -64,6 +67,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * Checker that performs the inlining at call-sites (where the invoked APIs are annotated as
@@ -128,7 +132,8 @@ public final class Inliner extends BugChecker
     if (!hasAnnotation(symbol, INLINE_ME, state)
         || isMockMethodThatCannotBeInlined(tree, state)
         || (!(enclosingMethod != null
-            && !enclosingMethod.getName().toString().contains("_migrated"))
+                && !enclosingMethod.getName().toString().contains("_migrated"))
+            && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface()
             && !(state.getPath().getParentPath().getLeaf() instanceof LambdaExpressionTree))) {
       return Description.NO_MATCH;
     }
@@ -156,6 +161,23 @@ public final class Inliner extends BugChecker
     }
 
     return match(tree, symbol, callingVars, receiverString, receiver, state);
+  }
+
+  @Nullable
+  private static ClassTree getEnclosingClass(TreePath treePath) {
+    while (treePath != null) {
+      TreePath parent = treePath.getParentPath();
+      if (parent == null) {
+        return null;
+      }
+      Tree leaf = parent.getLeaf();
+      if (leaf instanceof ClassTree
+          && ((ClassTree) leaf).getMembers().contains(treePath.getLeaf())) {
+        return (ClassTree) leaf;
+      }
+      treePath = parent;
+    }
+    return null;
   }
 
   private static boolean isMockMethodThatCannotBeInlined(
