@@ -38,6 +38,53 @@ public class InlinerTest {
           ScannerSupplier.fromBugCheckerClasses(Inliner.class, Validator.class), getClass());
 
   @Test
+  public void testLambda() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public interface Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated())\")",
+            "  default String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "  default Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Foo.java",
+                "package com.google.foo;",
+            "import java.util.function.Function;",
+            "",
+            "public class Foo implements Client {",
+            "  public void baz() {",
+            "    func((i) -> bar());",
+            "  }",
+            "  public void func(Function function) {",
+            "    ",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import java.util.function.Function;",
+            "",
+            "public class Foo implements Client {",
+            "  public void baz() {",
+            "    func((i) -> String.valueOf(bar_migrated()));",
+            "  }",
+            "  public void func(Function function) {",
+            "    ",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testInstanceMethod_withThisLiteral() {
     refactoringTestHelper
         .addInputLines(

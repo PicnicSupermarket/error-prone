@@ -51,6 +51,7 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.MoreAnnotations;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
@@ -126,8 +127,9 @@ public final class Inliner extends BugChecker
     MethodTree enclosingMethod = findEnclosingMethod(state);
     if (!hasAnnotation(symbol, INLINE_ME, state)
         || isMockMethodThatCannotBeInlined(tree, state)
-        || !(enclosingMethod != null
-            && !enclosingMethod.getName().toString().contains("_migrated"))) {
+        || (!(enclosingMethod != null
+            && !enclosingMethod.getName().toString().contains("_migrated"))
+            && !(state.getPath().getParentPath().getLeaf() instanceof LambdaExpressionTree))) {
       return Description.NO_MATCH;
     }
 
