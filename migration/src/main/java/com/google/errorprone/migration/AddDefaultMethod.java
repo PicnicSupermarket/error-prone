@@ -34,7 +34,6 @@ import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CodeTransformer;
@@ -57,7 +56,6 @@ import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
@@ -86,7 +84,7 @@ import javax.tools.JavaFileObject;
     severity = ERROR)
 public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
-      Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
+      MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS;
 
   // XXX: What would be a better way to provide the imports to the SuggestedFix?
   private Collection<String> importsToAdd;
@@ -127,9 +125,13 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       boolean isAlreadyMigratedInClass =
           isMethodAlreadyMigratedInEnclosingClass(
               methodTree, state, methodSymbol.getSimpleName(), enclosingClassSymbol);
-      boolean annotatedOnlyWithOverrideAndDeprecated = methodSymbol.getAnnotationMirrors().stream().map(Object::toString)
+      boolean annotatedOnlyWithOverrideAndDeprecated =
+          methodSymbol.getAnnotationMirrors().stream()
+              .map(Object::toString)
               .allMatch(it -> it.contains("Deprecated") || it.contains("Override"));
-      if (!enclosingClassSymbol.getInterfaces().isEmpty() && isAlreadyMigratedInClass && annotatedOnlyWithOverrideAndDeprecated) {
+      if (!enclosingClassSymbol.getInterfaces().isEmpty()
+          && isAlreadyMigratedInClass
+          && annotatedOnlyWithOverrideAndDeprecated) {
         return describeMatch(methodTree, SuggestedFix.delete(methodTree));
       } else if (isAlreadyMigratedInClass) {
         return Description.NO_MATCH;
