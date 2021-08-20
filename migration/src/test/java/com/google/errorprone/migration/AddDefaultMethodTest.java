@@ -443,34 +443,34 @@ public class AddDefaultMethodTest {
   @Test
   public void migrateMaybeToMono() {
     helper
-            .addInputLines(
-                    "Foo.java",
-                    "import io.reactivex.Maybe;",
-                    "public final class Foo {",
-                    "  public Maybe<String> bar() {",
-                    "    return Maybe.just(\"testValue\");",
-                    "  }",
-                    "}")
-            .addOutputLines(
-                    "Foo.java",
-                    "import io.reactivex.Maybe;",
-                    "import reactor.adapter.rxjava.RxJava2Adapter;",
-                    "import reactor.core.publisher.Mono;",
-                    "public final class Foo {",
-                    "  @Deprecated",
-                    "  public Maybe<String> bar() {",
-                    "    return RxJava2Adapter.monoToMaybe(bar_migrated());",
-                    "  }",
-                    "",
-                    "  public Mono<String> bar_migrated() {",
-                    "    return RxJava2Adapter.maybeToMono(Maybe.just(\"testValue\"));",
-                    "  }",
-                    "}")
-            .doTest();
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Maybe;",
+            "public final class Foo {",
+            "  public Maybe<String> bar() {",
+            "    return Maybe.just(\"testValue\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Maybe;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public Maybe<String> bar() {",
+            "    return RxJava2Adapter.monoToMaybe(bar_migrated());",
+            "  }",
+            "",
+            "  public Mono<String> bar_migrated() {",
+            "    return RxJava2Adapter.maybeToMono(Maybe.just(\"testValue\"));",
+            "  }",
+            "}")
+        .doTest();
   }
 
   @Test
-  public void positive_StringMigrationWithInterface() {
+  public void stringMigrationInInterface() {
     helper
         .addInputLines("Foo.java", "interface Foo {", "  String bar();", "  Number baz();", "}")
         .addOutputLines(
@@ -522,6 +522,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  @Ignore("Only works if the MaybeNumberToMonoNumber template is on, without the MaybeToMono template.")
   public void migrateMaybeNumberToMonoNumber() {
     helper
         .addInputLines(
