@@ -275,6 +275,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     if (matches.isEmpty()) {
       return Description.NO_MATCH;
     }
+    MatchesSolver.applyMatches(matches,
+            compilationUnit.endPositions,
+            state);
     return matches.get(0);
   }
 

@@ -522,7 +522,8 @@ public class AddDefaultMethodTest {
   }
 
   @Test
-  @Ignore("Only works if the MaybeNumberToMonoNumber template is on, without the MaybeToMono template.")
+  @Ignore(
+      "Only works if the MaybeNumberToMonoNumber template is on, without the MaybeToMono template.")
   public void migrateMaybeNumberToMonoNumber() {
     helper
         .addInputLines(
@@ -746,7 +747,7 @@ public class AddDefaultMethodTest {
             "  private Foo foo = new Foo();",
             "",
             "  public Flowable<String> baz() {",
-            "    ImmutableList.of(1, 2).stream().map((e)->e + 1).collect(toImmutableList());",
+            "    ImmutableList.of(1, 2).stream().map((e)-> e + 1).collect(toImmutableList());",
             "    return foo.flowable(\"name\").map((e)->e + e);",
             "  }",
             "}")
@@ -819,6 +820,37 @@ public class AddDefaultMethodTest {
             "  }",
             "}")
         .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void rewriteAllReturnStatements() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "public abstract class Foo {",
+            "  public String bar() {",
+            "    if (true) {",
+            "      return \"1\";",
+            "    }",
+            "    return \"2\";",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "public abstract class Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    if (true) {",
+            "      return Integer.valueOf(\"1\");",
+            "    }",
+            "    return Integer.valueOf(\"2\");",
+            "  }",
+            "}")
         .doTest();
   }
 }
