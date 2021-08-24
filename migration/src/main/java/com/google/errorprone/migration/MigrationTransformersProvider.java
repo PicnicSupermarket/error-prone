@@ -46,25 +46,35 @@ public final class MigrationTransformersProvider {
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
-             "com/google/errorprone/migration_resources/StringToInteger.migration",
-//             "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
+            "com/google/errorprone/migration_resources/StringToInteger.migration",
+            // "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
             "com/google/errorprone/migration_resources/SingleToMono.migration",
+            "com/google/errorprone/migration_resources/ObservableToFlux.migration",
+            "com/google/errorprone/migration_resources/CompletableToMono.migration",
             "com/google/errorprone/migration_resources/FlowableToFlux.migration",
             "com/google/errorprone/migration_resources/MaybeToMono.migration");
 
     ClassLoader classLoader = MigrationTransformersProvider.class.getClassLoader();
     for (String migrationDefinitionUri : migrationDefinitionUris) {
-      try (InputStream is = classLoader.getResourceAsStream(migrationDefinitionUri);
-          ObjectInputStream ois = new ObjectInputStream(is)) {
-        migrations.addAll(
-            unwrap((CodeTransformer) ois.readObject())
-                .filter(MigrationCodeTransformer.class::isInstance)
-                .map(MigrationCodeTransformer.class::cast)
-                .collect(toImmutableList()));
-      } catch (IOException | ClassNotFoundException e) {
-        // XXX: @Stephan, which exception to throw here?
-        throw new IllegalStateException(
-            "Failed to read Refaster migration template: " + migrationDefinitionUri, e);
+      // https://bugs.openjdk.java.net/browse/JDK-8205976 Added retry logic for reading the
+      // migration files, because there is a bug in the JDK.
+      int count = 0;
+      int maxTries = 3;
+      while (true) {
+        try (InputStream is = classLoader.getResourceAsStream(migrationDefinitionUri);
+            ObjectInputStream ois = new ObjectInputStream(is)) {
+          migrations.add((MigrationCodeTransformer) ois.readObject());
+          //                .filter(MigrationCodeTransformer.class::isInstance)
+          //                .map(MigrationCodeTransformer.class::cast)
+          //                .collect(toImmutableList());
+          break;
+        } catch (IOException | ClassNotFoundException e) {
+          if (++count == maxTries) {
+            // XXX: @Stephan, which exception to throw here?
+            throw new IllegalStateException(
+                "Failed to read Refaster migration template: " + migrationDefinitionUri, e);
+          }
+        }
       }
     }
     return migrations.build();

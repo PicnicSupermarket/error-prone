@@ -1275,6 +1275,83 @@ public final class SuggestedFixes {
     }
 
     FixCompiler fixCompiler;
+    JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
+    JavaFileObject modifiedFile = compilationUnit.getSourceFile();
+    BasicJavacTask javacTask = (BasicJavacTask) state.context.get(JavacTask.class);
+    if (javacTask == null) {
+      throw new IllegalArgumentException("No JavacTask in context.");
+    }
+    Arguments arguments = Arguments.instance(javacTask.getContext());
+    List<JavaFileObject> fileObjects = new ArrayList<>(arguments.getFileObjects());
+    URI modifiedFileUri = modifiedFile.toUri();
+    for (int i = 0; i < fileObjects.size(); i++) {
+      final JavaFileObject oldFile = fileObjects.get(i);
+      if (modifiedFileUri.equals(oldFile.toUri())) {
+        DescriptionBasedDiff diff =
+            DescriptionBasedDiff.create(compilationUnit, ImportOrganizer.STATIC_FIRST_ORGANIZER);
+        diff.handleFix(fix);
+        SourceFile fixSource;
+        try {
+          fixSource =
+              new SourceFile(
+                  modifiedFile.getName(),
+                  modifiedFile.getCharContent(false /*ignoreEncodingErrors*/));
+        } catch (IOException e) {
+          return false;
+        }
+        diff.applyDifferences(fixSource);
+        fileObjects.set(
+            i,
+            new SimpleJavaFileObject(sourceURI(modifiedFile.toUri()), Kind.SOURCE) {
+              @Override
+              public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
+                return fixSource.getAsSequence();
+              }
+            });
+        break;
+      }
+    }
+    DiagnosticCollector<JavaFileObject> diagnosticListener = new DiagnosticCollector<>();
+    Context context = new Context();
+    Options options = Options.instance(context);
+    Options originalOptions = Options.instance(javacTask.getContext());
+    for (String key : originalOptions.keySet()) {
+      String value = originalOptions.get(key);
+      if (key.equals("-Xplugin:") && value.startsWith("ErrorProne")) {
+        // When using the -Xplugin Error Prone integration, disable Error Prone for speculative
+        // recompiles to avoid infinite recursion.
+        continue;
+      }
+      if (SOURCE_TARGET_OPTIONS.contains(key) && originalOptions.isSet("--release")) {
+        // javac does not allow -source and -target to be specified explicitly when --release is,
+        // but does add them in response to passing --release. Here we invert that operation.
+        continue;
+      }
+      // XXX: Added this because the SuggestedFixes#compilesWithFix throws NPE.
+      // See: https://github.com/google/error-prone/issues/849
+      if (key.equals("-Xlint")
+          || key.equals("-Xlint:")
+          || key.equals("-Xdoclint")
+          || key.equals("-Xdoclint:")
+          || key.equals("-Xdoclint/package:")
+          || key.equals("--doclint-format")) {
+        // For unknown reasons retaining -Xdoclint:reference here can cause an NPE; see #849. Since
+        // suggested fixes are unlikely to introduce lint errors that cannot be fixed manually, here
+        // we disable all lint checks. This _may_ also speed up compilation.
+        continue;
+      }
+      options.put(key, value);
+    }
+    JavacTask newTask =
+        JavacTool.create()
+            .getTask(
+                CharStreams.nullWriter(),
+                state.context.get(JavaFileManager.class),
+                diagnosticListener,
+                extraOptions,
+                arguments.getClassNames(),
+                fileObjects,
+                context);
     try {
       fixCompiler = FixCompiler.create(fix, state);
     } catch (IOException e) {

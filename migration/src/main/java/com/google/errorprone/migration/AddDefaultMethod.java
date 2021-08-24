@@ -348,6 +348,15 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       VisitorState state) {
     TreeMaker treeMaker = state.getTreeMaker();
 
+    String implExistingMethod =
+            getBodyForDefaultMethodInInterface(
+                    methodSymbol.getSimpleName(),
+                    inlineType(inliner, currentMigration.typeTo()),
+                    true,
+                    currentMigration.transformTo(),
+                    state,
+                    methodTree);
+
     // XXX: Also retrieve the imports and add to the builder?
     String implNewMethod =
         getBodyForDefaultMethodInInterface(
@@ -355,15 +364,6 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
             methodSymbol.getReturnType(),
             false,
             currentMigration.transformFrom(),
-            state,
-            methodTree);
-
-    String implExistingMethod =
-        getBodyForDefaultMethodInInterface(
-            methodSymbol.getSimpleName(),
-            inlineType(inliner, currentMigration.typeTo()),
-            true,
-            currentMigration.transformTo(),
             state,
             methodTree);
 

@@ -16,44 +16,38 @@
 
 package com.google.errorprone.migration_resources;
 
-import com.google.errorprone.refaster.ImportPolicy;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
-import com.google.errorprone.refaster.annotation.UseImportPolicy;
-import io.reactivex.BackpressureStrategy;
-import io.reactivex.Observable;
+import io.reactivex.Completable;
 import reactor.adapter.rxjava.RxJava2Adapter;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-public final class ObservableToFluxMigrationTemplate {
-  private ObservableToFluxMigrationTemplate() {}
-
-  static final class ObservableToFlux {
+public class CompletableToMonoMigrationTemplate {
+  static final class CompletableToMono {
     @MigrationTemplate(value = false)
-    static final class MigrateObservableToFlux<T> {
+    static final class MigrateCompletableToMono {
       @BeforeTemplate
-      Observable<T> before(Observable<T> observable) {
-        return observable;
+      Completable before(Completable completable) {
+        return completable;
       }
 
       @AfterTemplate
-      @UseImportPolicy(ImportPolicy.IMPORT_CLASS_DIRECTLY)
-      Flux<T> after(Observable<T> observable) {
-        return RxJava2Adapter.observableToFlux(observable, BackpressureStrategy.BUFFER);
+      Mono<Void> after(Completable completable) {
+        return RxJava2Adapter.completableToMono(completable);
       }
     }
 
     @MigrationTemplate(value = true)
-    static final class MigrateFluxToObservable<T> {
+    static final class MigrateMonoToCompletable {
       @BeforeTemplate
-      Flux<T> before(Flux<T> flux) {
-        return flux;
+      Mono<Void> before(Mono<Void> mono) {
+        return mono;
       }
 
       @AfterTemplate
-      Observable<T> after(Flux<T> flux) {
-        return RxJava2Adapter.fluxToObservable(flux);
+      Completable after(Mono<Void> mono) {
+        return RxJava2Adapter.monoToCompletable(mono);
       }
     }
   }
