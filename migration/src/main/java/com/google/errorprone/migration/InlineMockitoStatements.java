@@ -39,12 +39,12 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
-import com.google.errorprone.matchers.method.MethodMatchers;
 import com.google.errorprone.refaster.CouldNotResolveImportException;
 import com.google.errorprone.refaster.Inliner;
 import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -87,6 +87,10 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
 
     if (MOCKITO_MATCHER_WHEN.matches(tree, state)) {
       Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
+      if (grandParent instanceof BlockTree) {
+        // The `when` does not contain a `thenReturn` or `thenAnswer`.
+        return Description.NO_MATCH;
+      }
       List<? extends ExpressionTree> thenReturnArguments =
           ((MethodInvocationTree) grandParent).getArguments();
       ExpressionTree whenArgument = Iterables.getOnlyElement(tree.getArguments());
@@ -96,7 +100,8 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
 
       if (methodWithoutInlineOrMigratedReplacement(whenSymbol, state)
           || !(whenArgument instanceof MethodInvocationTree)
-          || methodAlreadyMigrated) {
+          || methodAlreadyMigrated
+          || isOfTypeMockitoStubbingAnswer(state, thenReturnArguments)) {
         return Description.NO_MATCH;
       }
 
@@ -151,6 +156,21 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           tree, grandParent, symbol, null, new ArrayList<>(), state);
     }
     return Description.NO_MATCH;
+  }
+
+  /**
+   * If one of the thenArguments is a MethodInvocation that returns a Answer<T>, the current way of
+   * inlining won't work. Therefore, exclude these rewrites.
+   */
+  private boolean isOfTypeMockitoStubbingAnswer(
+      VisitorState state, List<? extends ExpressionTree> thenReturnArguments) {
+    Type mockitoStubbingAnswerType = state.getTypeFromString("org.mockito.stubbing.Answer");
+    return thenReturnArguments.stream()
+        .anyMatch(
+            arg ->
+                arg instanceof MethodInvocationTree
+                    && ASTHelpers.isSubtype(
+                        ASTHelpers.getType(arg), mockitoStubbingAnswerType, state));
   }
 
   private boolean isMethodAlreadyMigrated(VisitorState state, Symbol whenSymbol) {
