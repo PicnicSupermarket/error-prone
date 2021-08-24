@@ -86,6 +86,46 @@ public class InlineMockitoStatementsTest {
   }
 
   @Test
+  public void dontFailOnWhenOnlyStatement() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated())\")",
+            "  public String getId() {",
+            "    return String.valueOf(getId_migrated());",
+            "  }",
+            "",
+            "  public Integer getId_migrated() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
   public void migrateMockitoDoReturnAndDoAnswer() {
     helper
         .addInputLines(
@@ -144,6 +184,52 @@ public class InlineMockitoStatementsTest {
             "    doAnswer(inv -> Integer.valueOf(String.valueOf(\"1\"))).when(foo).getId_migrated();",
             "  }",
             "}")
+        .doTest();
+  }
+
+  // when(ctarMock.findAssignmentsByTopics(any(), eq(true))).thenAnswer(getTopicLookup(idByTopic));
+  @Test
+  public void migrateWhenThenAnswerWithMethodInvocation() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated(s, i))\")",
+            "  public String getId(String s, Integer i) {",
+            "    return String.valueOf(getId_migrated(s, i));",
+            "  }",
+            "",
+            "  public Integer getId_migrated(String s, Integer i) {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import org.mockito.stubbing.Answer;",
+            "",
+            "public class BarTest {",
+            "  private static Answer<String> callMethod(String s) {",
+            "    return inv -> { return \"Bar\" + s; };",
+            "  }",
+            "",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId(\"1\", 1)).thenAnswer(callMethod(\"1\"));",
+            "  }",
+            "}")
+        .expectUnchanged()
         .doTest();
   }
 
@@ -267,21 +353,21 @@ public class InlineMockitoStatementsTest {
             "  }",
             "}")
         .addOutputLines(
-                "BarTest.java",
-                "package com.google.test;",
-                "",
-                "import org.junit.Test;",
-                "import static org.mockito.Mockito.mock;",
-                "import static org.mockito.Mockito.when;",
-                "import static org.mockito.Mockito.verify;",
-                "",
-                "public final class BarTest {",
-                "  @Test",
-                "  public void simpleTest() {",
-                "    Foo foo = mock(Foo.class);",
-                "    verify(foo).getId_migrated();",
-                "  }",
-                "}")
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import static org.mockito.Mockito.verify;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    verify(foo).getId_migrated();",
+            "  }",
+            "}")
         .doTest();
   }
 }
