@@ -161,6 +161,37 @@ public class InlinerTest {
   }
 
   @Test
+  public void inlinerDoesNothingInAlreadyMigratedClass() {
+    refactoringTestHelper
+            .addInputLines(
+                    "Foo.java",
+                    "import com.google.errorprone.annotations.InlineMe;",
+                    "import io.reactivex.Single;",
+                    "import reactor.adapter.rxjava.RxJava2Adapter;",
+                    "import reactor.core.publisher.Mono;",
+                    "public final class Foo {",
+                    "  @Deprecated",
+                    "  @InlineMe(replacement = \"RxJava2Adapter.monoToSingle(this.bar_migrated(s))\", imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+                    "  public Single<String> bar(String s) {",
+                    "    return RxJava2Adapter.monoToSingle(bar_migrated(s));",
+                    "  }",
+                    "  public Mono<String> bar_migrated(String s) {",
+                    "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
+                    "  }",
+                    "  ",
+                    "  @Deprecated",
+                    "  public Single<String> bar(Integer i) {",
+                    "    return RxJava2Adapter.monoToSingle(bar_migrated(i));",
+                    "  }",
+                    "  public Mono<String> bar_migrated(Integer i) {",
+                    "    return RxJava2Adapter.singleToMono(Single.just(String.valueOf(i)));",
+                    "  }",
+                    "}")
+            .expectUnchanged()
+            .doTest();
+  }
+
+  @Test
   public void testInstanceMethod_withThisLiteral() {
     refactoringTestHelper
         .addInputLines(
