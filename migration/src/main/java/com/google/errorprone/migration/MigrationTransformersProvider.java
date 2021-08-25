@@ -64,9 +64,6 @@ public final class MigrationTransformersProvider {
         try (InputStream is = classLoader.getResourceAsStream(migrationDefinitionUri);
             ObjectInputStream ois = new ObjectInputStream(is)) {
           migrations.add((MigrationCodeTransformer) ois.readObject());
-          //                .filter(MigrationCodeTransformer.class::isInstance)
-          //                .map(MigrationCodeTransformer.class::cast)
-          //                .collect(toImmutableList());
           break;
         } catch (IOException | ClassNotFoundException e) {
           if (++count == maxTries) {
@@ -78,15 +75,5 @@ public final class MigrationTransformersProvider {
       }
     }
     return migrations.build();
-  }
-
-  // XXX: depending on decision above we don't need this.
-  private static Stream<CodeTransformer> unwrap(CodeTransformer codeTransformer) {
-    if (!(codeTransformer instanceof CompositeCodeTransformer)) {
-      return Stream.of(codeTransformer);
-    }
-
-    return ((CompositeCodeTransformer) codeTransformer)
-        .transformers().stream().flatMap(MigrationTransformersProvider::unwrap);
   }
 }
