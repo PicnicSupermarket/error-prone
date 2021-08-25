@@ -86,6 +86,69 @@ public class InlineMockitoStatementsTest {
   }
 
   @Test
+  public void migrateAllThenReturnStatements() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getId_migrated())\")",
+            "  public String getId() {",
+            "    return String.valueOf(getId_migrated());",
+            "  }",
+            "",
+            "  public Integer getId_migrated() {",
+            "    return 1;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId()).thenReturn(\"2\").thenReturn(\"3\");",
+            "    when(foo.getId()).thenReturn(\"4\").thenReturn(\"5\").thenReturn(String.valueOf(\"66\")).thenReturn(\"\" + 3);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId_migrated())",
+            "       .thenReturn(Integer.valueOf(\"2\"))",
+            "       .thenReturn(Integer.valueOf(\"3\"));",
+            "",
+            "    when(foo.getId_migrated())",
+            "       .thenReturn(Integer.valueOf(\"4\"))",
+            "       .thenReturn(Integer.valueOf(\"5\"))",
+            "       .thenReturn(Integer.valueOf(String.valueOf(\"66\")))",
+            "       .thenReturn(Integer.valueOf(\"\" + 3));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void dontFailOnWhenOnlyStatement() {
     helper
         .addInputLines(
