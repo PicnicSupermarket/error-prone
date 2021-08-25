@@ -16,7 +16,11 @@
 
 package com.google.errorprone.migration;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import io.reactivex.Completable;
+import io.reactivex.Single;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,6 +31,19 @@ import org.junit.runners.JUnit4;
 public class AddDefaultMethodTest {
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(AddDefaultMethod.class, getClass());
+
+  @BeforeClass
+  public static void enableTestTemplates() {
+    MigrationTransformersProvider.MIGRATION_DEFINITION_URIS =
+        ImmutableList.of(
+            "com/google/errorprone/migration_resources/StringToInteger.migration",
+            "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
+            "com/google/errorprone/migration_resources/SingleToMono.migration",
+            "com/google/errorprone/migration_resources/ObservableToFlux.migration",
+            "com/google/errorprone/migration_resources/CompletableToMono.migration",
+            "com/google/errorprone/migration_resources/MaybeToMono.migration",
+            "com/google/errorprone/migration_resources/FlowableToFlux.migration");
+  }
 
   @Test
   public void singleToMonoClassMigration() {
@@ -1066,33 +1083,128 @@ public class AddDefaultMethodTest {
   @Test
   public void rewriteOnlyReturnStatementsNotAllMatchingTypesInMethodBody() {
     helper
-            .addInputLines(
-                    "Foo.java",
-                    "public abstract class Foo {",
-                    "  public String bar() {",
-                    "    String s = \"0\";",
-                    "    if (true) {",
-                    "      return \"1\";",
-                    "    }",
-                    "    return \"2\";",
-                    "  }",
-                    "}")
-            .addOutputLines(
-                    "Foo.java",
-                    "public abstract class Foo {",
-                    "  @Deprecated",
-                    "  public String bar() {",
-                    "    return String.valueOf(bar_migrated());",
-                    "  }",
-                    "",
-                    "  public Integer bar_migrated() {",
-                    "    String s = \"0\";",
-                    "    if (true) {",
-                    "      return Integer.valueOf(\"1\");",
-                    "    }",
-                    "    return Integer.valueOf(\"2\");",
-                    "  }",
-                    "}")
-            .doTest();
+        .addInputLines(
+            "Foo.java",
+            "public abstract class Foo {",
+            "  public String bar() {",
+            "    String s = \"0\";",
+            "    if (true) {",
+            "      return \"1\";",
+            "    }",
+            "    return \"2\";",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "public abstract class Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    String s = \"0\";",
+            "    if (true) {",
+            "      return Integer.valueOf(\"1\");",
+            "    }",
+            "    return Integer.valueOf(\"2\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dontRewriteReturnTreesInLambdas() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import com.google.common.collect.ImmutableList;",
+            "public class Foo {",
+            "  public String bar() {",
+            "    return ImmutableList.of(1, 2).stream()",
+            "      .map(",
+            "          e -> {",
+            "            if (true) {",
+            "              return \"2\";",
+            "            }",
+            "            return \"3\";",
+            "         })",
+            "      .findFirst().get();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import com.google.common.collect.ImmutableList;",
+            "public class Foo {",
+            "  @Deprecated",
+            "  public String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(ImmutableList.of(1, 2).stream()",
+            "      .map(",
+            "          e -> {",
+            "            if (true) {",
+            "              return \"2\";",
+            "            }",
+            "            return \"3\";",
+            "         })",
+            "      .findFirst().get());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dontRewriteReturnInLambdaOfTypeCompletable() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Completable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "public class Foo {",
+            "  public Completable bar() {",
+            "     return Maybe.just(1)",
+            "       .switchIfEmpty(Single.error(new IllegalArgumentException()))",
+            "       .map(e -> e + e)",
+            "       .flatMapCompletable(",
+            "             current -> {",
+            "                if (true) {",
+            "                  return Completable.fromAction(() -> current.intValue());",
+            "                }",
+            "                return Completable.complete();",
+            "       });",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Completable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "",
+            "public class Foo {",
+            "  @Deprecated",
+            "  public Completable bar() {",
+            "    return RxJava2Adapter.monoToCompletable(bar_migrated());",
+            "  }",
+            "",
+            "  public Mono<Void> bar_migrated() {",
+            "    return RxJava2Adapter.completableToMono(Maybe.just(1)",
+            "       .switchIfEmpty(Single.error(new IllegalArgumentException()))",
+            "       .map(e -> e + e)",
+            "       .flatMapCompletable(",
+            "           current -> {",
+            "           if (true) {",
+            "             return Completable.fromAction(() -> current.intValue());",
+            "           }",
+            "           return Completable.complete();",
+            "    }));",
+            "  }",
+            "}")
+        .doTest();
   }
 }

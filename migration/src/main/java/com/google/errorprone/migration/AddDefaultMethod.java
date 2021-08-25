@@ -77,7 +77,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
@@ -163,8 +162,8 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
                   methodTree,
                   SuggestedFixes.renameMethod(
                       methodTree, methodTree.getName().toString() + "_migrated", state)),
-              getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state),
-              getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state));
+                  getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state),
+                  getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state));
 
       descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
 
