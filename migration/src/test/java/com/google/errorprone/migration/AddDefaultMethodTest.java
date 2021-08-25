@@ -1062,4 +1062,37 @@ public class AddDefaultMethodTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void rewriteOnlyReturnStatementsNotAllMatchingTypesInMethodBody() {
+    helper
+            .addInputLines(
+                    "Foo.java",
+                    "public abstract class Foo {",
+                    "  public String bar() {",
+                    "    String s = \"0\";",
+                    "    if (true) {",
+                    "      return \"1\";",
+                    "    }",
+                    "    return \"2\";",
+                    "  }",
+                    "}")
+            .addOutputLines(
+                    "Foo.java",
+                    "public abstract class Foo {",
+                    "  @Deprecated",
+                    "  public String bar() {",
+                    "    return String.valueOf(bar_migrated());",
+                    "  }",
+                    "",
+                    "  public Integer bar_migrated() {",
+                    "    String s = \"0\";",
+                    "    if (true) {",
+                    "      return Integer.valueOf(\"1\");",
+                    "    }",
+                    "    return Integer.valueOf(\"2\");",
+                    "  }",
+                    "}")
+            .doTest();
+  }
 }
