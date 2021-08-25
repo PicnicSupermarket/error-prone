@@ -16,6 +16,7 @@
 
 package com.google.errorprone.migration;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
@@ -57,9 +58,11 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @AutoService(BugChecker.class)
 @BugPattern(
@@ -80,19 +83,24 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
   private static final Matcher<ExpressionTree> MOCKITO_VERIFY =
       staticMethod().onClass("org.mockito.Mockito").named("verify");
 
+  private static final Matcher<ExpressionTree> THEN_RETURN =
+      instanceMethod().anyClass().named("thenReturn");
+
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     ImmutableList<MigrationCodeTransformer> migrationDefinitions =
         MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS.get();
 
+    TreePath grandParentPath = state.getPath().getParentPath().getParentPath();
+    Tree grandParent = grandParentPath.getLeaf();
     if (MOCKITO_MATCHER_WHEN.matches(tree, state)) {
-      Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
       if (grandParent instanceof BlockTree) {
         // The `when` does not contain a `thenReturn` or `thenAnswer`.
         return Description.NO_MATCH;
       }
-      List<? extends ExpressionTree> thenReturnArguments =
-          ((MethodInvocationTree) grandParent).getArguments();
+
+      ImmutableList<? extends ExpressionTree> thenReturnArguments =
+          getThenReturnArguments(state, grandParentPath);
       ExpressionTree whenArgument = Iterables.getOnlyElement(tree.getArguments());
       Symbol whenSymbol = getSymbol(whenArgument);
 
@@ -119,7 +127,6 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           getDescriptionsForArguments(state, suitableMigration.get(), thenReturnArguments),
           state);
     } else if (MOCKITO_MATCHER_DO_WHEN.matches(tree, state)) {
-      Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
       if (methodWithoutInlineOrMigratedReplacement(ASTHelpers.getSymbol(grandParent), state)) {
         return Description.NO_MATCH;
       }
@@ -147,7 +154,6 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           getDescriptionsForArguments(state, suitableMigration.get(), arguments),
           state);
     } else if (MOCKITO_VERIFY.matches(tree, state)) {
-      Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
       Symbol symbol = getSymbol(grandParent);
       if (methodWithoutInlineOrMigratedReplacement(symbol, state)) {
         return Description.NO_MATCH;
@@ -156,6 +162,26 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           tree, grandParent, symbol, null, new ArrayList<>(), state);
     }
     return Description.NO_MATCH;
+  }
+
+  /**
+   * There is no easy to check to see how many `thenReturn` statements are in the `when` statement.
+   * This method returns all the arguments of the adjacent `thenReturn` statements.
+   */
+  private ImmutableList<? extends ExpressionTree> getThenReturnArguments(
+      VisitorState state, TreePath grandParentPath) {
+    List<MethodInvocationTree> thenReturns = new ArrayList<>();
+    TreePath currentPath = grandParentPath;
+    do {
+      thenReturns.add(((MethodInvocationTree) currentPath.getLeaf()));
+      currentPath = currentPath.getParentPath().getParentPath();
+    } while (currentPath.getLeaf() instanceof ExpressionTree
+        && THEN_RETURN.matches((ExpressionTree) currentPath.getLeaf(), state));
+
+    return thenReturns.stream()
+        .map(MethodInvocationTree::getArguments)
+        .flatMap(Collection::stream)
+        .collect(toImmutableList());
   }
 
   /**

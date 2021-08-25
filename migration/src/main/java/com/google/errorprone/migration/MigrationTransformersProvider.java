@@ -46,7 +46,7 @@ public final class MigrationTransformersProvider {
     // Argument against blanket classpath scanning: only some combinations may make sense?
     ImmutableList<String> migrationDefinitionUris =
         ImmutableList.of(
-             "com/google/errorprone/migration_resources/StringToInteger.migration",
+//             "com/google/errorprone/migration_resources/StringToInteger.migration",
             // "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
             "com/google/errorprone/migration_resources/SingleToMono.migration",
             "com/google/errorprone/migration_resources/ObservableToFlux.migration",
