@@ -53,9 +53,12 @@ import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
@@ -74,6 +77,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
@@ -257,6 +261,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     }
   }
 
+  /**
+   * The method body is scanned for `ReturnTree`s. These expressions are migrated where necessary.
+   */
   private Description getMigrationReplacementForNormalMethod(
       MethodTree methodTree,
       MigrationCodeTransformer migrationCodeTransformer,
@@ -264,10 +271,17 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
     JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
     TreePath compUnitTreePath = new TreePath(compilationUnit);
-    TreePath methodPath = new TreePath(compUnitTreePath, methodTree.getBody());
+
+    ReturnTreeScanner returnTypeScanner = new ReturnTreeScanner();
+    returnTypeScanner.scan(methodTree.getBody(), null);
+    List<ReturnTree> returnTrees = returnTypeScanner.getReturnTrees();
 
     java.util.List<Description> matches = new ArrayList<>();
-    migrationCodeTransformer.transformFrom().apply(methodPath, state.context, matches::add);
+    returnTrees.forEach(
+        e ->
+            migrationCodeTransformer
+                .transformFrom()
+                .apply(new TreePath(compUnitTreePath, e), state.context, matches::add));
 
     // XXX: This is dangerous, but for now, the first match is always the match of the return type,
     // and we don't need that. Change if that is necessary.
@@ -275,9 +289,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     if (matches.isEmpty()) {
       return Description.NO_MATCH;
     }
-    MatchesSolver.applyMatches(matches,
-            compilationUnit.endPositions,
-            state);
+    MatchesSolver.applyMatches(matches, compilationUnit.endPositions, state);
     return matches.get(0);
   }
 
@@ -349,13 +361,13 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     TreeMaker treeMaker = state.getTreeMaker();
 
     String implExistingMethod =
-            getBodyForDefaultMethodInInterface(
-                    methodSymbol.getSimpleName(),
-                    inlineType(inliner, currentMigration.typeTo()),
-                    true,
-                    currentMigration.transformTo(),
-                    state,
-                    methodTree);
+        getBodyForDefaultMethodInInterface(
+            methodSymbol.getSimpleName(),
+            inlineType(inliner, currentMigration.typeTo()),
+            true,
+            currentMigration.transformTo(),
+            state,
+            methodTree);
 
     // XXX: Also retrieve the imports and add to the builder?
     String implNewMethod =
@@ -443,6 +455,30 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     diff.applyDifferences(sourceFile);
 
     return JavaFileObjects.forSourceString("XXX", sourceFile.getSourceText());
+  }
+
+  private static final class ReturnTreeScanner extends TreeScanner<Void, Void> {
+    private List<ReturnTree> returnTrees = List.nil();
+
+    public List<ReturnTree> getReturnTrees() {
+      return returnTrees;
+    }
+
+    @Override
+    public Void visitLambdaExpression(LambdaExpressionTree node, Void unused) {
+      return null;
+    }
+
+    @Override
+    public Void visitMethod(MethodTree node, Void unused) {
+      return null;
+    }
+
+    @Override
+    public Void visitReturn(ReturnTree tree, Void unused) {
+      returnTrees = returnTrees.append(tree);
+      return super.visitReturn(tree, unused);
+    }
   }
 
   static final class SimpleEndPosTable implements EndPosTable {
