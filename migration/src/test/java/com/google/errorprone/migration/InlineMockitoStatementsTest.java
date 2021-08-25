@@ -16,7 +16,9 @@
 
 package com.google.errorprone.migration;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,6 +28,19 @@ import org.junit.runners.JUnit4;
 public class InlineMockitoStatementsTest {
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(InlineMockitoStatements.class, getClass());
+
+  @BeforeClass
+  public static void enableTestTemplates() {
+    MigrationTransformersProvider.MIGRATION_DEFINITION_URIS =
+            ImmutableList.of(
+                    "com/google/errorprone/migration_resources/StringToInteger.migration",
+                    "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
+                    "com/google/errorprone/migration_resources/SingleToMono.migration",
+                    "com/google/errorprone/migration_resources/ObservableToFlux.migration",
+                    "com/google/errorprone/migration_resources/CompletableToMono.migration",
+                    "com/google/errorprone/migration_resources/MaybeToMono.migration",
+                    "com/google/errorprone/migration_resources/FlowableToFlux.migration");
+  }
 
   @Test
   public void migrateMockitoWhenThenReturnAndThenAnswer() {

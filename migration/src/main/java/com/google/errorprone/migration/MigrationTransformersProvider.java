@@ -16,21 +16,24 @@
 
 package com.google.errorprone.migration;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.CodeTransformer;
-import com.google.errorprone.CompositeCodeTransformer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /** The MigrationTransformersLoader is responsible for retrieving the .migration files. */
 public final class MigrationTransformersProvider {
 
+  public static ImmutableList<String> MIGRATION_DEFINITION_URIS =
+      ImmutableList.of(
+          "com/google/errorprone/migration_resources/SingleToMono.migration",
+          "com/google/errorprone/migration_resources/ObservableToFlux.migration",
+          "com/google/errorprone/migration_resources/CompletableToMono.migration",
+          "com/google/errorprone/migration_resources/FlowableToFlux.migration",
+          "com/google/errorprone/migration_resources/MaybeToMono.migration");
+  
   static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       Suppliers.memoize(MigrationTransformersProvider::loadMigrationTransformers);
 
@@ -44,18 +47,9 @@ public final class MigrationTransformersProvider {
     // Or:
     // Accept single `CompositeCodeTransformer`?
     // Argument against blanket classpath scanning: only some combinations may make sense?
-    ImmutableList<String> migrationDefinitionUris =
-        ImmutableList.of(
-//             "com/google/errorprone/migration_resources/StringToInteger.migration",
-            // "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
-            "com/google/errorprone/migration_resources/SingleToMono.migration",
-            "com/google/errorprone/migration_resources/ObservableToFlux.migration",
-            "com/google/errorprone/migration_resources/CompletableToMono.migration",
-            "com/google/errorprone/migration_resources/FlowableToFlux.migration",
-            "com/google/errorprone/migration_resources/MaybeToMono.migration");
 
     ClassLoader classLoader = MigrationTransformersProvider.class.getClassLoader();
-    for (String migrationDefinitionUri : migrationDefinitionUris) {
+    for (String migrationDefinitionUri : MIGRATION_DEFINITION_URIS) {
       // https://bugs.openjdk.java.net/browse/JDK-8205976 Added retry logic for reading the
       // migration files, because there is a bug in the JDK.
       int count = 0;
