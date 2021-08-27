@@ -16,7 +16,6 @@
 
 package com.google.errorprone.migration;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
@@ -77,6 +76,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
@@ -149,25 +149,22 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
               state,
               methodTree);
 
-      SuggestedFix.Builder fix = SuggestedFix.builder();
-      ImmutableList<Description> descriptions =
-          ImmutableList.of(
-              describeMatch(
-                  methodTree,
+      SuggestedFix fix =
+          Stream.of(
                   SuggestedFix.prefixWith(
                       methodTree,
                       "@Deprecated"
-                          + getCurrentMethodWithUpdatedBody(methodTree, implExistingMethod))),
-              describeMatch(
-                  methodTree,
+                          + getCurrentMethodWithUpdatedBody(methodTree, implExistingMethod)),
                   SuggestedFixes.renameMethod(
-                      methodTree, methodTree.getName().toString() + "_migrated", state)),
-                  getMigrationReplacementForNormalMethod(methodTree, suitableMigration.get(), state),
-                  getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state));
+                      methodTree, methodTree.getName() + "_migrated", state),
+                  getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state),
+                  getMigrationReplacementForNormalMethod(
+                      methodTree, suitableMigration.get(), state))
+              .reduce(
+                  SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
+              .build();
 
-      descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
-
-      return describeMatch(methodTree, fix.build());
+      return describeMatch(methodTree, fix);
     } else if (enclosingClassSymbol.isInterface()
         && !isMethodAlreadyMigratedInEnclosingClass(
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
@@ -229,13 +226,11 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
                         .hasNext());
   }
 
-  private Description getDescriptionToUpdateMethodTreeType(
+  private SuggestedFix getDescriptionToUpdateMethodTreeType(
       MethodTree methodTree, Type newType, VisitorState state) {
     SuggestedFix.Builder builder = SuggestedFix.builder();
     String qualifiedName = SuggestedFixes.qualifyType(state, builder, newType);
-    return describeMatch(
-        methodTree.getReturnType(),
-        builder.replace(methodTree.getReturnType(), qualifiedName).build());
+    return builder.replace(methodTree.getReturnType(), qualifiedName).build();
   }
 
   private static boolean isMethodAlreadyMigratedInEnclosingClass(
@@ -263,7 +258,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   /**
    * The method body is scanned for `ReturnTree`s. These expressions are migrated where necessary.
    */
-  private Description getMigrationReplacementForNormalMethod(
+  private SuggestedFix getMigrationReplacementForNormalMethod(
       MethodTree methodTree,
       MigrationCodeTransformer migrationCodeTransformer,
       VisitorState state) {
@@ -282,14 +277,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
                 .transformFrom()
                 .apply(new TreePath(compUnitTreePath, e), state.context, matches::add));
 
-    // XXX: This is dangerous, but for now, the first match is always the match of the return type,
-    // and we don't need that. Change if that is necessary.
-    // The idea behind the last index is that it returns the biggest expression that is matched.
-    if (matches.isEmpty()) {
-      return Description.NO_MATCH;
-    }
-    MatchesSolver.applyMatches(matches, compilationUnit.endPositions, state);
-    return matches.get(0);
+    return MatchesSolver.collectNonOverlappingFixes(matches, compilationUnit.endPositions);
   }
 
   private String getBodyForDefaultMethodInInterface(
