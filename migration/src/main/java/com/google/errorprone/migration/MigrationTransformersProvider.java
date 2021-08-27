@@ -61,7 +61,6 @@ public final class MigrationTransformersProvider {
           break;
         } catch (IOException | ClassNotFoundException e) {
           if (++count == maxTries) {
-            // XXX: @Stephan, which exception to throw here?
             throw new IllegalStateException(
                 "Failed to read Refaster migration template: " + migrationDefinitionUri, e);
           }
