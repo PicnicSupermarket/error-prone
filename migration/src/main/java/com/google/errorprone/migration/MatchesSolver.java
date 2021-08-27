@@ -22,17 +22,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableRangeSet;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.fixes.Replacement;
+import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.sun.tools.javac.tree.EndPosTable;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
 public final class MatchesSolver {
-
-  public static void applyMatches(
-      Iterable<Description> allMatches, EndPosTable endPositions, VisitorState state) {
+  public static SuggestedFix collectNonOverlappingFixes(
+      Iterable<Description> allMatches, EndPosTable endPositions) {
     ImmutableList<Description> byReplacementSize =
         ImmutableList.sortedCopyOf(
             Comparator.<Description>comparingInt(d -> getReplacedCodeSize(d, endPositions))
@@ -40,15 +39,21 @@ public final class MatchesSolver {
                 .thenComparingInt(d -> getInsertedCodeSize(d, endPositions)),
             allMatches);
 
+    Stream.Builder<SuggestedFix> selectedFixes = Stream.builder();
     RangeSet<Integer> replacedSections = TreeRangeSet.create();
     for (Description description : byReplacementSize) {
       ImmutableRangeSet<Integer> ranges = getReplacementRanges(description, endPositions);
       if (ranges.asRanges().stream().noneMatch(replacedSections::intersects)) {
-        /* This suggested fix does not overlap with any ("larger") replacement seen until now. Apply it. */
-        state.reportMatch(description);
+        /* This suggested fix does not overlap with any ("larger") replacement seen until now. Select it. */
+        description.fixes.stream().map(SuggestedFix.class::cast).forEach(selectedFixes::add);
         replacedSections.addAll(ranges);
       }
     }
+
+    return selectedFixes
+        .build()
+        .reduce(SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
+        .build();
   }
 
   private static int getReplacedCodeSize(Description description, EndPosTable endPositions) {
