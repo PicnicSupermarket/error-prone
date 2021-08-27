@@ -265,7 +265,8 @@ public class InlineMockitoStatementsTest {
         .doTest();
   }
 
-  // when(ctarMock.findAssignmentsByTopics(any(), eq(true))).thenAnswer(getTopicLookup(idByTopic));
+  // Example of this in Picnic-platform: when(ctarMock.findAssignmentsByTopics(any(), eq(true))).thenAnswer(getTopicLookup(idByTopic));
+  // dont migrate?
   @Test
   public void migrateWhenThenAnswerWithMethodInvocation() {
     helper
