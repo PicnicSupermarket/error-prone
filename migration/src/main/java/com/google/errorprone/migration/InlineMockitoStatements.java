@@ -202,6 +202,9 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
   private boolean isMethodAlreadyMigrated(VisitorState state, Symbol whenSymbol) {
     TreePath pathToEnclosingMethod = state.findPathToEnclosing(MethodTree.class);
     HasMember scan = new HasMember(whenSymbol.getQualifiedName() + "_migrated");
+    if (pathToEnclosingMethod == null) {
+      return false;
+    }
     scan.scan(pathToEnclosingMethod, null);
     return scan.isAlreadyMigrated();
   }
@@ -251,7 +254,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
     descriptions.forEach(
         d -> {
           if (!d.fixes.isEmpty()) {
-            fix.merge((SuggestedFix)getOnlyElement(d.fixes));
+            fix.merge((SuggestedFix) getOnlyElement(d.fixes));
           }
         });
 

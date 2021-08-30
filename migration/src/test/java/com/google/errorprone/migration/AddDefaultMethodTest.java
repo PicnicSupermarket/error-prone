@@ -18,10 +18,6 @@ package com.google.errorprone.migration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import io.reactivex.Completable;
-import io.reactivex.Maybe;
-import io.reactivex.Single;
-import java.util.function.Function;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -1292,6 +1288,33 @@ public class AddDefaultMethodTest {
             "              }",
             "              return bar.completable(c -> current + current);",
             "            }));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void reuseDefaultImplementation() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public interface Foo {",
+            "  default Single<String> bar() {",
+            "    return Single.just(\"1\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default io.reactivex.Single<java.lang.String> bar() {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
+            "  }",
+            "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated() {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
             "  }",
             "}")
         .doTest();
