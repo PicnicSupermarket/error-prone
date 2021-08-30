@@ -1077,6 +1077,13 @@ public class Matchers {
   }
 
   /**
+   * Only statements in blockTree
+   */
+  public static Matcher<ExpressionTree> directReturnStatement() {
+    return new ReturnTreeMatcher();
+  }
+
+  /**
    * Matches an {@code assert} statement where the condition is matched by the passed {@code
    * conditionMatcher}.
    */

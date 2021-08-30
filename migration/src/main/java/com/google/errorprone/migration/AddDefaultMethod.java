@@ -135,7 +135,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       if (!enclosingClassSymbol.getInterfaces().isEmpty()
           && isAlreadyMigratedInClass
           && annotatedOnlyWithOverrideAndDeprecated) {
-        return describeMatch(methodTree, SuggestedFix.delete(methodTree));
+        //        SuggestedFixes.compilesWithFix(SuggestedFix.delete(methodTree), state);
+        //        return describeMatch(methodTree, SuggestedFix.delete(methodTree));
+        return Description.NO_MATCH;
       } else if (isAlreadyMigratedInClass) {
         return Description.NO_MATCH;
       }
@@ -265,12 +267,14 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
     JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
     TreePath compUnitTreePath = new TreePath(compilationUnit);
+    TreePath methodPath = new TreePath(compUnitTreePath, methodTree.getBody());
 
     ReturnTreeScanner returnTypeScanner = new ReturnTreeScanner();
     returnTypeScanner.scan(methodTree.getBody(), null);
     List<ReturnTree> returnTrees = returnTypeScanner.getReturnTrees();
 
     java.util.List<Description> matches = new ArrayList<>();
+    //    migrationCodeTransformer.transformFrom().apply(methodPath, state.context, matches::add);
     returnTrees.forEach(
         e ->
             migrationCodeTransformer

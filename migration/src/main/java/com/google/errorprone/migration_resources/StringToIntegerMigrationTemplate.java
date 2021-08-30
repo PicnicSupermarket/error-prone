@@ -16,8 +16,10 @@
 
 package com.google.errorprone.migration_resources;
 
+import com.google.errorprone.matchers.ReturnTreeMatcher;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.Matches;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 
 public final class StringToIntegerMigrationTemplate {
@@ -55,7 +57,7 @@ public final class StringToIntegerMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateStringToIntegerSecond {
       @BeforeTemplate
-      String before(String s) {
+      String before(@Matches(ReturnTreeMatcher.class) String s) {
         return s;
       }
 

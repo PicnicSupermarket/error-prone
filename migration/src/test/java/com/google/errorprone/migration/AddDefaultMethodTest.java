@@ -1213,21 +1213,6 @@ public class AddDefaultMethodTest {
   @Test
   public void dontRewriteLambdasThatCallMethodsAndPassFunctions() {
     helper
-        //        .addInputLines(
-        //            "Bar.java",
-        //            "import io.reactivex.Completable;",
-        //            "import java.util.function.Function;",
-        //            "import io.reactivex.Maybe;",
-        //            "",
-        //            "public class Bar {",
-        //            "  public Maybe<String> func(Function<String, String> func) {",
-        //            "    return Maybe.just(\"3\");",
-        //            "  }",
-        //            "",
-        //            "  public Completable completable(Function<String, String> func) {",
-        //            "    return Completable.fromAction(() -> func.apply(\"10\"));",
-        //            "  }",
-        //            "}")
         .addInputLines(
             "Bar.java",
             "import io.reactivex.Completable;",

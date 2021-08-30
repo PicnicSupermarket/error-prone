@@ -16,8 +16,12 @@
 
 package com.google.errorprone.migration;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import io.reactivex.Completable;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,14 +36,14 @@ public class InlineMockitoStatementsTest {
   @BeforeClass
   public static void enableTestTemplates() {
     MigrationTransformersProvider.MIGRATION_DEFINITION_URIS =
-            ImmutableList.of(
-                    "com/google/errorprone/migration_resources/StringToInteger.migration",
-                    "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
-                    "com/google/errorprone/migration_resources/SingleToMono.migration",
-                    "com/google/errorprone/migration_resources/ObservableToFlux.migration",
-                    "com/google/errorprone/migration_resources/CompletableToMono.migration",
-                    "com/google/errorprone/migration_resources/MaybeToMono.migration",
-                    "com/google/errorprone/migration_resources/FlowableToFlux.migration");
+        ImmutableList.of(
+            "com/google/errorprone/migration_resources/StringToInteger.migration",
+            "com/google/errorprone/migration_resources/MaybeNumberToMonoNumber.migration",
+            "com/google/errorprone/migration_resources/SingleToMono.migration",
+            "com/google/errorprone/migration_resources/ObservableToFlux.migration",
+            "com/google/errorprone/migration_resources/CompletableToMono.migration",
+            "com/google/errorprone/migration_resources/MaybeToMono.migration",
+            "com/google/errorprone/migration_resources/FlowableToFlux.migration");
   }
 
   @Test
@@ -265,7 +269,8 @@ public class InlineMockitoStatementsTest {
         .doTest();
   }
 
-  // Example of this in Picnic-platform: when(ctarMock.findAssignmentsByTopics(any(), eq(true))).thenAnswer(getTopicLookup(idByTopic));
+  // Example of this in Picnic-platform: when(ctarMock.findAssignmentsByTopics(any(),
+  // eq(true))).thenAnswer(getTopicLookup(idByTopic));
   // dont migrate?
   @Test
   public void migrateWhenThenAnswerWithMethodInvocation() {
@@ -445,6 +450,68 @@ public class InlineMockitoStatementsTest {
             "  public void simpleTest() {",
             "    Foo foo = mock(Foo.class);",
             "    verify(foo).getId_migrated();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void edgeCase() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import io.reactivex.Completable;",
+            "import reactor.core.publisher.Mono;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"RxJava2Adapter.monoToCompletable(this.getId_migrated())\")",
+            "  public Completable getId() {",
+            "    return RxJava2Adapter.monoToCompletable(getId_migrated());",
+            "  }",
+            "",
+            "  public Mono<Void> getId_migrated() {",
+            "    return Mono.empty();",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import static org.mockito.Mockito.verify;",
+            "import io.reactivex.Completable;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId()).thenReturn(Completable.complete());",
+            "  }",
+            "}")
+        .addOutputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import org.junit.Test;",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "import static org.mockito.Mockito.verify;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import io.reactivex.Completable;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId_migrated()).thenReturn(RxJava2Adapter.completableToMono(Completable.complete()));",
             "  }",
             "}")
         .doTest();
