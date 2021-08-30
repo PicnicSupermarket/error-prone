@@ -135,9 +135,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       if (!enclosingClassSymbol.getInterfaces().isEmpty()
           && isAlreadyMigratedInClass
           && annotatedOnlyWithOverrideAndDeprecated) {
-        //        SuggestedFixes.compilesWithFix(SuggestedFix.delete(methodTree), state);
-        //        return describeMatch(methodTree, SuggestedFix.delete(methodTree));
-        return Description.NO_MATCH;
+        return SuggestedFixes.compilesWithFix(SuggestedFix.delete(methodTree), state)
+            ? describeMatch(methodTree, SuggestedFix.delete(methodTree))
+            : Description.NO_MATCH;
       } else if (isAlreadyMigratedInClass) {
         return Description.NO_MATCH;
       }

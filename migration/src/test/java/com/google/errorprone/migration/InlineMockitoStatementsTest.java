@@ -456,7 +456,7 @@ public class InlineMockitoStatementsTest {
   }
 
   @Test
-  public void edgeCase() {
+  public void completableCompleteWrappedInAdapter() {
     helper
         .addInputLines(
             "Foo.java",
@@ -500,12 +500,13 @@ public class InlineMockitoStatementsTest {
             "BarTest.java",
             "package com.google.test;",
             "",
-            "import org.junit.Test;",
             "import static org.mockito.Mockito.mock;",
-            "import static org.mockito.Mockito.when;",
             "import static org.mockito.Mockito.verify;",
-            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import static org.mockito.Mockito.when;",
+            "",
             "import io.reactivex.Completable;",
+            "import org.junit.Test;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
             "",
             "public final class BarTest {",
             "  @Test",

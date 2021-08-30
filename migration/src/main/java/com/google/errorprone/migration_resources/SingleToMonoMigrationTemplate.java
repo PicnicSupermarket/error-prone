@@ -16,8 +16,10 @@
 
 package com.google.errorprone.migration_resources;
 
+import com.google.errorprone.matchers.ReturnTreeMatcher;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.Matches;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import io.reactivex.Single;
 import reactor.adapter.rxjava.RxJava2Adapter;
@@ -30,7 +32,7 @@ public final class SingleToMonoMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateSingleToMono<T> {
       @BeforeTemplate
-      Single<T> before(Single<T> single) {
+      Single<T> before(@Matches(ReturnTreeMatcher.class) Single<T> single) {
         return single;
       }
 
@@ -43,7 +45,7 @@ public final class SingleToMonoMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateMonoToSingle<T> {
       @BeforeTemplate
-      Mono<T> before(Mono<T> single) {
+      Mono<T> before(@Matches(ReturnTreeMatcher.class) Mono<T> single) {
         return single;
       }
 

@@ -16,8 +16,10 @@
 
 package com.google.errorprone.migration_resources;
 
+import com.google.errorprone.matchers.ReturnTreeMatcher;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.Matches;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import io.reactivex.Completable;
 import reactor.adapter.rxjava.RxJava2Adapter;
@@ -28,7 +30,7 @@ public class CompletableToMonoMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateCompletableToMono {
       @BeforeTemplate
-      Completable before(Completable completable) {
+      Completable before(@Matches(ReturnTreeMatcher.class) Completable completable) {
         return completable;
       }
 
@@ -41,7 +43,7 @@ public class CompletableToMonoMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateMonoToCompletable {
       @BeforeTemplate
-      Mono<Void> before(Mono<Void> mono) {
+      Mono<Void> before(@Matches(ReturnTreeMatcher.class) Mono<Void> mono) {
         return mono;
       }
 

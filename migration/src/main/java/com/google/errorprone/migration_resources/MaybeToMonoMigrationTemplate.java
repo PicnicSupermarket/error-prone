@@ -16,8 +16,10 @@
 
 package com.google.errorprone.migration_resources;
 
+import com.google.errorprone.matchers.ReturnTreeMatcher;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.Matches;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import io.reactivex.Maybe;
 import reactor.adapter.rxjava.RxJava2Adapter;
@@ -28,7 +30,7 @@ public class MaybeToMonoMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateMaybeToMono<T> {
       @BeforeTemplate
-      Maybe<T> before(Maybe<T> maybe) {
+      Maybe<T> before(@Matches(ReturnTreeMatcher.class) Maybe<T> maybe) {
         return maybe;
       }
 
@@ -41,7 +43,7 @@ public class MaybeToMonoMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateMonoToMaybe<T> {
       @BeforeTemplate
-      Mono<T> before(Mono<T> mono) {
+      Mono<T> before(@Matches(ReturnTreeMatcher.class) Mono<T> mono) {
         return mono;
       }
 

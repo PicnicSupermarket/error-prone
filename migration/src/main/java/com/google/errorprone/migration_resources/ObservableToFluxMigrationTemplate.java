@@ -16,9 +16,11 @@
 
 package com.google.errorprone.migration_resources;
 
+import com.google.errorprone.matchers.ReturnTreeMatcher;
 import com.google.errorprone.refaster.ImportPolicy;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
+import com.google.errorprone.refaster.annotation.Matches;
 import com.google.errorprone.refaster.annotation.MigrationTemplate;
 import com.google.errorprone.refaster.annotation.UseImportPolicy;
 import io.reactivex.BackpressureStrategy;
@@ -33,7 +35,7 @@ public final class ObservableToFluxMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateObservableToFlux<T> {
       @BeforeTemplate
-      Observable<T> before(Observable<T> observable) {
+      Observable<T> before(@Matches(ReturnTreeMatcher.class) Observable<T> observable) {
         return observable;
       }
 
@@ -47,7 +49,7 @@ public final class ObservableToFluxMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateFluxToObservable<T> {
       @BeforeTemplate
-      Flux<T> before(Flux<T> flux) {
+      Flux<T> before(@Matches(ReturnTreeMatcher.class) Flux<T> flux) {
         return flux;
       }
 

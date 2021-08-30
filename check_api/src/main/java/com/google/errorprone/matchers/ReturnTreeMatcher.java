@@ -16,6 +16,10 @@
 
 package com.google.errorprone.matchers;
 
+import static com.google.errorprone.matchers.Matchers.anyOf;
+import static com.google.errorprone.matchers.Matchers.instanceMethod;
+import static com.google.errorprone.matchers.Matchers.staticMethod;
+
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
@@ -25,6 +29,13 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 
 public class ReturnTreeMatcher implements Matcher<ExpressionTree> {
+
+  private static final Matcher<ExpressionTree> MOCKITO_METHODS =
+      anyOf(
+          staticMethod().onClass("org.mockito.Mockito").named("when"),
+          instanceMethod().onDescendantOf("org.mockito.stubbing.Stubber").named("when"),
+          instanceMethod().onDescendantOf("org.mockito.stubbing.OngoingStubbing").withAnyName(),
+          staticMethod().onClass("org.mockito.Mockito").named("verify"));
 
   @Override
   public boolean matches(ExpressionTree expressionTree, VisitorState state) {
@@ -41,6 +52,9 @@ public class ReturnTreeMatcher implements Matcher<ExpressionTree> {
       if (parentPath.getLeaf() instanceof ReturnTree) {
         isPartOfReturnExpr = true;
         break;
+      } else if (parentPath.getLeaf() instanceof ExpressionTree
+          && MOCKITO_METHODS.matches((ExpressionTree) parentPath.getLeaf(), state)) {
+        return true;
       }
       parentPath = parentPath.getParentPath();
     }
