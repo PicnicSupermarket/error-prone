@@ -253,7 +253,13 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     try {
       return uType.inline(new Inliner(inliner.getContext(), inliner.bindings));
     } catch (CouldNotResolveImportException e) {
-      throw new IllegalStateException("Couldn't inline UType" + uType.getClass() + ";" + uType, e);
+      throw new IllegalStateException(
+          "Couldn't inline UType"
+              + uType.getClass()
+              + ";"
+              + uType
+              + ". Did you add the correct dependencies to the pom.xml?",
+          e);
     }
   }
 

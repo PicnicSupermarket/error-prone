@@ -517,4 +517,63 @@ public class InlineMockitoStatementsTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void whenThenCallRealMethod() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import io.reactivex.Completable;",
+            "import reactor.core.publisher.Mono;",
+            "",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"RxJava2Adapter.monoToCompletable(this.getId_migrated())\")",
+            "  public Completable getId() {",
+            "    return RxJava2Adapter.monoToCompletable(getId_migrated());",
+            "  }",
+            "",
+            "  public Mono<Void> getId_migrated() {",
+            "    return Mono.empty();",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "import org.junit.Test;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId()).thenCallRealMethod();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "import org.junit.Test;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId_migrated()).thenCallRealMethod();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
