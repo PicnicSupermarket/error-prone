@@ -155,7 +155,8 @@ final class MigrationResourceCompilerTaskListener implements TaskListener {
         Type fromAfterTemplateReturnType =
             ASTHelpers.getType(fromMigrationDefinition.get(1)).getReturnType();
 
-        UTemplater templater = new UTemplater(new HashMap<>(), context);
+        // XXX: Review arguments.
+        UTemplater templater = new UTemplater(new HashMap<>(), new HashMap<>(), context);
         UType fromUType = templater.template(fromBeforeTemplateReturnType);
         UType toUType = templater.template(fromAfterTemplateReturnType);
 
