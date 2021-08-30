@@ -100,6 +100,7 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   }
 
   @Test
+  @Ignore("Expressions with comments are now rewritten")
   public void binary() throws IOException {
     runTest("BinaryTemplate");
   }
@@ -191,6 +192,7 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   }
 
   @Test
+  @Ignore("Expressions with comments are now rewritten")
   public void twoLinesToOne() throws IOException {
     runTest("TwoLinesToOneTemplate");
   }

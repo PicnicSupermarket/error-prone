@@ -141,7 +141,7 @@ public abstract class RefasterRule<M extends TemplateMatch, T extends Template<M
   }
 
   boolean rejectMatchesWithComments() {
-    return true; // TODO(lowasser): worth making configurable?
+    return false; // TODO(lowasser): worth making configurable?
   }
 
   static final Context.Key<ImmutableList<UTypeVar>> RULE_TYPE_VARS = new Context.Key<>();
