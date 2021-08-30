@@ -248,7 +248,12 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
                 (MethodInvocationTree) grandParent,
                 whenSymbol.getQualifiedName() + "_migrated",
                 state)));
-    descriptions.forEach(d -> fix.merge((SuggestedFix) getOnlyElement(d.fixes)));
+    descriptions.forEach(
+        d -> {
+          if (!d.fixes.isEmpty()) {
+            fix.merge((SuggestedFix)getOnlyElement(d.fixes));
+          }
+        });
 
     return describeMatch(originalTree, fix.build());
   }
