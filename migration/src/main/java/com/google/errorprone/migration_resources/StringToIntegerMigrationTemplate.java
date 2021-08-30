@@ -70,7 +70,7 @@ public final class StringToIntegerMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateIntegerToStringSecond {
       @BeforeTemplate
-      Integer before(Integer s) {
+      Integer before(@Matches(ReturnTreeMatcher.class) Integer s) {
         return s;
       }
 
