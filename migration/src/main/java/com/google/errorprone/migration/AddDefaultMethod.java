@@ -140,7 +140,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
         return Description.NO_MATCH;
       }
 
-      String implExistingMethod =
+      String delegatingMethodBody =
           getBodyForDefaultMethodInInterface(
               methodSymbol.getSimpleName(),
               inlineType(inliner, suitableMigration.get().typeTo()),
@@ -153,12 +153,13 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
           Stream.of(
                   SuggestedFix.prefixWith(
                       methodTree,
-                      "@Deprecated"
-                          + getCurrentMethodWithUpdatedBody(methodTree, implExistingMethod)),
+                      "@Deprecated\n"
+                          + getOriginalMethodWithDelegatingBody(
+                              methodTree, delegatingMethodBody, state)),
                   SuggestedFixes.renameMethod(
                       methodTree, methodTree.getName() + "_migrated", state),
                   getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state),
-                  getMigrationReplacementForNormalMethod(
+                  getMigrationReplacementForMigratedMethod(
                       methodTree, suitableMigration.get(), state))
               .reduce(
                   SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
@@ -182,10 +183,13 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     return Description.NO_MATCH;
   }
 
-  private String getCurrentMethodWithUpdatedBody(MethodTree methodTree, String implExistingMethod) {
-    return methodTree
-        .toString()
-        .replace(methodTree.getBody().toString(), "{\n return " + implExistingMethod + "; \n}\n");
+  private String getOriginalMethodWithDelegatingBody(
+      MethodTree methodTree, String implExistingMethod, VisitorState state) {
+    return state
+        .getSourceForNode(methodTree)
+        .replace(
+            state.getSourceForNode(methodTree.getBody()),
+            "{\n return " + implExistingMethod + ";\n}\n");
   }
 
   private Type getDesiredReturnTypeForMigration(
@@ -264,21 +268,19 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   /**
    * The method body is scanned for `ReturnTree`s. These expressions are migrated where necessary.
    */
-  private SuggestedFix getMigrationReplacementForNormalMethod(
+  private SuggestedFix getMigrationReplacementForMigratedMethod(
       MethodTree methodTree,
       MigrationCodeTransformer migrationCodeTransformer,
       VisitorState state) {
 
     JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
     TreePath compUnitTreePath = new TreePath(compilationUnit);
-    TreePath methodPath = new TreePath(compUnitTreePath, methodTree.getBody());
 
     ReturnTreeScanner returnTypeScanner = new ReturnTreeScanner();
     returnTypeScanner.scan(methodTree.getBody(), null);
     List<ReturnTree> returnTrees = returnTypeScanner.getReturnTrees();
 
     java.util.List<Description> matches = new ArrayList<>();
-    //    migrationCodeTransformer.transformFrom().apply(methodPath, state.context, matches::add);
     returnTrees.forEach(
         e ->
             migrationCodeTransformer

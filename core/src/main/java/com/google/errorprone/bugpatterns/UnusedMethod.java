@@ -110,7 +110,8 @@ public final class UnusedMethod extends BugChecker implements CompilationUnitTre
           "org.testng.annotations.BeforeMethod",
           "org.testng.annotations.DataProvider",
           "org.junit.AfterClass",
-          "org.junit.BeforeClass");
+          "org.junit.BeforeClass",
+          "com.fasterxml.jackson.annotation.JsonCreator");
 
   /** The set of types exempting a type that is extending or implementing them. */
   private static final ImmutableSet<String> EXEMPTING_SUPER_TYPES = ImmutableSet.of();
