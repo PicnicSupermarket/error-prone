@@ -99,7 +99,8 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    if (enclosingClassSymbol == null) {
+    if (enclosingClassSymbol == null
+        || hasAnnotation(enclosingClassSymbol, FunctionalInterface.class.getName(), state)) {
       return Description.NO_MATCH;
     }
 
