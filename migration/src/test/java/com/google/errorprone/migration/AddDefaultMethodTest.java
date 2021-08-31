@@ -1319,4 +1319,17 @@ public class AddDefaultMethodTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void dontRewriteFunctionalInterfaces() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "@FunctionalInterface",
+            "public interface Foo {",
+            "  String dontMigrate();",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
 }
