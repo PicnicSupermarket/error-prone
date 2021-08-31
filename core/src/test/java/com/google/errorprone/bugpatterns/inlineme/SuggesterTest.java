@@ -64,9 +64,10 @@ public class SuggesterTest {
         .doTest();
   }
 
-    @Test
-    @Ignore // This adds the InlineMe, but now we added that it should migrate this method, so add `_migrated()` and then remove the old implementation.
-    public void testMigratedInterfaceClientSuggestion() {
+  @Test
+  @Ignore // This adds the InlineMe, but now we added that it should migrate this method, so add
+  // `_migrated()` and then remove the old implementation.
+  public void testMigratedInterfaceClientSuggestion() {
     refactoringTestHelper
         .addInputLines(
             "Client.java",
@@ -96,7 +97,7 @@ public class SuggesterTest {
             "}")
         .expectUnchanged()
         .doTest();
-    }
+  }
 
   @Test
   public void testBuildAnnotation_withImports() {
@@ -625,6 +626,38 @@ public class SuggesterTest {
   }
 
   @Test
+  public void testSuggestingOnPrivateMethod() {
+    refactoringTestHelper
+        .addInputLines(
+            "Client.java",
+            "package com.google.frobber;",
+            "public final class Client {",
+            "  @Deprecated",
+            "  private boolean silly() {",
+            "    return privateDelegate();",
+            "  }",
+            "  private boolean privateDelegate() {",
+            "    return false;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Client.java",
+            "package com.google.frobber;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public final class Client {",
+            "  @InlineMe(replacement = \"this.privateDelegate()\")",
+            "  @Deprecated",
+            "  private boolean silly() {",
+            "    return privateDelegate();",
+            "  }",
+            "  private boolean privateDelegate() {",
+            "    return false;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testTryWithResources() {
     refactoringTestHelper
         .addInputLines(
@@ -809,7 +842,7 @@ public class SuggesterTest {
 
   @Test
   @Ignore // XXX: Turned off specific behavior which causes the Suggester to not do anything with
-          // final.
+  // final.
   public void suggestedFinalOnOtherwiseGoodMethod() {
     refactoringTestHelper
         .addInputLines(

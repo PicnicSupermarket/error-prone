@@ -41,14 +41,12 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
-import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.lang.model.element.Modifier;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Whether an API can have {@code @InlineMe} applied to it or not. */
@@ -101,8 +99,7 @@ abstract class InlinabilityResult {
     NO_BODY("InlineMe cannot be applied to abstract methods."),
     NOT_EXACTLY_ONE_STATEMENT("InlineMe cannot inline methods with more than 1 statement."),
     COMPLEX_STATEMENT(
-        "InlineMe cannot inline complex statements. Consider using a different refactoring tool"
-        ),
+        "InlineMe cannot inline complex statements. Consider using a different refactoring tool"),
     CALLS_DEPRECATED_OR_PRIVATE_APIS(
         "InlineMe cannot be applied when the implementation references deprecated or non-public"
             + " API elements:"),
@@ -146,9 +143,10 @@ abstract class InlinabilityResult {
     }
 
     MethodSymbol methSymbol = getSymbol(tree);
-    if (methSymbol.getModifiers().contains(Modifier.PRIVATE)) {
-      return fromError(InlineValidationErrorReason.API_IS_PRIVATE);
-    }
+    // XXX: Turned off for the purpose of the thesis.
+    //    if (methSymbol.getModifiers().contains(Modifier.PRIVATE)) {
+    //      return fromError(InlineValidationErrorReason.API_IS_PRIVATE);
+    //    }
 
     StatementTree statement = tree.getBody().getStatements().get(0);
 
@@ -203,15 +201,15 @@ abstract class InlinabilityResult {
     }
 
     // XXX: If we remove this, we can use the InlinerSuggester for the thesis.
-//    if (ASTHelpers.methodCanBeOverridden(methSymbol)) {
-//      // TODO(glorioso): One additional edge case we can check is if the owning class can't be
-//      // overridden due to having no publicly-accessible constructors.
-//      return fromError(
-//          methSymbol.isDefault()
-//              ? InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_AND_CANT_BE_FIXED
-//              : InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_BUT_CAN_BE_FIXED,
-//          body);
-//    }
+    //    if (ASTHelpers.methodCanBeOverridden(methSymbol)) {
+    //      // TODO(glorioso): One additional edge case we can check is if the owning class can't be
+    //      // overridden due to having no publicly-accessible constructors.
+    //      return fromError(
+    //          methSymbol.isDefault()
+    //              ? InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_AND_CANT_BE_FIXED
+    //              : InlineValidationErrorReason.METHOD_CAN_BE_OVERIDDEN_BUT_CAN_BE_FIXED,
+    //          body);
+    //    }
 
     return inlinable(body);
   }
@@ -327,10 +325,12 @@ abstract class InlinabilityResult {
 
       private boolean isDeprecatedOrNonPublic(Tree tree) {
         Symbol sym = getSymbol(tree);
-        if (!(sym instanceof PackageSymbol) && !sym.getModifiers().contains(Modifier.PUBLIC)) {
-          usesDeprecatedOrNonPublicApis.set(tree);
-          return true;
-        }
+        //        if (!(sym instanceof PackageSymbol)) {
+        //          // XXX: Removed this for the thesis:
+        //          // && !sym.getModifiers().contains(Modifier.PUBLIC)
+        //          usesDeprecatedOrNonPublicApis.set(tree);
+        //          return true;
+        //        }
         if (hasAnnotation(sym, "java.lang.Deprecated", state)) {
           usesDeprecatedOrNonPublicApis.set(tree);
           return true;
