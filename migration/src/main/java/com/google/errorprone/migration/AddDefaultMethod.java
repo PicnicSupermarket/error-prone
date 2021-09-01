@@ -170,12 +170,12 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     } else if (enclosingClassSymbol.isInterface()
         && !isMethodAlreadyMigratedInEnclosingClass(
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
-      String migrationReplacement =
-          getMigrationReplacementForMethod(
+      String fullMigrationReplacementForInterface =
+          getMigrationReplacementForMethodsOfInterface(
               methodTree, methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state);
 
       SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
-      suggestedFix.replace(methodTree, migrationReplacement);
+      suggestedFix.replace(methodTree, fullMigrationReplacementForInterface);
       importsToAdd.forEach(imp -> suggestedFix.addImport(imp.replace("import ", "")));
       importsToAdd = new ArrayList<>();
 
@@ -349,7 +349,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     }
   }
 
-  private String getMigrationReplacementForMethod(
+  private String getMigrationReplacementForMethodsOfInterface(
       MethodTree methodTree,
       MethodSymbol methodSymbol,
       Type desiredReturnType,
@@ -358,7 +358,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       VisitorState state) {
     TreeMaker treeMaker = state.getTreeMaker();
 
-    String implExistingMethod =
+    String originalMethodWithDelegationToMigration =
         getBodyForDefaultMethodInInterface(
             methodSymbol.getSimpleName(),
             inlineType(inliner, currentMigration.typeTo()),
@@ -368,7 +368,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
             methodTree);
 
     // XXX: Also retrieve the imports and add to the builder?
-    String implNewMethod =
+    String migratedMethodImplementation =
         getBodyForDefaultMethodInInterface(
             methodSymbol.getSimpleName(),
             methodSymbol.getReturnType(),
@@ -383,9 +383,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     JCMethodDecl undesiredDefaultMethodDecl =
         treeMaker.MethodDef(undesiredDefaultMethodSymbol, getBlockWithReturnNull(treeMaker));
 
-    String existingMethodWithDefaultImpl = "  @Deprecated  " + undesiredDefaultMethodDecl;
-    existingMethodWithDefaultImpl =
-        existingMethodWithDefaultImpl.replace("\"null\"", implExistingMethod);
+    String originalMethodWithDefaultImpl = "  @Deprecated  " + undesiredDefaultMethodDecl;
+    originalMethodWithDefaultImpl =
+        originalMethodWithDefaultImpl.replace("\"null\"", originalMethodWithDelegationToMigration);
 
     Type methodTypeWithReturnType =
         getMethodTypeWithNewReturnType(state.context, desiredReturnType);
@@ -405,9 +405,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
             .collect(List.collector());
 
     String implForMigratedMethod =
-        desiredDefaultMethod.toString().replace("\"null\"", implNewMethod);
+        desiredDefaultMethod.toString().replace("\"null\"", migratedMethodImplementation);
 
-    return existingMethodWithDefaultImpl + implForMigratedMethod;
+    return originalMethodWithDefaultImpl + implForMigratedMethod;
   }
 
   private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {
