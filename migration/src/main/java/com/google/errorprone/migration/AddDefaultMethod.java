@@ -160,8 +160,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
                   SuggestedFixes.renameMethod(
                       methodTree, methodTree.getName() + "_migrated", state),
                   getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state),
-                  getMigrationReplacementForMigratedMethod(
-                      methodTree, suitableMigration.get(), state))
+                  getBodyOfMigratedMethod(methodTree, suitableMigration.get(), state))
               .reduce(
                   SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
               .build();
@@ -185,12 +184,12 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   }
 
   private String getOriginalMethodWithDelegatingBody(
-      MethodTree methodTree, String implExistingMethod, VisitorState state) {
+      MethodTree methodTree, String delegatingMethodBody, VisitorState state) {
     return state
         .getSourceForNode(methodTree)
         .replace(
             state.getSourceForNode(methodTree.getBody()),
-            "{\n return " + implExistingMethod + ";\n}\n");
+            "{\n return " + delegatingMethodBody + ";\n}\n");
   }
 
   private Type getDesiredReturnTypeForMigration(
@@ -269,7 +268,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   /**
    * The method body is scanned for `ReturnTree`s. These expressions are migrated where necessary.
    */
-  private SuggestedFix getMigrationReplacementForMigratedMethod(
+  private SuggestedFix getBodyOfMigratedMethod(
       MethodTree methodTree,
       MigrationCodeTransformer migrationCodeTransformer,
       VisitorState state) {
