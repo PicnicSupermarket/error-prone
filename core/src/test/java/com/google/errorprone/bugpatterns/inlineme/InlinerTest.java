@@ -20,16 +20,11 @@ import static com.google.errorprone.bugpatterns.inlineme.Inliner.PREFIX_FLAG;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.errorprone.scanner.ScannerSupplier;
-import io.reactivex.Completable;
-import io.reactivex.Flowable;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import reactor.adapter.rxjava.RxJava2Adapter;
-import reactor.core.publisher.Flux;
 
 /** Tests for the {@link Inliner}. */
 @RunWith(JUnit4.class)
@@ -60,6 +55,90 @@ public class InlinerTest {
             "  }",
             "}")
         .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void migrateMethodsWithinInterfaceIfIsNotTheSameMigration() {
+    refactoringTestHelper
+        .addInputLines(
+            "Bar.java",
+            "import io.reactivex.Completable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.core.publisher.Flux;",
+            "",
+            "public interface Bar {",
+            "  @InlineMe(",
+            "      replacement = \"RxJava2Adapter.fluxToFlowable(this.getAllDcs_migrated())\",",
+            "      imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Flowable<String> getAllDcs() {",
+            "    return RxJava2Adapter.fluxToFlowable(getAllDcs_migrated());",
+            "  }",
+            "",
+            "  default Flux<String> getAllDcs_migrated() {",
+            "    return RxJava2Adapter.flowableToFlux(getAllDcs());",
+            "  }",
+            "  @InlineMe(",
+            "  replacement = \"RxJava2Adapter.monoToSingle(this.getDc_migrated(dcId))\",",
+            "  imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Single<String> getDc(Integer dcId) {",
+            "  return RxJava2Adapter.monoToSingle(getDc_migrated(dcId));",
+            "  }",
+            "  ",
+            "  default Mono<String> getDc_migrated(Integer dcId) {",
+            "    return RxJava2Adapter.singleToMono(",
+            "    getAllDcs()",
+            "      .filter(dc -> dc.equals(String.valueOf(dcId)))",
+            "      .firstElement()",
+            "      .switchIfEmpty(Single.error(new RuntimeException())));",
+            "    }",
+            "}")
+        .addOutputLines(
+            "Bar.java",
+            "import io.reactivex.Completable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "import java.util.function.Function;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.core.publisher.Flux;",
+            "",
+            "public interface Bar {",
+            "  @InlineMe(",
+            "      replacement = \"RxJava2Adapter.fluxToFlowable(this.getAllDcs_migrated())\",",
+            "      imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Flowable<String> getAllDcs() {",
+            "    return RxJava2Adapter.fluxToFlowable(getAllDcs_migrated());",
+            "  }",
+            "",
+            "  default Flux<String> getAllDcs_migrated() {",
+            "    return RxJava2Adapter.flowableToFlux(getAllDcs());",
+            "  }",
+            "  @InlineMe(",
+            "  replacement = \"RxJava2Adapter.monoToSingle(this.getDc_migrated(dcId))\",",
+            "  imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  @Deprecated",
+            "  default io.reactivex.Single<String> getDc(Integer dcId) {",
+            "  return RxJava2Adapter.monoToSingle(getDc_migrated(dcId));",
+            "  }",
+            "  ",
+            "  default Mono<String> getDc_migrated(Integer dcId) {",
+            "    return RxJava2Adapter.singleToMono(",
+            "        RxJava2Adapter.fluxToFlowable(getAllDcs_migrated())",
+            "           .filter(dc -> dc.equals(String.valueOf(dcId)))",
+            "           .firstElement()",
+            "           .switchIfEmpty(Single.error(new RuntimeException())));",
+            "    }",
+            "}")
         .doTest();
   }
 
@@ -99,17 +178,17 @@ public class InlinerTest {
             "  }",
             "}")
         .addOutputLines(
-                "Bar.java",
-                "import io.reactivex.Flowable;",
-                "import reactor.core.publisher.Flux;",
-                "import reactor.adapter.rxjava.RxJava2Adapter;",
-                "public class Bar {",
-                "  public Foo foo = new Foo();",
-                "",
-                "  public Flux<String> getBanners_migrated(boolean activeOnly) {",
-                "    return RxJava2Adapter.flowableToFlux(RxJava2Adapter.fluxToFlowable(foo.getAll_migrated(activeOnly)));",
-                "  }",
-                "}")
+            "Bar.java",
+            "import io.reactivex.Flowable;",
+            "import reactor.core.publisher.Flux;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public class Bar {",
+            "  public Foo foo = new Foo();",
+            "",
+            "  public Flux<String> getBanners_migrated(boolean activeOnly) {",
+            "    return RxJava2Adapter.flowableToFlux(RxJava2Adapter.fluxToFlowable(foo.getAll_migrated(activeOnly)));",
+            "  }",
+            "}")
         .doTest();
   }
 
@@ -163,32 +242,32 @@ public class InlinerTest {
   @Test
   public void inlinerDoesNothingInAlreadyMigratedClass() {
     refactoringTestHelper
-            .addInputLines(
-                    "Foo.java",
-                    "import com.google.errorprone.annotations.InlineMe;",
-                    "import io.reactivex.Single;",
-                    "import reactor.adapter.rxjava.RxJava2Adapter;",
-                    "import reactor.core.publisher.Mono;",
-                    "public final class Foo {",
-                    "  @Deprecated",
-                    "  @InlineMe(replacement = \"RxJava2Adapter.monoToSingle(this.bar_migrated(s))\", imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
-                    "  public Single<String> bar(String s) {",
-                    "    return RxJava2Adapter.monoToSingle(bar_migrated(s));",
-                    "  }",
-                    "  public Mono<String> bar_migrated(String s) {",
-                    "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
-                    "  }",
-                    "  ",
-                    "  @Deprecated",
-                    "  public Single<String> bar(Integer i) {",
-                    "    return RxJava2Adapter.monoToSingle(bar_migrated(i));",
-                    "  }",
-                    "  public Mono<String> bar_migrated(Integer i) {",
-                    "    return RxJava2Adapter.singleToMono(Single.just(String.valueOf(i)));",
-                    "  }",
-                    "}")
-            .expectUnchanged()
-            .doTest();
+        .addInputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"RxJava2Adapter.monoToSingle(this.bar_migrated(s))\", imports = \"reactor.adapter.rxjava.RxJava2Adapter\")",
+            "  public Single<String> bar(String s) {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated(s));",
+            "  }",
+            "  public Mono<String> bar_migrated(String s) {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
+            "  }",
+            "  ",
+            "  @Deprecated",
+            "  public Single<String> bar(Integer i) {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated(i));",
+            "  }",
+            "  public Mono<String> bar_migrated(Integer i) {",
+            "    return RxJava2Adapter.singleToMono(Single.just(String.valueOf(i)));",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
   }
 
   @Test
