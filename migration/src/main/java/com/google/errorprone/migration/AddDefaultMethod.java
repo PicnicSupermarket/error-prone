@@ -18,6 +18,7 @@ package com.google.errorprone.migration;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.apply.ImportOrganizer.STATIC_FIRST_ORGANIZER;
+import static com.google.errorprone.matchers.Matchers.anyOf;
 import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.sun.tools.javac.code.Flags.DEFAULT;
 import static com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -46,6 +47,8 @@ import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.matchers.Matchers;
 import com.google.errorprone.refaster.CouldNotResolveImportException;
 import com.google.errorprone.refaster.Inliner;
 import com.google.errorprone.refaster.UType;
@@ -55,6 +58,7 @@ import com.google.testing.compile.JavaFileObjects;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
@@ -89,6 +93,12 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS;
 
+  public static final Matcher<Tree> HAS_REFASTER_ANNOTATION =
+      anyOf(
+          Matchers.hasAnnotation("com.google.errorprone.refaster.annotation.AfterTemplate"),
+          Matchers.hasAnnotation("com.google.errorprone.refaster.annotation.BeforeTemplate"),
+          Matchers.hasAnnotation("com.google.errorprone.refaster.annotation.Placeholder"));
+
   // XXX: What would be a better way to provide the imports to the SuggestedFix?
   private Collection<String> importsToAdd;
 
@@ -100,7 +110,8 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     ClassSymbol enclosingClassSymbol = ASTHelpers.enclosingClass(methodSymbol);
     if (enclosingClassSymbol == null
-        || hasAnnotation(enclosingClassSymbol, FunctionalInterface.class.getName(), state)) {
+        || hasAnnotation(enclosingClassSymbol, FunctionalInterface.class.getName(), state)
+        || HAS_REFASTER_ANNOTATION.matches(methodTree, state)) {
       return Description.NO_MATCH;
     }
 
@@ -170,10 +181,6 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
         && !isMethodAlreadyMigratedInEnclosingClass(
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
 
-      // get string replacement for first method.
-      // get suggested fix for updating current methodbody.
-      // use existing method to update the Single.just(1);
-      // use them together to update and not the rest here.
       SuggestedFix.Builder suggestedFix;
 
       SuggestedFix bodyOfMigratedMethod =

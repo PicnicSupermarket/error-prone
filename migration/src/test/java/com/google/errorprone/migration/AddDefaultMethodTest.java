@@ -1365,6 +1365,29 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  public void dontMigrateRefasterMethod() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import com.google.errorprone.refaster.annotation.BeforeTemplate;",
+            "import com.google.errorprone.refaster.annotation.AfterTemplate;",
+            "",
+            "public final class Foo {",
+            "  @BeforeTemplate",
+            "  public String before(String s) {",
+            "    return s;",
+            "  }",
+            "",
+            "  @AfterTemplate",
+            "  public String after(String s) {",
+            "    return s + s;",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
   public void dontRewriteFunctionalInterfaces() {
     helper
         .addInputLines(
