@@ -130,7 +130,7 @@ public final class Inliner extends BugChecker
     MethodTree enclosingMethod = findEnclosingMethod(state);
     if (!hasAnnotation(symbol, INLINE_ME, state)
         || isMockMethodThatCannotBeInlined(tree, state)
-        || isEnclosingMethodAnAlreadyMigratedInterface(enclosingMethod, state)) {
+        || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
       return Description.NO_MATCH;
     }
 
@@ -159,10 +159,23 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
-  /** Checks whether the enclosing method is a _migrated method *and* in an interface. */
+  /**
+   * Checks whether the enclosing method is a _migrated method *and* in an interface. There is an
+   * extra check, to ensure that the check is looking for the same method name.
+   *
+   * <p>Assume you have method A, A_migrated, B, and B_migrated. Without the check there is a
+   * special case which would not be migrated. When A_migrated call B in the default body of an
+   * interface, the call to B was not migrated to B_migrated.
+   */
   private boolean isEnclosingMethodAnAlreadyMigratedInterface(
-      MethodTree enclosingMethod, VisitorState state) {
-    return !(enclosingMethod != null && !enclosingMethod.getName().toString().contains("_migrated"))
+      MethodInvocationTree currentMethodInvocation,
+      MethodTree enclosingMethod,
+      VisitorState state) {
+    String migratedNameOfCurrentMethodInvocation =
+        currentMethodInvocation.getMethodSelect().toString() + "_migrated";
+    return (currentMethodInvocation.getMethodSelect().equals(enclosingMethod.getName())
+            || migratedNameOfCurrentMethodInvocation.equals(enclosingMethod.getName().toString()))
+        && enclosingMethod.getName().toString().contains("_migrated")
         && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
   }
 
@@ -358,9 +371,7 @@ public final class Inliner extends BugChecker
     abstract String extraMessage();
 
     final String message() {
-      return shortName()
-          + " should be inlined"
-          + extraMessage();
+      return shortName() + " should be inlined" + extraMessage();
     }
 
     /** Returns {@code FullyQualifiedClassName#methodName}. */
