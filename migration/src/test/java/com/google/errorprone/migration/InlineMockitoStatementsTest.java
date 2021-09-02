@@ -16,12 +16,8 @@
 
 package com.google.errorprone.migration;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import io.reactivex.Completable;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,9 +75,15 @@ public class InlineMockitoStatementsTest {
             "  @Test",
             "  public void simpleTest() {",
             "    Foo foo = mock(Foo.class);",
-            "    when(foo.getId()).thenReturn(\"2\");",
-            "    when(foo.getId()).thenReturn(\"2\", \"3\");",
-            "    when(foo.getId()).thenAnswer(inv -> String.valueOf(\"1\"));",
+            //            "    when(foo.getId()).thenReturn(\"2\");",
+            //            "    when(foo.getId()).thenReturn(\"2\", \"3\");",
+            //            "    when(foo.getId()).thenAnswer(inv -> String.valueOf(\"1\"));",
+            "    when(foo.getId()).then(inv -> { ",
+            "          if (true) { ",
+            "            return \"4\";",
+            "          }",
+            "          return String.valueOf(\"5\");",
+            "      });",
             "  }",
             "}")
         .addOutputLines(
@@ -96,9 +98,12 @@ public class InlineMockitoStatementsTest {
             "  @Test",
             "  public void simpleTest() {",
             "    Foo foo = mock(Foo.class);",
-            "    when(foo.getId_migrated()).thenReturn(Integer.valueOf(\"2\"));",
-            "    when(foo.getId_migrated()).thenReturn(Integer.valueOf(\"2\"), Integer.valueOf(\"3\"));",
-            "    when(foo.getId_migrated()).thenAnswer(inv -> Integer.valueOf(String.valueOf(\"1\")));",
+            //            "    when(foo.getId_migrated()).thenReturn(Integer.valueOf(\"2\"));",
+            //            "    when(foo.getId_migrated()).thenReturn(Integer.valueOf(\"2\"),
+            // Integer.valueOf(\"3\"));",
+            //            "    when(foo.getId_migrated()).thenAnswer(inv ->
+            // Integer.valueOf(String.valueOf(\"1\")));",
+            "    when(foo.getId_migrated()).then(inv -> { if (true) { return \"4\"; } else { return String.valueOf(\"5\"); });",
             "  }",
             "}")
         .doTest();

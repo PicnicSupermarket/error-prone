@@ -37,6 +37,9 @@ public class ReturnTreeMatcher implements Matcher<ExpressionTree> {
           instanceMethod().onDescendantOf("org.mockito.stubbing.OngoingStubbing").withAnyName(),
           staticMethod().onClass("org.mockito.Mockito").named("verify"));
 
+  private static final Matcher<ExpressionTree> MOCKITO_ONGOING_WHEN =
+      instanceMethod().onDescendantOf("org.mockito.stubbing.OngoingStubbing").withAnyName();
+
   @Override
   public boolean matches(ExpressionTree expressionTree, VisitorState state) {
     if (state.getPath().getParentPath().getLeaf() instanceof CompilationUnitTree
@@ -66,6 +69,7 @@ public class ReturnTreeMatcher implements Matcher<ExpressionTree> {
     parentPath = state.getPath().getParentPath();
     while (!(parentPath.getLeaf() instanceof MethodTree)) { // while not the method tree
       if (parentPath.getLeaf() instanceof LambdaExpressionTree) {
+        // Don't return when you are in a Mockito.when of the OngoingStubbing.
         return false;
       }
       parentPath = parentPath.getParentPath();
