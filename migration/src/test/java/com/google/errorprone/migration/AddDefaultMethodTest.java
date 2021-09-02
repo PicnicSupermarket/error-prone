@@ -1399,4 +1399,99 @@ public class AddDefaultMethodTest {
         .expectUnchanged()
         .doTest();
   }
+
+  @Test
+  public void migratePrivateAndProtectedMethods() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "final class Foo {",
+            "  Single<String> bar() {",
+            "    return Single.just(\"value\");",
+            "  }",
+            "  private Single<String> foo() {",
+            "    return Single.just(\"value\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "final class Foo {",
+            "  @Deprecated",
+            "  Single<String> bar() {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
+            "  }",
+            "  Mono<String> bar_migrated() {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"value\"));",
+            "  }",
+            "",
+            "  @Deprecated",
+            "  private Single<String> foo() {",
+            "    return RxJava2Adapter.monoToSingle(foo_migrated());",
+            "  }",
+            "  private Mono<String> foo_migrated() {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"value\"));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void rewriteMethodIfItHasInterfaceWithNotThisMethodDefined() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "interface Foo {",
+            "  @Deprecated",
+            "  default java.lang.String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  default java.lang.Integer bar_migrated() {",
+            "    return Integer.valueOf(bar());",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Bar.java",
+            "public final class Bar implements Foo {",
+            "  @Deprecated",
+            "  @Override",
+            "  public String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "",
+            "  public String baz() {",
+            "    return \"1\";",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Bar.java",
+            "public final class Bar implements Foo {",
+            "  @Deprecated",
+            "  @Override",
+            "  public String bar() {",
+            "    return String.valueOf(bar_migrated());",
+            "  }",
+            "",
+            "  public Integer bar_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "",
+            "  public String baz() {",
+            "    return String.valueOf(baz_migrated());",
+            "  }",
+            "  public Integer baz_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

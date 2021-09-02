@@ -236,7 +236,8 @@ public final class Inliner extends BugChecker
       VisitorState state) {
     String migratedNameOfCurrentMethodInvocation =
         currentMethodInvocation.getMethodSelect().toString() + "_migrated";
-    return (currentMethodInvocation.getMethodSelect().equals(enclosingMethod.getName())
+    return enclosingMethod != null
+        && (currentMethodInvocation.getMethodSelect().equals(enclosingMethod.getName())
             || migratedNameOfCurrentMethodInvocation.equals(enclosingMethod.getName().toString()))
         && enclosingMethod.getName().toString().contains("_migrated")
         && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
