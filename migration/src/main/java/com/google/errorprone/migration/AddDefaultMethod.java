@@ -169,12 +169,35 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     } else if (enclosingClassSymbol.isInterface()
         && !isMethodAlreadyMigratedInEnclosingClass(
             methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
+
+      // get string replacement for first method.
+      // get suggested fix for updating current methodbody.
+      // use existing method to update the Single.just(1);
+      // use them together to update and not the rest here.
+      SuggestedFix.Builder suggestedFix;
+
+      SuggestedFix bodyOfMigratedMethod =
+          getBodyOfMigratedMethod(methodTree, suitableMigration.get(), state);
+
       String fullMigrationReplacementForInterface =
           getMigrationReplacementForMethodsOfInterface(
               methodTree, methodSymbol, desiredReturnType, suitableMigration.get(), inliner, state);
-
-      SuggestedFix.Builder suggestedFix = SuggestedFix.builder();
-      suggestedFix.replace(methodTree, fullMigrationReplacementForInterface);
+      if (methodTree.getBody() != null) {
+        suggestedFix =
+            Stream.of(
+                    SuggestedFix.prefixWith(methodTree, fullMigrationReplacementForInterface),
+                    SuggestedFixes.renameMethod(
+                        methodTree, methodTree.getName() + "_migrated", state),
+                    getDescriptionToUpdateMethodTreeType(methodTree, desiredReturnType, state),
+                    bodyOfMigratedMethod)
+                .reduce(
+                    SuggestedFix.builder(),
+                    SuggestedFix.Builder::merge,
+                    SuggestedFix.Builder::merge);
+      } else {
+        suggestedFix =
+            SuggestedFix.builder().replace(methodTree, fullMigrationReplacementForInterface);
+      }
       importsToAdd.forEach(imp -> suggestedFix.addImport(imp.replace("import ", "")));
       importsToAdd = new ArrayList<>();
 
@@ -406,7 +429,12 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     String implForMigratedMethod =
         desiredDefaultMethod.toString().replace("\"null\"", migratedMethodImplementation);
 
-    return originalMethodWithDefaultImpl + implForMigratedMethod;
+    String result = originalMethodWithDefaultImpl;
+    if (methodTree.getBody() == null) {
+      result += implForMigratedMethod;
+    }
+
+    return result;
   }
 
   private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {

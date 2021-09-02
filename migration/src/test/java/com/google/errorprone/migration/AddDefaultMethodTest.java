@@ -102,6 +102,7 @@ public class AddDefaultMethodTest {
         .addInputLines(
             "Foo.java",
             "import io.reactivex.Single;",
+            "",
             "public interface Foo {",
             "  default Single<String> bar(String s) {",
             "    return Single.just(\"1\");",
@@ -115,21 +116,22 @@ public class AddDefaultMethodTest {
             "Foo.java",
             "import io.reactivex.Single;",
             "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
             "public interface Foo {",
             "  @Deprecated",
             "  default io.reactivex.Single<java.lang.String> bar(java.lang.String s) {",
             "    return RxJava2Adapter.monoToSingle(bar_migrated(s));",
             "  }",
-            "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated(String s) {",
-            "    return RxJava2Adapter.singleToMono(bar(s));",
+            "  default Mono<String> bar_migrated(String s) {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
             "  }",
             "",
             "  @Deprecated",
             "  default io.reactivex.Single<java.lang.String> bar(java.lang.Integer i) {",
             "    return RxJava2Adapter.monoToSingle(bar_migrated(i));",
             "  }",
-            "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated(Integer i) {",
-            "    return RxJava2Adapter.singleToMono(bar(i));",
+            "  default Mono<String> bar_migrated(Integer i) {",
+            "    return RxJava2Adapter.singleToMono(Single.just(String.valueOf(i)));",
             "  }",
             "}")
         .doTest();
@@ -787,6 +789,7 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  @Ignore("The BugPattern UnusedMethod takes care of the deletion.")
   public void deleteOldImplMethodTheMigrationInfoIsAvailable() {
     helper
         .addInputLines(
@@ -1308,12 +1311,53 @@ public class AddDefaultMethodTest {
             "Foo.java",
             "import io.reactivex.Single;",
             "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "",
             "public interface Foo {",
             "  @Deprecated",
             "  default io.reactivex.Single<java.lang.String> bar() {",
             "    return RxJava2Adapter.monoToSingle(bar_migrated());",
             "  }",
-            "  default reactor.core.publisher.Mono<java.lang.String> bar_migrated() {",
+            "",
+            "  default Mono<String> bar_migrated() {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void reuseDefaultImplementationWithMultipleReturns() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public interface Foo {",
+            "  default Single<String> bar() {",
+            "    Single.just(\"2\");",
+            "    if (true) {",
+            "      return Single.error(new RuntimeException(\"Error!\"));",
+            "    }",
+            "    return Single.just(\"1\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default io.reactivex.Single<java.lang.String> bar() {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
+            "  }",
+            "",
+            "  default Mono<String> bar_migrated() {",
+            "    Single.just(\"2\");",
+            "    if (true) {",
+            "      return RxJava2Adapter.singleToMono(Single.error(new RuntimeException(\"Error!\")));",
+            "    }",
             "    return RxJava2Adapter.singleToMono(Single.just(\"1\"));",
             "  }",
             "}")
