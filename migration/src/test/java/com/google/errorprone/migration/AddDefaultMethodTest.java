@@ -1485,6 +1485,7 @@ public class AddDefaultMethodTest {
             "    return Integer.valueOf(\"1\");",
             "  }",
             "",
+            "  @Deprecated",
             "  public String baz() {",
             "    return String.valueOf(baz_migrated());",
             "  }",

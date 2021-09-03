@@ -153,7 +153,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       }
 
       String delegatingMethodBody =
-          getBodyForDefaultMethodInInterface(
+          getBodyForMethod(
               methodSymbol.getSimpleName(),
               inlineType(inliner, suitableMigration.get().typeTo()),
               true,
@@ -257,6 +257,14 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
                     a.members()
                         .getSymbolsByName(state.getName(methodTree.getName() + "_migrated"))
                         .iterator()
+                        .hasNext())
+        || interfaces.stream()
+            .map(i -> i.tsym)
+            .noneMatch(
+                a ->
+                    a.members()
+                        .getSymbolsByName(state.getName(methodTree.getName().toString()))
+                        .iterator()
                         .hasNext());
   }
 
@@ -320,7 +328,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     return MatchesSolver.collectNonOverlappingFixes(matches, compilationUnit.endPositions);
   }
 
-  private String getBodyForDefaultMethodInInterface(
+  private String getBodyForMethod(
       Name methodName,
       Type currentType,
       boolean migratingToDesired,
@@ -388,7 +396,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     TreeMaker treeMaker = state.getTreeMaker();
 
     String originalMethodWithDelegationToMigration =
-        getBodyForDefaultMethodInInterface(
+        getBodyForMethod(
             methodSymbol.getSimpleName(),
             inlineType(inliner, currentMigration.typeTo()),
             true,
@@ -398,7 +406,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
     // XXX: Also retrieve the imports and add to the builder?
     String migratedMethodImplementation =
-        getBodyForDefaultMethodInInterface(
+        getBodyForMethod(
             methodSymbol.getSimpleName(),
             methodSymbol.getReturnType(),
             false,
