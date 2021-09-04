@@ -336,9 +336,12 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       VisitorState state,
       MethodTree methodTree) {
     TreeMaker treeMaker = state.getTreeMaker();
+    treeMaker = treeMaker.at(0);
+
     JCCompilationUnit compilationUnit = treeMaker.TopLevel(List.nil());
     TreePath compUnitTreePath = new TreePath(compilationUnit);
 
+    methodName = state.getNames().fromString(methodName.toString());
     if (migratingToDesired) {
       methodName = state.getName(methodName + "_migrated");
     }
@@ -350,13 +353,16 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
             .map(JCVariableDecl.class::cast)
             .map(treeMaker::Ident)
             .collect(List.collector());
+    treeMaker = treeMaker.at(0);
     JCExpression identExpr = treeMaker.Ident(methodName).setType(currentType);
+    treeMaker = treeMaker.at(0);
     JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, params);
     methodInvocation.setType(currentType);
     // XXX: here pass typeparams and params... In the List.nil() ^
 
     TreePath methodInvocationPath = new TreePath(compUnitTreePath, methodInvocation);
 
+    int startPosition = methodInvocation.getStartPosition();
     SimpleEndPosTable endPosTable = new SimpleEndPosTable();
     String fullSource = methodInvocation.toString();
     endPosTable.storeEnd(methodInvocation, fullSource.length());
