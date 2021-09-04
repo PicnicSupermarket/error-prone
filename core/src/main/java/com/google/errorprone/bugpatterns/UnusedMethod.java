@@ -86,7 +86,7 @@ public final class UnusedMethod extends BugChecker implements CompilationUnitTre
           "javax.annotation.PostConstruct",
           "javax.persistence.PostLoad",
           "javax.inject.Inject",
-          "org.springframework.context.annotation.Bean;",
+          "org.springframework.context.annotation.Bean",
           "org.testng.annotations.DataProvider",
           "org.testng.annotations.BeforeMethod",
           "org.testng.annotations.AfterMethod",
@@ -96,7 +96,7 @@ public final class UnusedMethod extends BugChecker implements CompilationUnitTre
           "org.junit.BeforeClass",
           "com.fasterxml.jackson.annotation.JsonCreator",
           "org.aspectj.lang.annotation.Pointcut",
-          "import org.aspectj.lang.annotation.Before;");
+          "org.aspectj.lang.annotation.Before");
 
   /** The set of types exempting a type that is extending or implementing them. */
   private static final ImmutableSet<String> EXEMPTING_SUPER_TYPES = ImmutableSet.of();
