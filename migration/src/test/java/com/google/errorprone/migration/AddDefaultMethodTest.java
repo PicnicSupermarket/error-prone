@@ -1051,6 +1051,46 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  public void nestedClassAlsoMigrated() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "public final class Foo {",
+            "  public String foo() {",
+            "    return \"1\";",
+            "  }",
+            "",
+            "  class NestedClass {",
+            "    public String bar() {",
+            "      return \"10\";",
+            "    }",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public String foo() {",
+            "    return String.valueOf(foo_migrated());",
+            "  }",
+            "  public Integer foo_migrated() {",
+            "    return Integer.valueOf(\"1\");",
+            "  }",
+            "",
+            "  class NestedClass {",
+            "    @Deprecated",
+            "    public String bar() {",
+            "      return String.valueOf(bar_migrated());",
+            "    }",
+            "    public Integer bar_migrated() {",
+            "      return Integer.valueOf(\"10\");",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void rewriteAllReturnStatements() {
     helper
         .addInputLines(
