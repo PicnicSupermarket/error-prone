@@ -27,7 +27,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 
-public class ReturnTreeMatcher implements Matcher<ExpressionTree> {
+public class IsParentReturnTree implements Matcher<ExpressionTree> {
 
   private static final Matcher<ExpressionTree> MOCKITO_METHODS =
       anyOf(

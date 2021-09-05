@@ -1535,4 +1535,32 @@ public class AddDefaultMethodTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nestedSingleWithGenericMigration() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public final class Foo {",
+            "  public <T> Single<Single<T>> foo() {",
+            "    return Single.error(new IllegalArgumentException());",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public <T> Single<Single<T>> foo() {",
+            "    return RxJava2Adapter.monoToSingle(foo_migrated());",
+            "  }",
+            "  public <T> Mono<Single<T>> foo_migrated() {",
+            "    return RxJava2Adapter.singleToMono(Single.error(new IllegalArgumentException()));",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

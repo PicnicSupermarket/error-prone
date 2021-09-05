@@ -16,7 +16,7 @@
 
 package com.google.errorprone.migration_resources;
 
-import com.google.errorprone.matchers.ReturnTreeMatcher;
+import com.google.errorprone.matchers.IsParentReturnTree;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.Matches;
@@ -30,7 +30,7 @@ public class CompletableToMonoMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateCompletableToMono {
       @BeforeTemplate
-      Completable before(@Matches(ReturnTreeMatcher.class) Completable completable) {
+      Completable before(@Matches(IsParentReturnTree.class) Completable completable) {
         return completable;
       }
 
@@ -43,7 +43,7 @@ public class CompletableToMonoMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateMonoToCompletable {
       @BeforeTemplate
-      Mono<Void> before(@Matches(ReturnTreeMatcher.class) Mono<Void> mono) {
+      Mono<Void> before(@Matches(IsParentReturnTree.class) Mono<Void> mono) {
         return mono;
       }
 

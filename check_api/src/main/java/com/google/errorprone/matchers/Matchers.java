@@ -1071,11 +1071,9 @@ public class Matchers {
     return new Returns(returnedMatcher);
   }
 
-  /**
-   * Only statements in blockTree
-   */
+  /** Only statements in blockTree */
   public static Matcher<ExpressionTree> directReturnStatement() {
-    return new ReturnTreeMatcher();
+    return new IsParentReturnTree();
   }
 
   /**

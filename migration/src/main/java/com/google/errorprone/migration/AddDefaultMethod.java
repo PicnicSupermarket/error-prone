@@ -131,7 +131,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     }
 
     Type desiredReturnType =
-        getDesiredReturnTypeForMigration(state, inliner, methodSymbol, suitableMigration.get());
+        getDesiredReturnTypeForMigration(methodSymbol, suitableMigration.get(), inliner, state);
 
     if (!enclosingClassSymbol.isInterface()
         && isInterfaceAlreadyMigratedOrNotImplementingOne(
@@ -154,12 +154,12 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
       String delegatingMethodBody =
           getBodyForMethod(
+              methodTree,
               methodSymbol.getSimpleName(),
               inlineType(inliner, suitableMigration.get().typeTo()),
               true,
               suitableMigration.get().transformTo(),
-              state,
-              methodTree);
+              state);
 
       SuggestedFix fix =
           Stream.of(
@@ -223,24 +223,28 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   }
 
   private Type getDesiredReturnTypeForMigration(
-      VisitorState state,
-      Inliner inliner,
       MethodSymbol methodSymbol,
-      MigrationCodeTransformer suitableMigration) {
+      MigrationCodeTransformer suitableMigration,
+      Inliner inliner,
+      VisitorState state) {
     Type desiredReturnType = inlineType(inliner, suitableMigration.typeTo());
-    if (desiredReturnType != null
-        && !desiredReturnType.getTypeArguments().isEmpty()
-        && methodSymbol.type
-            instanceof MethodType) { // Type$ForAll cannot be  cast to Type$MethodType.
-      List<Type> argumentsOfDesiredReturnType =
-          ((MethodType) methodSymbol.type).restype.getTypeArguments();
-      desiredReturnType =
-          state
-              .getTypes()
-              .subst(
-                  desiredReturnType,
-                  desiredReturnType.getTypeArguments(),
-                  argumentsOfDesiredReturnType);
+    if (desiredReturnType.getTypeArguments() == null) {
+      return desiredReturnType;
+    }
+
+    List<Type> typeArguments = null;
+    if (!desiredReturnType.getTypeArguments().isEmpty()
+        && methodSymbol.type instanceof MethodType) {
+      typeArguments = ((MethodType) methodSymbol.type).restype.getTypeArguments();
+    } else if (methodSymbol.type instanceof Type.ForAll) {
+      typeArguments =
+          ((MethodType) ((Type.ForAll) methodSymbol.type).qtype).restype.getTypeArguments();
+    }
+
+    if (typeArguments != null) {
+      return state
+          .getTypes()
+          .subst(desiredReturnType, desiredReturnType.getTypeArguments(), typeArguments);
     }
     return desiredReturnType;
   }
@@ -329,12 +333,12 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   }
 
   private String getBodyForMethod(
+      MethodTree methodTree,
       Name methodName,
       Type currentType,
       boolean migratingToDesired,
       CodeTransformer transformer,
-      VisitorState state,
-      MethodTree methodTree) {
+      VisitorState state) {
     TreeMaker treeMaker = state.getTreeMaker();
     treeMaker = treeMaker.at(0);
 
@@ -362,7 +366,6 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
     TreePath methodInvocationPath = new TreePath(compUnitTreePath, methodInvocation);
 
-    int startPosition = methodInvocation.getStartPosition();
     SimpleEndPosTable endPosTable = new SimpleEndPosTable();
     String fullSource = methodInvocation.toString();
     endPosTable.storeEnd(methodInvocation, fullSource.length());
@@ -403,22 +406,22 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
     String originalMethodWithDelegationToMigration =
         getBodyForMethod(
+            methodTree,
             methodSymbol.getSimpleName(),
             inlineType(inliner, currentMigration.typeTo()),
             true,
             currentMigration.transformTo(),
-            state,
-            methodTree);
+            state);
 
     // XXX: Also retrieve the imports and add to the builder?
     String migratedMethodImplementation =
         getBodyForMethod(
+            methodTree,
             methodSymbol.getSimpleName(),
             methodSymbol.getReturnType(),
             false,
             currentMigration.transformFrom(),
-            state,
-            methodTree);
+            state);
 
     MethodSymbol undesiredDefaultMethodSymbol = methodSymbol.clone(methodSymbol.owner);
     undesiredDefaultMethodSymbol.params = methodSymbol.params;
@@ -431,7 +434,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
         originalMethodWithDefaultImpl.replace("\"null\"", originalMethodWithDelegationToMigration);
 
     Type methodTypeWithReturnType =
-        getMethodTypeWithNewReturnType(state.context, desiredReturnType);
+        getMethodTypeWithNewReturnType(desiredReturnType, state.context);
 
     undesiredDefaultMethodSymbol.name =
         undesiredDefaultMethodSymbol.name.append(state.getName("_migrated"));
@@ -458,7 +461,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
     return result;
   }
 
-  private Type getMethodTypeWithNewReturnType(Context context, Type newReturnType) {
+  private Type getMethodTypeWithNewReturnType(Type newReturnType, Context context) {
     Symtab instance = Symtab.instance(context);
     return new MethodType(List.nil(), newReturnType, List.nil(), instance.methodClass);
   }

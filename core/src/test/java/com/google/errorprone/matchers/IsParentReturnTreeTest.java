@@ -20,10 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
-import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.ReturnTree;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +30,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class ReturnTreeMatcherTest extends CompilerBasedAbstractTest {
+public class IsParentReturnTreeTest extends CompilerBasedAbstractTest {
   private final List<ScannerTest> tests = new ArrayList<>();
 
   @After
@@ -48,7 +45,7 @@ public class ReturnTreeMatcherTest extends CompilerBasedAbstractTest {
     writeFile(
         "A.java", "public class A {", "  public String foo() {", "    return \"\";", "  }", "}");
 
-    assertCompiles(isDirectReturnTree(/* shouldMatch= */ true, new ReturnTreeMatcher()));
+    assertCompiles(isDirectReturnTree(/* shouldMatch= */ true, new IsParentReturnTree()));
   }
 
   @Test
@@ -98,7 +95,7 @@ public class ReturnTreeMatcherTest extends CompilerBasedAbstractTest {
         "  }",
         "}");
 
-    assertCompiles(isDirectReturnTree(/* shouldMatch= */ true, new ReturnTreeMatcher()));
+    assertCompiles(isDirectReturnTree(/* shouldMatch= */ true, new IsParentReturnTree()));
   }
 
   private abstract static class ScannerTest extends Scanner {
