@@ -317,9 +317,13 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
     java.util.List<Description> matches = new ArrayList<>();
     migrationCodeTransformer.transformFrom().apply(methodPath, state.context, matches::add);
 
-    if (matches.isEmpty()) {
-      return Description.NO_MATCH;
-    }
-    return matches.get(0);
+    //    if (matches.isEmpty()) {
+    //      return Description.NO_MATCH;
+    //    }
+
+    return describeMatch(
+        tree, MatchesSolver.collectNonOverlappingFixes(matches, compilationUnit.endPositions));
+    // matches.get(0) is not OK, they must return all.
+    //    return matches.get(0);
   }
 }
