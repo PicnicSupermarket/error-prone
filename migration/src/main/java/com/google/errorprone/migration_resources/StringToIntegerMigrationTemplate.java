@@ -16,7 +16,7 @@
 
 package com.google.errorprone.migration_resources;
 
-import com.google.errorprone.matchers.ReturnTreeMatcher;
+import com.google.errorprone.matchers.IsParentReturnTree;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.Matches;
@@ -57,7 +57,7 @@ public final class StringToIntegerMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateStringToIntegerSecond {
       @BeforeTemplate
-      String before(@Matches(ReturnTreeMatcher.class) String s) {
+      String before(@Matches(IsParentReturnTree.class) String s) {
         return s;
       }
 
@@ -70,7 +70,7 @@ public final class StringToIntegerMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateIntegerToStringSecond {
       @BeforeTemplate
-      Integer before(@Matches(ReturnTreeMatcher.class) Integer s) {
+      Integer before(@Matches(IsParentReturnTree.class) Integer s) {
         return s;
       }
 

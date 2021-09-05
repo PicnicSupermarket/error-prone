@@ -68,7 +68,6 @@ import java.util.stream.Collectors;
     summary = "Migrate Mockito statements that call a method annotated with `@InlineMe`.",
     severity = WARNING)
 public class InlineMockitoStatements extends BugChecker implements MethodInvocationTreeMatcher {
-  private static final long serialVersionUID = 1L;
 
   private static final String INLINE_ME = "com.google.errorprone.annotations.InlineMe";
 
@@ -98,16 +97,16 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
       }
 
       ImmutableList<? extends ExpressionTree> thenReturnArguments =
-          getThenReturnArguments(state, grandParentPath);
+          getThenReturnArguments(grandParentPath, state);
       ExpressionTree whenArgument = Iterables.getOnlyElement(tree.getArguments());
       Symbol whenSymbol = getSymbol(whenArgument);
 
-      boolean methodAlreadyMigrated = isMethodAlreadyMigrated(state, whenSymbol);
+      boolean methodAlreadyMigrated = isMethodAlreadyMigrated(whenSymbol, state);
 
       if (methodWithoutInlineOrMigratedReplacement(whenSymbol, state)
           || !(whenArgument instanceof MethodInvocationTree)
           || methodAlreadyMigrated
-          || isOfTypeMockitoStubbingAnswer(state, thenReturnArguments)) {
+          || isOfTypeMockitoStubbingAnswer(thenReturnArguments, state)) {
         return Description.NO_MATCH;
       }
 
@@ -121,7 +120,6 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           tree,
           whenArgument,
           whenSymbol,
-          grandParent,
           getDescriptionsForArguments(state, suitableMigration.get(), thenReturnArguments),
           state);
     } else if (MOCKITO_MATCHER_DO_WHEN.matches(tree, state)) {
@@ -132,7 +130,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
       Tree parent = state.getPath().getParentPath().getLeaf();
       Symbol whenSymbol = getSymbol(parent);
 
-      boolean methodAlreadyMigrated = isMethodAlreadyMigrated(state, whenSymbol);
+      boolean methodAlreadyMigrated = isMethodAlreadyMigrated(whenSymbol, state);
 
       Optional<MigrationCodeTransformer> suitableMigration =
           getSuitableMigrationForMethod(whenSymbol, migrationDefinitions, state);
@@ -148,7 +146,6 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
           tree,
           grandParent,
           whenSymbol,
-          grandParent,
           getDescriptionsForArguments(state, suitableMigration.get(), arguments),
           state);
     } else if (MOCKITO_VERIFY.matches(tree, state)) {
@@ -156,8 +153,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
       if (methodWithoutInlineOrMigratedReplacement(symbol, state)) {
         return Description.NO_MATCH;
       }
-      return getDescriptionForMigratedMethod(
-          tree, grandParent, symbol, null, new ArrayList<>(), state);
+      return getDescriptionForMigratedMethod(tree, grandParent, symbol, new ArrayList<>(), state);
     }
     return Description.NO_MATCH;
   }
@@ -167,7 +163,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
    * This method returns all the arguments of the adjacent `thenReturn` statements.
    */
   private ImmutableList<? extends ExpressionTree> getThenReturnArguments(
-      VisitorState state, TreePath grandParentPath) {
+      TreePath grandParentPath, VisitorState state) {
     List<MethodInvocationTree> thenReturns = new ArrayList<>();
     TreePath currentPath = grandParentPath;
     do {
@@ -187,7 +183,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
    * inlining won't work. Therefore, exclude these rewrites.
    */
   private boolean isOfTypeMockitoStubbingAnswer(
-      VisitorState state, List<? extends ExpressionTree> thenReturnArguments) {
+      List<? extends ExpressionTree> thenReturnArguments, VisitorState state) {
     Type mockitoStubbingAnswerType = state.getTypeFromString("org.mockito.stubbing.Answer");
     return thenReturnArguments.stream()
         .anyMatch(
@@ -197,9 +193,10 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
                         ASTHelpers.getType(arg), mockitoStubbingAnswerType, state));
   }
 
-  private boolean isMethodAlreadyMigrated(VisitorState state, Symbol whenSymbol) {
+  private boolean isMethodAlreadyMigrated(Symbol whenSymbol, VisitorState state) {
     TreePath pathToEnclosingMethod = state.findPathToEnclosing(MethodTree.class);
-    HasMember scan = new HasMember(whenSymbol.getQualifiedName() + "_migrated");
+    DoesPathContainMemberSelect scan =
+        new DoesPathContainMemberSelect(whenSymbol.getQualifiedName() + "_migrated");
     if (pathToEnclosingMethod == null) {
       return false;
     }
@@ -208,7 +205,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
   }
 
   /** AST Visitor that matches identifiers in a Tree */
-  private static class HasMember extends TreePathScanner<Boolean, Void> {
+  private static class DoesPathContainMemberSelect extends TreePathScanner<Boolean, Void> {
     private boolean isMigrated = false;
     private final String name;
 
@@ -216,7 +213,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
       return isMigrated;
     }
 
-    public HasMember(String s) {
+    public DoesPathContainMemberSelect(String s) {
       name = s;
     }
 
@@ -231,14 +228,10 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
     }
   }
 
-  //  XXX: If you want to also have the original method, use this line:
-  //    descriptions.add(describeMatch(originalTree, SuggestedFix.prefixWith(originalTree, suffix +
-  // ";\n")));
   private Description getDescriptionForMigratedMethod(
       MethodInvocationTree originalTree,
       Tree grandParent,
       Symbol whenSymbol,
-      Tree suffix,
       List<Description> descriptions,
       VisitorState state) {
     SuggestedFix.Builder fix = SuggestedFix.builder();
@@ -317,13 +310,7 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
     java.util.List<Description> matches = new ArrayList<>();
     migrationCodeTransformer.transformFrom().apply(methodPath, state.context, matches::add);
 
-    //    if (matches.isEmpty()) {
-    //      return Description.NO_MATCH;
-    //    }
-
     return describeMatch(
         tree, MatchesSolver.collectNonOverlappingFixes(matches, compilationUnit.endPositions));
-    // matches.get(0) is not OK, they must return all.
-    //    return matches.get(0);
   }
 }

@@ -16,7 +16,7 @@
 
 package com.google.errorprone.migration_resources;
 
-import com.google.errorprone.matchers.ReturnTreeMatcher;
+import com.google.errorprone.matchers.IsParentReturnTree;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.Matches;
@@ -30,7 +30,7 @@ public class MaybeToMonoMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateMaybeToMono<T> {
       @BeforeTemplate
-      Maybe<T> before(@Matches(ReturnTreeMatcher.class) Maybe<T> maybe) {
+      Maybe<T> before(@Matches(IsParentReturnTree.class) Maybe<T> maybe) {
         return maybe;
       }
 
@@ -43,7 +43,7 @@ public class MaybeToMonoMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateMonoToMaybe<T> {
       @BeforeTemplate
-      Mono<T> before(@Matches(ReturnTreeMatcher.class) Mono<T> mono) {
+      Mono<T> before(@Matches(IsParentReturnTree.class) Mono<T> mono) {
         return mono;
       }
 

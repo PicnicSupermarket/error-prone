@@ -16,7 +16,7 @@
 
 package com.google.errorprone.migration_resources;
 
-import com.google.errorprone.matchers.ReturnTreeMatcher;
+import com.google.errorprone.matchers.IsParentReturnTree;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
 import com.google.errorprone.refaster.annotation.Matches;
@@ -32,7 +32,7 @@ public final class FlowableToFluxMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateFlowableToFlux<T> {
       @BeforeTemplate
-      Flowable<T> before(@Matches(ReturnTreeMatcher.class) Flowable<T> flowable) {
+      Flowable<T> before(@Matches(IsParentReturnTree.class) Flowable<T> flowable) {
         return flowable;
       }
 
@@ -45,7 +45,7 @@ public final class FlowableToFluxMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateFluxToFlowable<T> {
       @BeforeTemplate
-      Flux<T> before(@Matches(ReturnTreeMatcher.class) Flux<T> flux) {
+      Flux<T> before(@Matches(IsParentReturnTree.class) Flux<T> flux) {
         return flux;
       }
 

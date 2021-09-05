@@ -16,7 +16,7 @@
 
 package com.google.errorprone.migration_resources;
 
-import com.google.errorprone.matchers.ReturnTreeMatcher;
+import com.google.errorprone.matchers.IsParentReturnTree;
 import com.google.errorprone.refaster.ImportPolicy;
 import com.google.errorprone.refaster.annotation.AfterTemplate;
 import com.google.errorprone.refaster.annotation.BeforeTemplate;
@@ -35,7 +35,7 @@ public final class ObservableToFluxMigrationTemplate {
     @MigrationTemplate(value = false)
     static final class MigrateObservableToFlux<T> {
       @BeforeTemplate
-      Observable<T> before(@Matches(ReturnTreeMatcher.class) Observable<T> observable) {
+      Observable<T> before(@Matches(IsParentReturnTree.class) Observable<T> observable) {
         return observable;
       }
 
@@ -49,7 +49,7 @@ public final class ObservableToFluxMigrationTemplate {
     @MigrationTemplate(value = true)
     static final class MigrateFluxToObservable<T> {
       @BeforeTemplate
-      Flux<T> before(@Matches(ReturnTreeMatcher.class) Flux<T> flux) {
+      Flux<T> before(@Matches(IsParentReturnTree.class) Flux<T> flux) {
         return flux;
       }
 
