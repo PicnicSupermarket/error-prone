@@ -397,4 +397,9 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   public void transformEnum() throws IOException {
     runTest("TransformEnumTemplate");
   }
+
+  @Test
+  public void matchLambdaExpression() throws IOException {
+    runTest("MatchLambdaTemplate");
+  }
 }
