@@ -15,7 +15,8 @@
   limitations under the License.
   -->
 
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <name>Error Prone parent POM</name>
@@ -24,7 +25,9 @@
   <version>HEAD-SNAPSHOT</version>
   <packaging>pom</packaging>
 
-  <description>Error Prone is a static analysis tool for Java that catches common programming mistakes at compile-time.</description>
+  <description>Error Prone is a static analysis tool for Java that catches common programming mistakes at
+    compile-time.
+  </description>
   <url>https://errorprone.info</url>
 
   <properties>
@@ -110,7 +113,8 @@
           <artifactId>maven-shade-plugin</artifactId>
           <version>2.1</version>
           <configuration>
-            <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+            <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml
+            </dependencyReducedPomLocation>
           </configuration>
         </plugin>
       </plugins>
@@ -158,7 +162,7 @@
         <configuration>
           <source>11</source>
           <target>11</target>
-          <parameters />
+          <parameters/>
           <compilerArgs>
             <arg>--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
             <arg>--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
@@ -297,4 +301,13 @@
       </build>
     </profile>
   </profiles>
+
+  <dependencies>
+    <dependency>
+      <groupId>tech.picnic.error-prone-support</groupId>
+      <artifactId>migration-util</artifactId>
+      <version>0.0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
 </project>
