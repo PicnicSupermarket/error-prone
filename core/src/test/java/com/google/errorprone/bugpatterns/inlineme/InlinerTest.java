@@ -193,7 +193,7 @@ public class InlinerTest {
   }
 
   @Test
-  public void migrateLambdaInClass() {
+  public void migrateLambdaPassedAsParam() {
     refactoringTestHelper
         .addInputLines(
             "Client.java",
@@ -264,6 +264,31 @@ public class InlinerTest {
             "  }",
             "  public Mono<String> bar_migrated(Integer i) {",
             "    return RxJava2Adapter.singleToMono(Single.just(String.valueOf(i)));",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void rewriteLambda() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  ",
+            "  public void baz() {",
+            "    ImmutableList.of(\"1\", \"2\").stream().map(i -> bar(i));",
             "  }",
             "}")
         .expectUnchanged()

@@ -147,6 +147,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       if (!enclosingClassSymbol.getInterfaces().isEmpty()
           && isAlreadyMigratedInClass
           && annotatedOnlyWithOverrideAndDeprecated) {
+        // Here we did delete methods, if it was safe to do so. The Unused bugpattern now does this.
         return Description.NO_MATCH;
       } else if (isAlreadyMigratedInClass) {
         return Description.NO_MATCH;
