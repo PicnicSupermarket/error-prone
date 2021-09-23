@@ -27,10 +27,6 @@ public class MatchLambdaTemplate<I, O> {
     return i -> function.apply(i);
   }
 
-  Function<I, O> before2(Function<I, O> function) {
-    return function::apply; // This doesnt work.
-  }
-
   @AfterTemplate
   Function<I, O> after(Function<I, O> function) {
     return function;
