@@ -317,7 +317,6 @@
             <groupId>tech.picnic.error-prone-support</groupId>
             <artifactId>migration-util</artifactId>
             <version>0.0.1-SNAPSHOT</version>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>
