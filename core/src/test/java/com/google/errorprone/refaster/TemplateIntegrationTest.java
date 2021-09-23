@@ -404,4 +404,9 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   public void matchLambdaExpression() throws IOException {
     runTest("MatchLambdaTemplate");
   }
+
+  @Test
+  public void matchNestedLambdaExpression() throws IOException {
+    runTest("MatchNestedLambdaTemplate");
+  }
 }
