@@ -53,12 +53,17 @@ import com.google.errorprone.util.MoreAnnotations;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.HashMap;
@@ -78,7 +83,9 @@ import javax.annotation.Nullable;
     severity = WARNING,
     tags = Inliner.FINDING_TAG)
 public final class Inliner extends BugChecker
-    implements MethodInvocationTreeMatcher, NewClassTreeMatcher {
+    implements MethodInvocationTreeMatcher,
+        NewClassTreeMatcher,
+        BugChecker.MemberReferenceTreeMatcher {
 
   public static final String FINDING_TAG = "JavaInlineMe";
 
@@ -160,6 +167,32 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
+  @Override
+  public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
+    MethodSymbol symbol = getSymbol(tree);
+    MethodTree enclosingMethod = findEnclosingMethod(state);
+    if (!hasAnnotation(symbol, INLINE_ME, state)
+        || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
+      return Description.NO_MATCH;
+    }
+
+    VariableTree enclosingIdentifier = findEnclosingIdentifier(tree, state);
+    String name = enclosingIdentifier == null ? "ident" : enclosingIdentifier.getName().toString();
+    String receiverString =
+        getReceiver(tree).toString().startsWith("this") ? "" : getReceiver(tree).toString();
+
+    Description match =
+        match(tree, symbol, ImmutableList.of(name), receiverString, getReceiver(tree), state);
+
+    SuggestedFix fix =
+        Stream.of(SuggestedFix.prefixWith(tree, "ident -> "), (SuggestedFix) match.fixes.get(0))
+            .reduce(
+                SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
+            .build();
+
+    return describeMatch(tree, fix);
+  }
+
   /**
    * Checks whether the enclosing method is a _migrated method *and* in an interface. There is an
    * extra check, to ensure that the check is looking for the same method name.
@@ -169,13 +202,15 @@ public final class Inliner extends BugChecker
    * interface, the call to B was not migrated to B_migrated.
    */
   private boolean isEnclosingMethodAnAlreadyMigratedInterface(
-      MethodInvocationTree currentMethodInvocation,
-      MethodTree enclosingMethod,
-      VisitorState state) {
-    String migratedNameOfCurrentMethodInvocation =
-        currentMethodInvocation.getMethodSelect().toString() + "_migrated";
+      ExpressionTree currentMethodInvocation, MethodTree enclosingMethod, VisitorState state) {
+    ExpressionTree methodSelect =
+        currentMethodInvocation instanceof MethodInvocationTree
+            ? ((MethodInvocationTree) currentMethodInvocation).getMethodSelect()
+            : ((MemberReferenceTree) currentMethodInvocation).getQualifierExpression();
+
+    String migratedNameOfCurrentMethodInvocation = methodSelect.toString() + "_migrated";
     return enclosingMethod != null
-        && (currentMethodInvocation.getMethodSelect().equals(enclosingMethod.getName())
+        && (methodSelect.equals(enclosingMethod.getName())
             || migratedNameOfCurrentMethodInvocation.equals(enclosingMethod.getName().toString()))
         && enclosingMethod.getName().toString().contains("_migrated")
         && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
@@ -323,13 +358,43 @@ public final class Inliner extends BugChecker
 
     // If there are no imports to add, then there's no new dependencies, so we can verify that it
     // compilesWithFix(); if there are new imports to add, then we can't validate that it compiles.
-    if (fix.getImportsToAdd().isEmpty() && !allowBreakingChanges) {
+    if (fix.getImportsToAdd().isEmpty()
+        && !allowBreakingChanges
+        && !(tree instanceof MemberReferenceTree)) {
       return SuggestedFixes.compilesWithFix(fix, state)
           ? describe(tree, fix, api)
           : Description.NO_MATCH;
     }
 
     return describe(tree, fix, api);
+  }
+
+  @Nullable
+  private static VariableTree findEnclosingIdentifier(
+      MemberReferenceTree originalNode, VisitorState state) {
+    Symbol identifierSymbol = getSymbol(originalNode);
+    //    if (!(identifierSymbol instanceof Symbol.VarSymbol)) {
+    //      return null;
+    //    }
+    if (state.findEnclosing(LambdaExpressionTree.class) == null) {
+      return null;
+    }
+    return state
+        .findEnclosing(LambdaExpressionTree.class)
+        .accept(
+            new TreeScanner<VariableTree, Void>() {
+              @Override
+              public VariableTree visitVariable(VariableTree node, Void p) {
+                //                return getSymbol(node).equals(identifierSymbol) ? node : null;
+                return node;
+              }
+
+              @Override
+              public VariableTree reduce(VariableTree r1, VariableTree r2) {
+                return r1 != null ? r1 : r2;
+              }
+            },
+            null);
   }
 
   private static ImmutableList<String> getStrings(Attribute.Compound attribute, String name) {
