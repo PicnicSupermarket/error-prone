@@ -103,7 +103,8 @@ public final class Inliner extends BugChecker
       anyOf(
           staticMethod().onClass("org.mockito.Mockito").named("when"),
           instanceMethod().onDescendantOf("org.mockito.stubbing.Stubber").named("when"),
-          staticMethod().onClass("org.mockito.Mockito").named("verify"));
+          staticMethod().onClass("org.mockito.Mockito").named("verify"),
+          staticMethod().onClass("org.testng.Assert").named("assertSame"));
 
   private final ImmutableSet<String> apiPrefixes;
   private final boolean skipCallsitesWithComments;

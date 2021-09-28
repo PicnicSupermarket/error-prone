@@ -839,6 +839,8 @@ public class Matchers {
     return methodReturns(isSameType(returnType));
   }
 
+
+
   /** Match a method that returns a non-primitive type. */
   public static Matcher<MethodTree> methodReturnsNonPrimitiveType() {
     return methodReturns(not(isPrimitiveOrVoidType()));

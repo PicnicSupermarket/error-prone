@@ -21,7 +21,9 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.scanner.Scanner;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
+import com.sun.source.tree.MemberSelectTree;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.After;
@@ -30,17 +32,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class IsMethodReferenceTest extends CompilerBasedAbstractTest {
+public class IsMethodReferenceOrLambdaHasReturnStatementTest extends CompilerBasedAbstractTest {
   private final List<ScannerTest> tests = new ArrayList<>();
-
-  //  private List<String> foo() {
-  //    return ImmutableList.of(1, 2).stream().map(String::valueOf).collect(Collectors.toList());
-  //  }
-  //
-  //  private List<String> bar() {
-  //    return ImmutableList.of(1, 2).stream().map(e ->
-  // String.valueOf(e)).collect(Collectors.toList());
-  //  }
 
   @After
   public void tearDown() {
@@ -54,14 +47,35 @@ public class IsMethodReferenceTest extends CompilerBasedAbstractTest {
     writeFile(
         "A.java",
         "import com.google.common.collect.ImmutableList;",
-        "import java.util.List",
+        "import java.util.stream.Collectors;",
+        "import java.util.List;",
         "public class A {",
         "  public List<String> foo() {",
         "    return ImmutableList.of(1, 2).stream().map(String::valueOf).collect(Collectors.toList());",
         "  }",
         "}");
 
-    assertCompiles(isFunctionMethodReference(/* shouldMatch= */ true, new IsMethodReference()));
+    assertCompiles(
+        isFunctionMethodReference(
+            /* shouldMatch= */ true, new IsMethodReferenceOrLambdaHasReturnStatement()));
+  }
+
+  @Test
+  public void hasReturnStatement() {
+    writeFile(
+        "A.java",
+        "import com.google.common.collect.ImmutableList;",
+        "import java.util.stream.Collectors;",
+        "import java.util.List;",
+        "public class A {",
+        "  public List<String> bar() {",
+        "    return ImmutableList.of(1, 2).stream().map(e -> { if (true) { return \"1\"; } else { return String.valueOf(e); } } ).collect(Collectors.toList());",
+        "  }",
+        "}");
+
+    assertCompiles(
+        isFunctionMethodReference(
+            /* shouldMatch= */ true, new IsMethodReferenceOrLambdaHasReturnStatement()));
   }
 
   @Test
@@ -69,14 +83,17 @@ public class IsMethodReferenceTest extends CompilerBasedAbstractTest {
     writeFile(
         "A.java",
         "import com.google.common.collect.ImmutableList;",
-        "import java.util.List",
+        "import java.util.stream.Collectors;",
+        "import java.util.List;",
         "public class A {",
         "  public List<String> bar() {",
         "    return ImmutableList.of(1, 2).stream().map(e -> String.valueOf(e)).collect(Collectors.toList());",
         "  }",
         "}");
 
-    assertCompiles(isFunctionMethodReference(/* shouldMatch= */ false, new IsMethodReference()));
+    assertCompiles(
+        isFunctionMethodReference(
+            /* shouldMatch= */ false, new IsMethodReferenceOrLambdaHasReturnStatement()));
   }
 
   private abstract static class ScannerTest extends Scanner {
@@ -90,12 +107,30 @@ public class IsMethodReferenceTest extends CompilerBasedAbstractTest {
           private boolean matched = false;
 
           @Override
-          public Void visitReturn(ReturnTree node, VisitorState visitorState) {
+          public Void visitMemberReference(MemberReferenceTree node, VisitorState visitorState) {
             visitorState = visitorState.withPath(getCurrentPath());
-            if (toMatch.matches(node.getExpression(), visitorState)) {
+            if (toMatch.matches(node, visitorState)) {
               matched = true;
             }
-            return super.visitReturn(node, visitorState);
+            return super.visitMemberReference(node, visitorState);
+          }
+
+          @Override
+          public Void visitLambdaExpression(LambdaExpressionTree node, VisitorState visitorState) {
+            visitorState = visitorState.withPath(getCurrentPath());
+            if (toMatch.matches(node, visitorState)) {
+              matched = true;
+            }
+            return super.visitLambdaExpression(node, visitorState);
+          }
+
+          @Override
+          public Void visitMemberSelect(MemberSelectTree node, VisitorState visitorState) {
+            visitorState = visitorState.withPath(getCurrentPath());
+            if (toMatch.matches(node, visitorState)) {
+              matched = true;
+            }
+            return super.visitMemberSelect(node, visitorState);
           }
 
           @Override
