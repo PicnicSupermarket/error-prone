@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
-import static com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import static com.google.errorprone.matchers.Matchers.anyOf;
 import static com.google.errorprone.matchers.method.MethodMatchers.instanceMethod;
 import static com.google.errorprone.matchers.method.MethodMatchers.staticMethod;
@@ -44,7 +43,6 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.NewClassTreeMatcher;
@@ -56,17 +54,19 @@ import com.google.errorprone.util.MoreAnnotations;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import com.sun.tools.javac.util.Name;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -85,12 +85,15 @@ import javax.annotation.Nullable;
     severity = WARNING,
     tags = Inliner.FINDING_TAG)
 public final class Inliner extends BugChecker
-    implements MethodInvocationTreeMatcher, MethodTreeMatcher, NewClassTreeMatcher {
+    implements MethodInvocationTreeMatcher,
+        NewClassTreeMatcher,
+        BugChecker.MemberReferenceTreeMatcher {
 
   public static final String FINDING_TAG = "JavaInlineMe";
 
   static final String PREFIX_FLAG = "InlineMe:Prefix";
   static final String SKIP_COMMENTS_FLAG = "InlineMe:SkipInliningsWithComments";
+  static final String ALLOW_BREAKING_CHANGES_FLAG = "InlineMe:AllowBreakingChanges";
 
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
@@ -109,12 +112,14 @@ public final class Inliner extends BugChecker
   private final ImmutableSet<String> apiPrefixes;
   private final boolean skipCallsitesWithComments;
   private final boolean checkFixCompiles;
+  private final boolean allowBreakingChanges;
 
   public Inliner(ErrorProneFlags flags) {
     this.apiPrefixes =
         ImmutableSet.copyOf(flags.getSet(PREFIX_FLAG).orElse(ImmutableSet.<String>of()));
     this.skipCallsitesWithComments = flags.getBoolean(SKIP_COMMENTS_FLAG).orElse(true);
     this.checkFixCompiles = flags.getBoolean(CHECK_FIX_COMPILES).orElse(false);
+    this.allowBreakingChanges = flags.getBoolean(ALLOW_BREAKING_CHANGES_FLAG).orElse(false);
   }
 
   @Override
@@ -166,61 +171,29 @@ public final class Inliner extends BugChecker
     return match(tree, symbol, callingVars, receiverString, receiver, state);
   }
 
-  @Override
-  public Description matchMethod(MethodTree tree, VisitorState state) {
+  public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
-    Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) symbol.owner;
-    if (classSymbol.getInterfaces().isEmpty() || hasAnnotation(tree, InlineMe.class, state)) {
+    MethodTree enclosingMethod = findEnclosingMethod(state);
+    if (!hasAnnotation(symbol, INLINE_ME, state)
+        || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
       return Description.NO_MATCH;
     }
 
-    ImmutableList<Iterable<Symbol>> iterables =
-        classSymbol.getInterfaces().stream()
-            .map(i -> i.tsym)
-            .map(a -> a.members().getSymbolsByName((Name) tree.getName()))
-            .collect(toImmutableList());
+    VariableTree enclosingIdentifier = findEnclosingIdentifier(tree, state);
+    String name = enclosingIdentifier == null ? "ident" : enclosingIdentifier.getName().toString();
+    String receiverString =
+        getReceiver(tree).toString().startsWith("this") ? "" : getReceiver(tree).toString();
 
-    ImmutableList<Attribute.Compound> collect =
-        iterables.stream()
-            .map(i -> i.iterator().next().getAnnotationMirrors())
-            .flatMap(Collection::stream)
-            .filter(i -> i.getAnnotationType().toString().equals(INLINE_ME))
-            .collect(toImmutableList());
+    Description match =
+        match(tree, symbol, ImmutableList.of(name), receiverString, getReceiver(tree), state);
 
-    if (collect.isEmpty()) {
-      return Description.NO_MATCH;
-    } else {
-      SuggestedFix.Builder builder =
-          SuggestedFix.builder().addImport(InlineMe.class.getCanonicalName());
-      builder.prefixWith(tree, collect.get(0) + "\n");
-      return describeMatch(tree, builder.build());
-      // XXX: There should be a better way to add the annotation instead of just using
-      // `collect.get(0)`.
-      //      Attribute replacement =
-      // collect.get(0).member(Names.instance(state.context).fromString("replacement"));
-      //      AnnotationTree annotationTree =
-      //              ASTHelpers.getAnnotationWithSimpleName(tree.getModifiers().getAnnotations(),
-      // InlineMe.class.getSimpleName());
-      //      SuggestedFix.Builder replacement1 =
-      // SuggestedFixes.addValuesToAnnotationArgument(annotationTree, "replacement",
-      // ImmutableList.of(replacement.getValue().toString()), state);
-      //      return describeMatch(tree, replacement1.build());
+    SuggestedFix fix =
+        Stream.of(SuggestedFix.prefixWith(tree, "ident -> "), (SuggestedFix) match.fixes.get(0))
+            .reduce(
+                SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
+            .build();
 
-      //            AnnotationTree inlineMe =
-      // getAnnotationWithSimpleName(tree.getModifiers().getAnnotations(), "InlineMe");
-      //      Attribute.Compound annotation =
-      //              ASTHelpers.getSymbol(tree).getRawAttributes().stream()
-      //                      .filter(a ->
-      // a.type.tsym.getQualifiedName().contentEquals(VALIDATION_DISABLED))
-      //                      .collect(onlyElement());
-      //      String stringReplacement = Iterables.getOnlyElement(getStrings(annotation,
-      // "replacement"));
-      //      InlinabilityResult inlinabilityResult =
-      //              InlinabilityResult.forMethod(tree, state, true);
-      //      //      XXX: This is the right way of creating the annotation
-      //      InlineMeData.buildExpectedInlineMeAnnotation(state, inlinabilityResult.body())
-      //              .buildAnnotation();
-    }
+    return describeMatch(tree, fix);
   }
 
   /**
@@ -232,13 +205,15 @@ public final class Inliner extends BugChecker
    * interface, the call to B was not migrated to B_migrated.
    */
   private boolean isEnclosingMethodAnAlreadyMigratedInterface(
-      MethodInvocationTree currentMethodInvocation,
-      MethodTree enclosingMethod,
-      VisitorState state) {
-    String migratedNameOfCurrentMethodInvocation =
-        currentMethodInvocation.getMethodSelect().toString() + "_migrated";
+      ExpressionTree currentMethodInvocation, MethodTree enclosingMethod, VisitorState state) {
+    ExpressionTree methodSelect =
+        currentMethodInvocation instanceof MethodInvocationTree
+            ? ((MethodInvocationTree) currentMethodInvocation).getMethodSelect()
+            : ((MemberReferenceTree) currentMethodInvocation).getQualifierExpression();
+
+    String migratedNameOfCurrentMethodInvocation = methodSelect.toString() + "_migrated";
     return enclosingMethod != null
-        && (currentMethodInvocation.getMethodSelect().equals(enclosingMethod.getName())
+        && (methodSelect.equals(enclosingMethod.getName())
             || migratedNameOfCurrentMethodInvocation.equals(enclosingMethod.getName().toString()))
         && enclosingMethod.getName().toString().contains("_migrated")
         && ASTHelpers.getSymbol(getEnclosingClass(state.getPath())).isInterface();
@@ -387,15 +362,45 @@ public final class Inliner extends BugChecker
 
     SuggestedFix fix = builder.build();
 
-    if (checkFixCompiles && fix.getImportsToAdd().isEmpty()) {
-      // If there are no new imports being added (then there are no new dependencies). Therefore, we
-      // can verify that the fix compiles (if CHECK_FIX_COMPILES is enabled).
+    // If there are no imports to add, then there's no new dependencies, so we can verify that it
+    // compilesWithFix(); if there are new imports to add, then we can't validate that it compiles.
+    if (fix.getImportsToAdd().isEmpty()
+        && !allowBreakingChanges
+        && !(tree instanceof MemberReferenceTree)) {
       return SuggestedFixes.compilesWithFix(fix, state)
           ? describe(tree, fix, api)
           : Description.NO_MATCH;
     }
 
     return describe(tree, fix, api);
+  }
+
+  @Nullable
+  private static VariableTree findEnclosingIdentifier(
+      MemberReferenceTree originalNode, VisitorState state) {
+    Symbol identifierSymbol = getSymbol(originalNode);
+    //    if (!(identifierSymbol instanceof Symbol.VarSymbol)) {
+    //      return null;
+    //    }
+    if (state.findEnclosing(LambdaExpressionTree.class) == null) {
+      return null;
+    }
+    return state
+        .findEnclosing(LambdaExpressionTree.class)
+        .accept(
+            new TreeScanner<VariableTree, Void>() {
+              @Override
+              public VariableTree visitVariable(VariableTree node, Void p) {
+                //                return getSymbol(node).equals(identifierSymbol) ? node : null;
+                return node;
+              }
+
+              @Override
+              public VariableTree reduce(VariableTree r1, VariableTree r2) {
+                return r1 != null ? r1 : r2;
+              }
+            },
+            null);
   }
 
   private static ImmutableList<String> getStrings(Attribute.Compound attribute, String name) {
