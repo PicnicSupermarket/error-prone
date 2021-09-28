@@ -29,10 +29,10 @@ import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
 /** Example */
 abstract class MatchNestedLambdaTemplate<T> {
   @Placeholder
-  abstract Mono<Void> placeholder(@MayOptionallyUse T input);
+  abstract Mono<?> placeholder(@MayOptionallyUse T input);
 
   @BeforeTemplate
-  java.util.function.Function<T, Publisher<? extends Void>> before() { // Mono<Void>
+  java.util.function.Function<T, Publisher<? extends Void>> before() {
     return e ->
         RxJava2Adapter.completableToMono(
             Completable.wrap(
@@ -42,7 +42,7 @@ abstract class MatchNestedLambdaTemplate<T> {
   }
 
   @AfterTemplate
-  java.util.function.Function<T, Publisher<? extends Void>> after() {
+  java.util.function.Function<T, Mono<?>> after() {
     return v -> placeholder(v);
-  } // Publisher<? extends Void> -> Mono<VOID>
+  }
 }
