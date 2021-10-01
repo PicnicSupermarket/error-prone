@@ -95,6 +95,115 @@ public class InlinerTest {
   }
 
   @Test
+  public void fixVoidCases() {
+    refactoringTestHelper
+        .addInputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"this.noparam_migrated()\")",
+            "  public String noparam() {",
+            "    return noparam_migrated();",
+            "  }",
+            "  public String noparam_migrated() {",
+            "    return \"1\";",
+            "  }",
+            "  public void foo() {",
+            "    String s = test(this::noparam);",
+            "  }",
+            "  @FunctionalInterface",
+            "  public interface SecuredOperation {",
+            "    void call() throws Exception;",
+            "  }",
+            "  public String test(SecuredOperation securedOperation) {",
+            "    return null;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"this.noparam_migrated()\")",
+            "  public String noparam() {",
+            "    return noparam_migrated();",
+            "  }",
+            "  public String noparam_migrated() {",
+            "    return \"1\";",
+            "  }",
+            "  public void foo() {",
+            "    String s = test(() -> this.noparam_migrated());",
+            "  }",
+            "  @FunctionalInterface",
+            "  public interface SecuredOperation {",
+            "    void call() throws Exception;",
+            "  }",
+            "  public String test(SecuredOperation securedOperation) {",
+            "    return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void fixBugInMethodReferenceInliner() {
+    refactoringTestHelper
+        .allowBreakingChanges()
+        .addInputLines(
+            "Client.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "public class Client {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.getName_migrated(s))\")",
+            "  public String getName(String s) {",
+            "    return String.valueOf(getName_migrated(s)); ",
+            "  }",
+            "  public Integer getName_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "import java.util.Comparator;",
+            "",
+            "public final class Foo {",
+            "  private Client client = new Client();",
+            "",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  public static <T, R> java.util.function.Function<T, R> toJdkFunction(",
+            "    java.util.function.Function<T, R> function) {",
+            "      return (t) -> {",
+            "        try {",
+            "          return function.apply(t);",
+            "          } catch (Exception e) {",
+            "            throw new IllegalArgumentException(\"BiFunction threw checked exception\", e);",
+            "          }",
+            "        };",
+            "  }",
+            "",
+            "  ",
+            "  public void baz() {",
+            "     ImmutableList.of(\"1\", \"2\").stream().map(String::valueOf).sorted(Comparator.comparing(String::length)).map(client::getName);",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
   public void dontDoubleInlineInterface() {
     refactoringTestHelper
         .addInputLines(

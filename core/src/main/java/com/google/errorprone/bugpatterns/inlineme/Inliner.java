@@ -63,7 +63,6 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
-import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.HashMap;
@@ -184,8 +183,11 @@ public final class Inliner extends BugChecker
     Description match =
         match(tree, symbol, ImmutableList.of(name), receiverString, getReceiver(tree), state);
 
+    String lambdaPrefix = symbol.getParameters().size() == 0 ? "()" : "ident";
     SuggestedFix fix =
-        Stream.of(SuggestedFix.prefixWith(tree, "ident -> "), (SuggestedFix) match.fixes.get(0))
+        Stream.of(
+                SuggestedFix.prefixWith(tree, lambdaPrefix + " -> "),
+                (SuggestedFix) match.fixes.get(0))
             .reduce(
                 SuggestedFix.builder(), SuggestedFix.Builder::merge, SuggestedFix.Builder::merge)
             .build();
@@ -372,10 +374,6 @@ public final class Inliner extends BugChecker
   @Nullable
   private static VariableTree findEnclosingIdentifier(
       MemberReferenceTree originalNode, VisitorState state) {
-    Symbol identifierSymbol = getSymbol(originalNode);
-    //    if (!(identifierSymbol instanceof Symbol.VarSymbol)) {
-    //      return null;
-    //    }
     if (state.findEnclosing(LambdaExpressionTree.class) == null) {
       return null;
     }
