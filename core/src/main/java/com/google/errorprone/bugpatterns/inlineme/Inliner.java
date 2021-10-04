@@ -54,15 +54,12 @@ import com.google.errorprone.util.MoreAnnotations;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -178,15 +175,19 @@ public final class Inliner extends BugChecker
       return Description.NO_MATCH;
     }
 
-    VariableTree enclosingIdentifier = findEnclosingIdentifier(tree, state);
-    String name = enclosingIdentifier == null ? "ident" : enclosingIdentifier.getName().toString();
     String receiverString =
         getReceiver(tree).toString().startsWith("this") ? "" : getReceiver(tree).toString();
 
-    Description match =
-        match(tree, symbol, ImmutableList.of(name), receiverString, getReceiver(tree), state);
+    ImmutableList<String> callingVars;
+    if (symbol.params().size() < 2) {
+      callingVars = ImmutableList.of("ident");
+    } else {
+      callingVars = ImmutableList.of("ident1", "ident2");
+    }
+    Description match = match(tree, symbol, callingVars, receiverString, getReceiver(tree), state);
 
-    String lambdaPrefix = symbol.getParameters().size() == 0 ? "()" : "ident";
+    String lambdaPrefix = getLambdaPrefix(symbol);
+
     SuggestedFix fix =
         Stream.of(
                 SuggestedFix.prefixWith(tree, lambdaPrefix + " -> "),
@@ -196,6 +197,20 @@ public final class Inliner extends BugChecker
             .build();
 
     return describeMatch(tree, fix);
+  }
+
+  // XXX: Improve this method, this is now quick solution and ugly.
+  private String getLambdaPrefix(MethodSymbol symbol) {
+    String lambdaPrefix = symbol.getParameters().size() == 0 ? "()" : "ident";
+    if (symbol.params().size() == 1) {
+      String type = symbol.params().get(0).type.toString();
+      lambdaPrefix = "(" + type + " " + lambdaPrefix + ")";
+    } else if (symbol.params().size() == 2) {
+      String type = symbol.params().get(0).type.toString();
+      String type2 = symbol.params().get(1).type.toString();
+      lambdaPrefix = "(" + type + " ident1, " + type2 + " ident2)";
+    }
+    return lambdaPrefix;
   }
 
   /**
@@ -375,30 +390,6 @@ public final class Inliner extends BugChecker
     }
 
     return describe(tree, fix, api);
-  }
-
-  @Nullable
-  private static VariableTree findEnclosingIdentifier(
-      MemberReferenceTree originalNode, VisitorState state) {
-    if (state.findEnclosing(LambdaExpressionTree.class) == null) {
-      return null;
-    }
-    return state
-        .findEnclosing(LambdaExpressionTree.class)
-        .accept(
-            new TreeScanner<VariableTree, Void>() {
-              @Override
-              public VariableTree visitVariable(VariableTree node, Void p) {
-                //                return getSymbol(node).equals(identifierSymbol) ? node : null;
-                return node;
-              }
-
-              @Override
-              public VariableTree reduce(VariableTree r1, VariableTree r2) {
-                return r1 != null ? r1 : r2;
-              }
-            },
-            null);
   }
 
   private static ImmutableList<String> getStrings(Attribute.Compound attribute, String name) {

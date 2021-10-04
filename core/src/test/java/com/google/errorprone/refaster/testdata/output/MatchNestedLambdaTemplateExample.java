@@ -16,8 +16,7 @@
 
 package com.google.errorprone.refaster.testdata;
 
-import io.reactivex.Completable;
-import io.reactivex.Flowable;
+import io.reactivex.Single;
 import reactor.adapter.rxjava.RxJava2Adapter;
 import reactor.core.publisher.Mono;
 import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
@@ -25,10 +24,10 @@ import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
 /** Example */
 public class MatchNestedLambdaTemplateExample {
 
-  Completable testRandomness() {
+  public Mono<String> testUnwrapLambdaSingle() {
     RxJavaReactorMigrationUtil.toJdkFunction(null);
+    Single.just(1).as(RxJava2Adapter::singleToMono);
 
-    return RxJava2Adapter.monoToCompletable(
-        RxJava2Adapter.flowableToFlux(Flowable.just(1)).flatMap(v -> Mono.empty()).then());
+    return Mono.just("1").flatMap(v -> Mono.just(v));
   }
 }
