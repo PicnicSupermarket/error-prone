@@ -22,6 +22,7 @@ import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
@@ -38,6 +39,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.Name;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @AutoService(BugChecker.class)
 @BugPattern(
@@ -48,6 +50,8 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
 
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS;
+
+  private static final ImmutableSet<String> EXEMPTING_METHOD_NAMES = ImmutableSet.of();
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
@@ -67,25 +71,61 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
                         state))
             .findFirst();
 
+    Optional<MigrationCodeTransformer> desired =
+        migrationDefinitions.stream()
+            .filter(
+                migration ->
+                    TypeMigrationHelper.isMethodTypeUndesiredMigrationType(
+                        inliner.types(),
+                        methodSymbol.getReturnType(),
+                        inlineType(inliner, migration.typeTo()),
+                        state))
+            .findFirst();
+
     if (!suitableMigration.isPresent()
-        && !isMethodAlreadyMigratedInEnclosingClass(
-            methodTree, enclosingClassSymbol, methodSymbol.getSimpleName(), state)) {
+            && !isMethodAlreadyMigratedInEnclosingClass(
+                methodTree, enclosingClassSymbol, methodSymbol.getSimpleName(), state)
+            && !(desired.isPresent() && enclosingClassSymbol.isInterface())
+        || (desired.isPresent()
+            && enclosingClassSymbol.isInterface()
+            && !methodTree.getName().toString().contains("_migrated"))) {
       return Description.NO_MATCH;
     }
 
     if (enclosingClassSymbol.isInterface()) {
-      if (methodTree.getName().toString().contains("_migrated")) {
+      // originally no default impl
 
+      if (methodTree.getBody() == null || methodTree.getBody().getStatements().size() != 1) {
+        return Description.NO_MATCH;
+      } else if (methodTree.getName().toString().contains("_migrated")) {
+
+        boolean hasNormalDefaultImpl =
+            !methodTree
+                .getBody()
+                .getStatements()
+                .get(0)
+                .toString()
+                .contains(methodTree.getName().toString().replace("_migrated", ""));
+        if (hasNormalDefaultImpl) {
+          return Description.NO_MATCH;
+        }
+        String returnType = methodTree.getReturnType().toString();
+
+        String params =
+            methodTree.getParameters().stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(", "));
+
+        String name = methodSymbol.getSimpleName().toString();
+        return describeMatch(
+            methodTree,
+            SuggestedFix.replace(methodTree, returnType + " " + name + "(" + params + ");"));
       } else {
         return describeMatch(methodTree, SuggestedFix.delete(methodTree));
       }
-      // Remove the old.
-      // Remove default impl from other method.
     } else {
       return describeMatch(methodTree, SuggestedFix.delete(methodTree));
     }
-
-    return Description.NO_MATCH;
   }
 
   private static boolean isMethodAlreadyMigratedInEnclosingClass(
