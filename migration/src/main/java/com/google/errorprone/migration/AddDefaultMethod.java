@@ -55,6 +55,7 @@ import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.testing.compile.JavaFileObjects;
+import com.sun.source.doctree.DocCommentTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -62,6 +63,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
+import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
@@ -115,6 +117,10 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       return Description.NO_MATCH;
     }
 
+    // Check this one out
+    DocCommentTree docCommentTree =
+        JavacTrees.instance(state.context).getDocCommentTree(state.getPath());
+
     Optional<MigrationCodeTransformer> suitableMigration =
         migrationDefinitions.stream()
             .filter(
@@ -139,7 +145,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
       boolean isAlreadyMigratedInClass =
           isMethodAlreadyMigratedInEnclosingClass(
-              methodTree, state, methodSymbol.getSimpleName(), enclosingClassSymbol);
+              methodTree, enclosingClassSymbol, methodSymbol.getSimpleName(), state);
       boolean annotatedOnlyWithOverrideAndDeprecated =
           methodSymbol.getAnnotationMirrors().stream()
               .map(Object::toString)
@@ -180,7 +186,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
       return describeMatch(methodTree, fix);
     } else if (enclosingClassSymbol.isInterface()
         && !isMethodAlreadyMigratedInEnclosingClass(
-            methodTree, state, methodSymbol.name, enclosingClassSymbol)) {
+            methodTree, enclosingClassSymbol, methodSymbol.name, state)) {
 
       SuggestedFix.Builder suggestedFix;
 
@@ -282,9 +288,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
   private static boolean isMethodAlreadyMigratedInEnclosingClass(
       MethodTree methodTree,
-      VisitorState state,
+      ClassSymbol enclosingClassSymbol,
       Name methodName,
-      ClassSymbol enclosingClassSymbol) {
+      VisitorState state) {
     return enclosingClassSymbol
             .members()
             .getSymbolsByName(state.getName(methodName + "_migrated"))
