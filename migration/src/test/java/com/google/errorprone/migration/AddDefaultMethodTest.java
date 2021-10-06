@@ -72,6 +72,37 @@ public class AddDefaultMethodTest {
   }
 
   @Test
+  public void copyWithJavadoc() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "public final class Foo {",
+            "  /** This is javadoc. */",
+            "  public Single<String> bar() {",
+            "    return Single.just(\"value\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  /** This is javadoc. */",
+            "  @Deprecated",
+            "  public Single<String> bar() {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
+            "  }",
+            "  /** This is javadoc. */",
+            "  public Mono<String> bar_migrated() {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"value\"));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void singleToMonoInterfaceMigration() {
     helper
         .addInputLines(
