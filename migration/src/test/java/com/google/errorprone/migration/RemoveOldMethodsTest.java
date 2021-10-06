@@ -62,8 +62,40 @@ public class RemoveOldMethodsTest {
         .addOutputLines(
             "Foo.java",
             "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
             "public final class Foo {",
             "  public Mono<String> bar_migrated() {",
+            "   return RxJava2Adapter.singleToMono(Single.just(\"value\"));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void removeMethodWithParams() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  public Single<String> bar(String string, Integer integer) {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated(string, integer));",
+            "  }",
+            "  public Mono<String> bar_migrated(String string, Integer integer) {",
+            "    return RxJava2Adapter.singleToMono(Single.just(\"value\"));",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  public Mono<String> bar_migrated(String string, Integer integer) {",
             "   return RxJava2Adapter.singleToMono(Single.just(\"value\"));",
             "  }",
             "}")
@@ -77,6 +109,7 @@ public class RemoveOldMethodsTest {
             "Foo.java",
             "import io.reactivex.Single;",
             "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
             "public interface Foo {",
             "  @Deprecated",
             "  default Single<String> bar() {",
@@ -90,9 +123,90 @@ public class RemoveOldMethodsTest {
             "Foo.java",
             "import io.reactivex.Single;",
             "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
             "public interface Foo {",
             "  Mono<String> bar_migrated();",
             "}")
+        .doTest();
+  }
+
+  @Test
+  public void removeMethodsInterfaceWithParams() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default Single<String> bar(String string, Integer integer) {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated(string, integer));",
+            "  }",
+            "  default Mono<String> bar_migrated(String string, Integer integer) {",
+            "    return RxJava2Adapter.singleToMono(bar(string, integer));",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public interface Foo {",
+            "  Mono<String> bar_migrated(String string, Integer integer);",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dontRemoveDefaultImplIfItIsNotFromTheMigration() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default Single<String> bar() {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
+            "  }",
+            "  default Mono<String> bar_migrated() {",
+            "    return Mono.just(\"\");",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public interface Foo {",
+            "  default Mono<String> bar_migrated() {",
+            "    return Mono.just(\"\");",
+            "  }",
+            "}")
+        .addInputLines(
+            "Bar.java",
+            "import reactor.core.publisher.Mono;",
+            "public interface Bar {",
+            "  default Mono<String> bar() {",
+            "    return Mono.just(\"\");",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void dontRemoveSoloReactorMethod() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import reactor.core.publisher.Mono;",
+            "public interface Foo {",
+            "  Mono<String> foo();",
+            "}")
+        .expectUnchanged()
         .doTest();
   }
 
