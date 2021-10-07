@@ -281,9 +281,6 @@ public class InlineMockitoStatementsTest {
         .doTest();
   }
 
-  // Example of this in Picnic-platform: when(ctarMock.findAssignmentsByTopics(any(),
-  // eq(true))).thenAnswer(getTopicLookup(idByTopic));
-  // dont migrate?
   @Test
   public void migrateWhenThenAnswerWithMethodInvocation() {
     helper
@@ -584,6 +581,73 @@ public class InlineMockitoStatementsTest {
             "  public void simpleTest() {",
             "    Foo foo = mock(Foo.class);",
             "    when(foo.getId_migrated()).thenCallRealMethod();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void reallife() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "package com.google.test;",
+            "",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import io.reactivex.Maybe;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"RxJava2Adapter.monoToMaybe(this.getId_migrated())\")",
+            "  public Maybe<String> getId() {",
+            "    return RxJava2Adapter.monoToMaybe(getId_migrated());",
+            "  }",
+            "",
+            "  public Mono<String> getId_migrated() {",
+            "    return Mono.empty();",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .addInputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.verify;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "import io.reactivex.Maybe;",
+            "import org.junit.Test;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId()).thenReturn(RxJava2Adapter.monoToMaybe(Mono.empty()));",
+            "  }",
+            "}")
+        .addOutputLines(
+            "BarTest.java",
+            "package com.google.test;",
+            "",
+            "import static org.mockito.Mockito.mock;",
+            "import static org.mockito.Mockito.verify;",
+            "import static org.mockito.Mockito.when;",
+            "",
+            "import io.reactivex.Maybe;",
+            "import org.junit.Test;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "",
+            "public final class BarTest {",
+            "  @Test",
+            "  public void simpleTest() {",
+            "    Foo foo = mock(Foo.class);",
+            "    when(foo.getId_migrated())",
+            "                 .thenReturn(RxJava2Adapter.maybeToMono(RxJava2Adapter.monoToMaybe(Mono.empty())));",
             "  }",
             "}")
         .doTest();

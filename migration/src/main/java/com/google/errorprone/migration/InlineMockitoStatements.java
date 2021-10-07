@@ -62,6 +62,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+// XXX: Known limitation: methodInvocation in the `thenReturn` is of type Answer<T>, which is hard
+// to convert to the correct type and therefore out of scope.
 @AutoService(BugChecker.class)
 @BugPattern(
     name = "InlineMockitoStatements",
