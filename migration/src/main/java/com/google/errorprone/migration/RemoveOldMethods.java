@@ -51,10 +51,20 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
   private static final Supplier<ImmutableList<MigrationCodeTransformer>> MIGRATION_TRANSFORMATIONS =
       MigrationTransformersProvider.MIGRATION_TRANSFORMATIONS;
 
-  private static final ImmutableSet<String> EXEMPTING_METHOD_NAMES = ImmutableSet.of();
+  private static final ImmutableSet<String> EXEMPTING_METHOD_NAMES =
+      ImmutableSet.of(
+          "matchViews",
+          "findAssignmentsByTopics",
+          "findAssignmentsByTextIds",
+          "complete",
+          "isBlacklisted");
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
+    if (EXEMPTING_METHOD_NAMES.contains(methodTree.getName().toString())) {
+      return Description.NO_MATCH;
+    }
+
     ImmutableList<MigrationCodeTransformer> migrationDefinitions = MIGRATION_TRANSFORMATIONS.get();
     Inliner inliner = new Unifier(state.context).createInliner();
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
@@ -86,15 +96,11 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
             && !isMethodAlreadyMigratedInEnclosingClass(
                 methodTree, enclosingClassSymbol, methodSymbol.getSimpleName(), state)
             && !(desired.isPresent() && enclosingClassSymbol.isInterface())
-        || (desired.isPresent()
-            && enclosingClassSymbol.isInterface()
-            && !methodTree.getName().toString().contains("_migrated"))) {
+        || isNormalMethodWithDesiredType(methodTree, enclosingClassSymbol, desired)) {
       return Description.NO_MATCH;
     }
 
     if (enclosingClassSymbol.isInterface()) {
-      // originally no default impl
-
       if (methodTree.getBody() == null || methodTree.getBody().getStatements().size() != 1) {
         return Description.NO_MATCH;
       } else if (methodTree.getName().toString().contains("_migrated")) {
@@ -126,6 +132,15 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
     } else {
       return describeMatch(methodTree, SuggestedFix.delete(methodTree));
     }
+  }
+
+  private boolean isNormalMethodWithDesiredType(
+      MethodTree methodTree,
+      Symbol.ClassSymbol enclosingClassSymbol,
+      Optional<MigrationCodeTransformer> desired) {
+    return desired.isPresent()
+        && enclosingClassSymbol.isInterface()
+        && !methodTree.getName().toString().contains("_migrated");
   }
 
   private static boolean isMethodAlreadyMigratedInEnclosingClass(
