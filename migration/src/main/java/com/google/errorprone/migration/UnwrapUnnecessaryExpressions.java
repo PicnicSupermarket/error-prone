@@ -16,17 +16,26 @@
 
 package com.google.errorprone.migration;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
-import static com.google.errorprone.bugpatterns.BugChecker.MemberReferenceTreeMatcher;
 import static com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
+import static com.google.errorprone.matchers.Matchers.anyOf;
+import static com.google.errorprone.matchers.Matchers.staticMethod;
+import static com.google.errorprone.util.ASTHelpers.TargetType;
+import static com.google.errorprone.util.ASTHelpers.getType;
+import static com.google.errorprone.util.ASTHelpers.targetType;
 
 import com.google.auto.service.AutoService;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
-import com.sun.source.tree.MemberReferenceTree;
+import com.google.errorprone.matchers.Matcher;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.tools.javac.code.Type;
+import java.util.List;
 
 // XXX: Account for the third case: assignment to variable.
 @AutoService(BugChecker.class)
@@ -34,16 +43,35 @@ import com.sun.source.tree.MethodInvocationTree;
     name = "UnwrapExpressions",
     summary = "Unwrap expressions that are nested for no reason.",
     severity = ERROR)
-public class UnwrapUnnecessaryExpressions extends BugChecker
-    implements MethodInvocationTreeMatcher, MemberReferenceTreeMatcher {
+public final class UnwrapUnnecessaryExpressions extends BugChecker
+    implements MethodInvocationTreeMatcher {
+  private static final Matcher<ExpressionTree> IS_CONVERSION_METHOD =
+      anyOf(
+          staticMethod().onClass("reactor.adapter.rxjava.RxJava2Adapter"),
+          staticMethod().onClass("reactor.core.publisher.Mono").namedAnyOf("from", "fromDirect"),
+          staticMethod().onClass("reactor.core.publisher.Flux").named("from"));
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    return Description.NO_MATCH;
-  }
+    if (!IS_CONVERSION_METHOD.matches(tree, state)) {
+      return Description.NO_MATCH;
+    }
 
-  @Override
-  public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
-    return Description.NO_MATCH;
+    List<? extends ExpressionTree> arguments = tree.getArguments();
+    verify(
+        arguments.size() == 1,
+        "Conversion method %s does not accept precisely one argument",
+        tree.getMethodSelect());
+
+    ExpressionTree sourceTree = arguments.get(0);
+    Type sourceType = getType(sourceTree);
+    TargetType targetType = targetType(state);
+    if (sourceType == null
+        || targetType == null
+        || !state.getTypes().isSubtype(sourceType, targetType.type())) {
+      return Description.NO_MATCH;
+    }
+
+    return describeMatch(tree, SuggestedFix.replace(tree, state.getSourceForNode(sourceTree)));
   }
 }
