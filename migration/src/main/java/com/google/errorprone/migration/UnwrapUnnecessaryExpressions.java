@@ -59,7 +59,7 @@ public final class UnwrapUnnecessaryExpressions extends BugChecker
 
     List<? extends ExpressionTree> arguments = tree.getArguments();
     verify(
-        arguments.size() == 1,
+        arguments.size() == 1 || tree.getMethodSelect().toString().contains("observableToFlux"),
         "Conversion method %s does not accept precisely one argument",
         tree.getMethodSelect());
 
