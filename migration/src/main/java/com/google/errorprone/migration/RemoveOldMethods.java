@@ -57,7 +57,7 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
           "findAssignmentsByTopics",
           "findAssignmentsByTextIds",
           "complete",
-          "isBlacklisted",
+          // "isBlacklisted", --> Verify that this one is not required anymore.
           "getAggregatedDashboardOrders");
 
   @Override
