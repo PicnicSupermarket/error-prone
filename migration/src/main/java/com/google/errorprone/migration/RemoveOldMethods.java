@@ -53,7 +53,7 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
 
   private static final ImmutableSet<String> EXEMPTING_METHOD_NAMES =
       ImmutableSet.of(
-          "matchViews",
+          // "matchViews", --> Verify that this one is not required anymore.
           "findAssignmentsByTopics",
           "findAssignmentsByTextIds",
           "complete",
