@@ -86,7 +86,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.sun.tools.javac.util.Name;
-import java.io.IOException;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
@@ -320,8 +319,7 @@ public abstract class BugChecker implements Suppressible, Serializable {
   }
 
   public interface CompilationUnitTreeMatcher extends Suppressible {
-    Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state)
-        throws IOException;
+    Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state);
   }
 
   public interface CompoundAssignmentTreeMatcher extends Suppressible {

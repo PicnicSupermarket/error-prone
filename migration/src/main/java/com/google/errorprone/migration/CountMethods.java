@@ -27,9 +27,10 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.tools.javac.code.Symbol;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -40,9 +41,7 @@ import java.nio.charset.StandardCharsets;
     summary = "Count the callers of RxJava methods and Reactor methods.",
     severity = ERROR)
 public class CountMethods extends BugChecker
-    implements MethodInvocationTreeMatcher,
-        MemberReferenceTreeMatcher,
-        BugChecker.CompilationUnitTreeMatcher {
+    implements MethodInvocationTreeMatcher, MemberReferenceTreeMatcher {
 
   public static final ImmutableSet<String> RXJAVA_TYPES =
       ImmutableSet.of(
@@ -52,38 +51,62 @@ public class CountMethods extends BugChecker
           "io.reactivex.Maybe",
           "io.reactivex.Completable");
 
-  @Override
-  public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
-
-    //    File f = new File("Test.txt");
-    //    if(!f.exists()){
-    //      f.createNewFile();
-    //    }else{
-    //      System.out.println("File already exists");
-    //    }
-
-    return Description.NO_MATCH;
-  }
+  public static final ImmutableSet<String> REACTOR_TYPES =
+      ImmutableSet.of("reactor.core.publisher.Mono", "reactor.core.publisher.Flux");
 
   @Override
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
-    boolean matches =
-        RXJAVA_TYPES.contains(ASTHelpers.getSymbol(tree.getQualifierExpression()).toString());
+    printLinesForRxJavaAndReactorMethods(tree, "REF");
+
     return Description.NO_MATCH;
   }
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    boolean matches = RXJAVA_TYPES.contains(ASTHelpers.getSymbol(tree).owner.toString());
+    printLinesForRxJavaAndReactorMethods(tree, "INV");
 
-    FileOutputStream fileOutputStream = null;
+    return Description.NO_MATCH;
+  }
+
+  private void printLinesForRxJavaAndReactorMethods(ExpressionTree tree, String invocation) {
+    Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(tree);
+    boolean matches = RXJAVA_TYPES.contains(symbol.owner.toString());
+
+    if (matches) {
+      String line =
+          "1 | "
+              + symbol.getSimpleName()
+              + " | "
+              + symbol.owner.toString()
+              + " | "
+              + invocation
+              + "\n";
+      writeString(line, "rx-java");
+    }
+
+    boolean matchesReactor = REACTOR_TYPES.contains(symbol.owner.toString());
+
+    if (matchesReactor) {
+      String line =
+          "1 | "
+              + symbol.getSimpleName()
+              + " | "
+              + symbol.owner.toString()
+              + " | "
+              + invocation
+              + "\n";
+      writeString(line, "reactor");
+    }
+  }
+
+  private void writeString(String line, String filePrefix) {
+    byte[] bytes = line.getBytes(StandardCharsets.UTF_8);
+    FileOutputStream fileOutputStream;
     try {
-      fileOutputStream = new FileOutputStream("test.txt", true);
-      fileOutputStream.write(("1 just").getBytes(StandardCharsets.UTF_8));
+      fileOutputStream = new FileOutputStream(filePrefix + "-usages.txt", true);
+      fileOutputStream.write(bytes);
     } catch (IOException e) {
       e.printStackTrace();
     }
-
-    return Description.NO_MATCH;
   }
 }
