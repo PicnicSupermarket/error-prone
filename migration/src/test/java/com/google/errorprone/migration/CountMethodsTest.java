@@ -27,7 +27,7 @@ public class CountMethodsTest {
       BugCheckerRefactoringTestHelper.newInstance(CountMethods.class, getClass());
 
   @Test
-  public void countSingle() {
+  public void countSingleMethod() {
     helper
         .addInputLines(
             "Foo.java",
@@ -35,6 +35,21 @@ public class CountMethodsTest {
             "public final class Foo {",
             "  public Flowable<String> test() {",
             "    return Flowable.just(\"\");",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void countMethodReference() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Flowable;",
+            "public final class Foo {",
+            "  public Flowable<Object> test() {",
+            "    return Flowable.just(\"1\").map(Flowable::just);",
             "  }",
             "}")
         .expectUnchanged()
