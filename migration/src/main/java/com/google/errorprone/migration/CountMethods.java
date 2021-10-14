@@ -98,37 +98,40 @@ public class CountMethods extends BugChecker
 
   @Override
   public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
-    Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (!(symbol instanceof ClassSymbol)) {
-      return Description.NO_MATCH;
-    }
-
-    Optional<LibraryType> libraryType = getRxReactorType(symbol);
-    if (!libraryType.isPresent()) {
-      return Description.NO_MATCH;
-    }
-
-    Optional<LocationType> locationType = getExprType(state);
-    printLinesForRxJavaAndReactorMethods(tree, libraryType.get(), locationType.get().toString());
+    countRxJavaAndReactorMethods(tree, state);
 
     return Description.NO_MATCH;
   }
 
   @Override
   public Description matchMemberSelect(MemberSelectTree tree, VisitorState state) {
-    Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (!(symbol instanceof ClassSymbol)) {
-      return Description.NO_MATCH;
-    }
+    countRxJavaAndReactorMethods(tree, state);
 
-    Optional<LibraryType> libraryType = getRxReactorType(symbol);
+    return Description.NO_MATCH;
+  }
+
+  private void countRxJavaAndReactorMethods(ExpressionTree tree, VisitorState state) {
+    Optional<LibraryType> libraryType = isClassOfLibraryType(tree);
     if (!libraryType.isPresent()) {
-      return Description.NO_MATCH;
+      return;
     }
 
     Optional<LocationType> locationType = getExprType(state);
+    String additionalInfo = "";
+    if (locationType.get() == METHOD_INVOCATION || locationType.get() == METHOD_REFERENCE) {
+      additionalInfo = state.getPath().getParentPath().getParentPath().getLeaf().toString();
+    }
+    printLinesForRxJavaAndReactorMethods(
+        tree, libraryType.get(), locationType.get(), additionalInfo);
+  }
 
-    return Description.NO_MATCH;
+  private Optional<LibraryType> isClassOfLibraryType(ExpressionTree tree) {
+    Symbol symbol = ASTHelpers.getSymbol(tree);
+    if (!(symbol instanceof ClassSymbol)) {
+      return Optional.empty();
+    }
+
+    return getRxReactorType(symbol);
   }
 
   private Optional<LibraryType> getRxReactorType(Symbol symbol) {
@@ -183,19 +186,17 @@ public class CountMethods extends BugChecker
   }
 
   private void printLinesForRxJavaAndReactorMethods(
-      ExpressionTree tree, LibraryType type, String invocation) {
-    MethodSymbol symbol = (MethodSymbol) ASTHelpers.getSymbol(tree);
+      ExpressionTree tree, LibraryType type, LocationType locationType, String additionalInfo) {
+    Symbol symbol = ASTHelpers.getSymbol(tree);
 
     String filePrefix = type.equals(RX_JAVA) ? "rx-java" : "reactor";
-    String line =
-        "1 | "
-            + symbol.getSimpleName()
-            + " | "
-            + symbol.owner.toString()
-            + " | "
-            + invocation
-            + "\n";
-    writeString(line, filePrefix);
+    String line = "1 | " + symbol.getSimpleName() + " | " + locationType.toString();
+
+    if (!additionalInfo.isEmpty()) {
+      line += " | " + additionalInfo;
+    }
+
+    writeString(line + "\n", filePrefix);
   }
 
   private void writeString(String line, String filePrefix) {
