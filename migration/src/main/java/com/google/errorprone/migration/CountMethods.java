@@ -52,6 +52,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.util.Name;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -118,8 +119,10 @@ public class CountMethods extends BugChecker
 
     Optional<LocationType> locationType = getExprType(state);
     String additionalInfo = "";
-    if (locationType.get() == METHOD_INVOCATION || locationType.get() == METHOD_REFERENCE) {
+    if (locationType.get() == METHOD_INVOCATION) {
       additionalInfo = state.getPath().getParentPath().getParentPath().getLeaf().toString();
+    } else if (locationType.get() == METHOD_REFERENCE) {
+      additionalInfo = state.getPath().getParentPath().getLeaf().toString();
     }
     printLinesForRxJavaAndReactorMethods(
         tree, libraryType.get(), locationType.get(), additionalInfo);
@@ -127,7 +130,7 @@ public class CountMethods extends BugChecker
 
   private Optional<LibraryType> isClassOfLibraryType(ExpressionTree tree) {
     Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (!(symbol instanceof ClassSymbol)) {
+    if (!(symbol instanceof ClassSymbol) && !(symbol instanceof MethodSymbol)) {
       return Optional.empty();
     }
 
@@ -135,9 +138,11 @@ public class CountMethods extends BugChecker
   }
 
   private Optional<LibraryType> getRxReactorType(Symbol symbol) {
-    if (RXJAVA_TYPES.contains(symbol.toString())) {
+    if (RXJAVA_TYPES.contains(symbol.toString())
+        || RXJAVA_TYPES.contains(symbol.owner.toString())) {
       return Optional.of(RX_JAVA);
-    } else if (REACTOR_TYPES.contains(symbol.toString())) {
+    } else if (REACTOR_TYPES.contains(symbol.toString())
+        || REACTOR_TYPES.contains(symbol.owner.toString())) {
       return Optional.of(REACTOR);
     }
     return Optional.empty();
@@ -149,11 +154,11 @@ public class CountMethods extends BugChecker
     }
     Tree parent = state.getPath().getParentPath().getLeaf();
     Tree grandParent = state.getPath().getParentPath().getParentPath().getLeaf();
-    if (grandParent instanceof MethodInvocationTree) {
-      return Optional.of(METHOD_INVOCATION);
-    } else if (parent instanceof MemberReferenceTree
-        || grandParent instanceof MemberReferenceTree) {
+    if (parent instanceof MemberReferenceTree) {
       return Optional.of(METHOD_REFERENCE);
+    } else if (parent instanceof MethodInvocationTree
+        || grandParent instanceof MethodInvocationTree) {
+      return Optional.of(METHOD_INVOCATION);
     } else if (grandParent instanceof MethodTree) {
       if (parent == ((MethodTree) grandParent).getReturnType()) {
         return Optional.of(RETURN_TYPE);
@@ -190,7 +195,12 @@ public class CountMethods extends BugChecker
     Symbol symbol = ASTHelpers.getSymbol(tree);
 
     String filePrefix = type.equals(RX_JAVA) ? "rx-java" : "reactor";
-    String line = "1 | " + symbol.getSimpleName() + " | " + locationType.toString();
+    String line = "1 | ";
+    Name className =
+        symbol instanceof MethodSymbol ? symbol.owner.getSimpleName() : symbol.getSimpleName();
+    String methodName =
+        symbol instanceof MethodSymbol ? symbol.getSimpleName().toString() + " | " : "";
+    line += className + " | " + methodName + locationType.toString();
 
     if (!additionalInfo.isEmpty()) {
       line += " | " + additionalInfo;
