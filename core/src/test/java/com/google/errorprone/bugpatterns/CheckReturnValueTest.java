@@ -16,6 +16,7 @@
 
 package com.google.errorprone.bugpatterns;
 
+import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -643,6 +644,34 @@ public class CheckReturnValueTest {
             "  }",
             "}")
         .withClasspath(CRVTest.class, CheckReturnValueTest.class)
+        .doTest();
+  }
+
+  @Test
+  public void effectivelyFinal() {
+    String[] input = {
+      "import com.google.errorprone.annotations.CheckReturnValue;",
+      "import java.util.List;",
+      "",
+      "public class TestClass {",
+      "  public void test() {",
+      "    var variable = new CustomType();",
+      "    // BUG: Diagnostic contains: Ignored return value",
+      "    List.of(1).forEach(unused -> variable.get());",
+      "  }",
+      "  static final class CustomType {",
+      "    @CheckReturnValue",
+      "    public CustomType get() {",
+      "      return null;",
+      "    }",
+      "  }",
+      "}"
+    };
+    compilationHelper.addSourceLines("TestClass.java", input).doTest();
+
+    BugCheckerRefactoringTestHelper.newInstance(CheckReturnValue.class, getClass())
+        .addInputLines("TestClass.java", input)
+        .expectUnchanged()
         .doTest();
   }
 }
