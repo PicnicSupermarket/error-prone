@@ -49,9 +49,11 @@ public class CountMethodsTest {
         .addInputLines(
             "Foo.java",
             "import io.reactivex.Flowable;",
+            "import io.reactivex.Maybe;",
             "public final class Foo {",
             "  public Flowable<Object> test() {",
-            "    return Flowable.just(\"1\").map(Flowable::just);",
+            "    Maybe.just(\"1\").map(Maybe::just).blockingGet();",
+            "    return Flowable.just(2);",
             "  }",
             "}")
         .expectUnchanged()
