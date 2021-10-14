@@ -20,6 +20,8 @@ import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @RunWith(JUnit4.class)
 public class CountMethodsTest {
@@ -51,6 +53,89 @@ public class CountMethodsTest {
             "  public Flowable<Object> test() {",
             "    return Flowable.just(\"1\").map(Flowable::just);",
             "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void identifiers() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Flowable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "import reactor.core.publisher.Mono;",
+            "public final class Foo {",
+            "  private Single<Integer> sing = Single.just(1);",
+            "  public Flowable<Object> test(Mono<Integer> moon) {",
+            "    Maybe<Integer> mayBe = Maybe.just(1);",
+            "    return Flowable.empty();",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+  //   frenchGreeting = new Testing() {
+  //    String name = "tout le monde";
+  //    public void greet() {
+  //      greetSomeone("tout le monde");
+  //    }
+  //    public void greetSomeone(String someone) {
+  //      name = someone;
+  //      System.out.println("Salut " + name);
+  //    }
+  //  };
+
+  interface Foo {
+    Mono<Integer> monoFunc();
+  }
+
+  public void test() {
+    Foo foo =
+        new Foo() {
+          Flux fluxy = Flux.just(1);
+
+          @Override
+          public Mono<Integer> monoFunc() {
+            return Mono.just(1);
+          }
+        };
+  }
+
+  @Test
+  public void identifiersWithAnonymousClass() {
+    helper
+        .setArgs("-XepOpt:DirPrefix=SomeValue")
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Flowable;",
+            "import io.reactivex.Maybe;",
+            "import io.reactivex.Single;",
+            "import reactor.core.publisher.Mono;",
+            "import reactor.core.publisher.Flux;",
+            "public final class Foo {",
+            "  private Single<Integer> sing = Single.just(1);",
+            "  public Flowable<Object> test(Mono<Integer> moon) {",
+            "    Maybe<Integer> mayBe = Maybe.just(1);",
+            "    return Flowable.empty();",
+            "  }",
+            "interface Bar {",
+            "  Mono<Integer> monoFunc();",
+            "}",
+            "",
+            "public void test() {",
+            "  Bar foo =",
+            "          new Bar() {",
+            "            Flux<Integer> fluxy = Flux.just(1);",
+            "",
+            "            @Override",
+            "            public Mono<Integer> monoFunc() {",
+            "              return Mono.just(1);",
+            "            }",
+            "          };",
+            "}",
             "}")
         .expectUnchanged()
         .doTest();

@@ -41,6 +41,7 @@ import java.util.List;
 @AutoService(BugChecker.class)
 @BugPattern(
     name = "UnwrapExpressions",
+    altNames = "UnwrapExpressions",
     summary = "Unwrap expressions that are nested for no reason.",
     severity = ERROR)
 public final class UnwrapUnnecessaryExpressions extends BugChecker
