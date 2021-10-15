@@ -49,6 +49,9 @@ public abstract class UMethodInvocation extends UExpression implements MethodInv
   public abstract ImmutableList<UExpression> getArguments();
 
   @Override
+  public abstract ImmutableList<UExpression> getTypeArguments();
+
+  @Override
   @Nullable
   public Choice<Unifier> visitMethodInvocation(
       MethodInvocationTree methodInvocation, @Nullable Unifier unifier) {
