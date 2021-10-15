@@ -40,8 +40,7 @@ public class UMethodInvocationTest extends AbstractUTreeTest {
     when(fooIdent.unify(ident("foo"), isA(Unifier.class))).thenReturn(Choice.of(unifier));
     ULiteral oneLit = ULiteral.intLit(1);
     ULiteral barLit = ULiteral.stringLit("bar");
-    UMethodInvocation invocation =
-        UMethodInvocation.create(fooIdent, ImmutableList.<UExpression>of(oneLit, barLit));
+    UMethodInvocation invocation = UMethodInvocation.create(fooIdent, oneLit, barLit);
     assertUnifies("foo(1, \"bar\")", invocation);
   }
 
