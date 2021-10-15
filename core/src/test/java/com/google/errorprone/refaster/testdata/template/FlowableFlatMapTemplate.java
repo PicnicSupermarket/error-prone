@@ -28,14 +28,13 @@ import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
 
 /** Example */
 // XXX: Rename to SingleFlatMapTemplate
-public final class FlowableFlatMapTemplate<I, T extends I, O, M extends SingleSource<? extends O>> {
+public final class FlowableFlatMapTemplate<I, T extends I, O, M extends SingleSource<O>> {
   @BeforeTemplate
   Single<O> before(Single<T> single, Function<I, M> function) {
     return single.flatMap(function);
   }
 
   @AfterTemplate
-  @SuppressWarnings("unchecked")
   @UseImportPolicy(ImportPolicy.IMPORT_CLASS_DIRECTLY)
   Single<O> after(Single<T> single, Function<I, M> function) {
     return RxJava2Adapter.monoToSingle(
@@ -44,9 +43,6 @@ public final class FlowableFlatMapTemplate<I, T extends I, O, M extends SingleSo
                 v ->
                     RxJava2Adapter.singleToMono(
                         Single.wrap(
-                            (Single<O>)
-                                RxJavaReactorMigrationUtil.toJdkFunction(
-                                        (Function<I, Single<O>>) function)
-                                    .apply(v)))));
+                            RxJavaReactorMigrationUtil.<I, M>toJdkFunction(function).apply(v)))));
   }
 }

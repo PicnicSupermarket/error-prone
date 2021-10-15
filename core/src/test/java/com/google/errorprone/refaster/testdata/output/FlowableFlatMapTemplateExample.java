@@ -35,14 +35,12 @@ public class FlowableFlatMapTemplateExample {
                 v ->
                     RxJava2Adapter.singleToMono(
                         Single.wrap(
-                            (Single<Integer>)
-                                RxJavaReactorMigrationUtil.toJdkFunction(
-                                        (Function<Schema, Single<Integer>>)
-                                            i -> {
-                                              Schema schema2 = new Schema(1);
-                                              return Single.just(i.getBar() + 1);
-                                            })
-                                    .apply(v)))));
+                            RxJavaReactorMigrationUtil.<Schema, Single<Integer>>toJdkFunction(
+                                    i -> {
+                                      Schema schema2 = new Schema(1);
+                                      return Single.just(i.getBar() + 1);
+                                    })
+                                .apply(v)))));
   }
 
   private static class Schema {
