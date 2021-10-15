@@ -151,7 +151,8 @@ public enum ImportPolicy {
       PackageSymbol currentPackage = inliner.getContext().get(PackageSymbol.class);
       if (currentPackage == null
           || !currentPackage.getQualifiedName().contentEquals(packge)
-          || !topLevelClazz.toString().contentEquals(fullyQualifiedClazz)) {
+          || (!topLevelClazz.toString().contentEquals(fullyQualifiedClazz)
+              && !(fullyQualifiedClazz.toString().startsWith(topLevelClazz.toString() + '.')))) {
         // don't import classes from the same package as the class we're refactoring
         inliner.addImport(fullyQualifiedClazz.toString());
       }

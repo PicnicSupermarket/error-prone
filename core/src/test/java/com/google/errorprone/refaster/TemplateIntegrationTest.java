@@ -409,4 +409,9 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   public void matchNestedLambdaExpression() throws IOException {
     runTest("MatchNestedLambdaTemplate");
   }
+
+  @Test
+  public void rewriteFlowableFlatMap() throws IOException {
+    runTest("FlowableFlatMapTemplate");
+  }
 }
