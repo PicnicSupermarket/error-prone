@@ -7,7 +7,6 @@ import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Function;
 import reactor.adapter.rxjava.RxJava2Adapter;
 import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
-
 /** Example */
 public class FlowableFlatMapTemplateExample {
   void testFlowableFlatMap() {
@@ -35,7 +34,7 @@ public class FlowableFlatMapTemplateExample {
                 v ->
                     RxJava2Adapter.singleToMono(
                         Single.wrap(
-                            RxJavaReactorMigrationUtil.<Schema, Single<Integer>>toJdkFunction(
+                            RxJavaReactorMigrationUtil.<Schema, SingleSource<Integer>>toJdkFunction(
                                     i -> {
                                       Schema schema2 = new Schema(1);
                                       return Single.just(i.getBar() + 1);
