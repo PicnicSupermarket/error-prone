@@ -145,10 +145,21 @@ public enum ImportPolicy {
           || (!topLevelClazz.toString().contentEquals(fullyQualifiedClazz)
               && !(fullyQualifiedClazz.toString().startsWith(topLevelClazz.toString() + '.')))) {
         // don't import classes from the same package as the class we're refactoring
-        inliner.addImport(fullyQualifiedClazz.toString());
+        // XXX: Fix that ambiguous imports are fully qualified, so that they do not have do import
+        // that.
+        if (!fullyQualifiedClazz.toString().contains("Group")
+            && !fullyQualifiedClazz.toString().contains("User")) {
+          inliner.addImport(fullyQualifiedClazz.toString());
+        }
       }
       String simpleName = fullyQualifiedClazz.toString();
-      simpleName = simpleName.substring(simpleName.lastIndexOf('.') + 1);
+      // XXX: Fix that ambiguous imports are fully qualified, so that they do not have do import
+      // that.
+      if (!simpleName.contains("Schema")
+          && !simpleName.contains("Group")
+          && !simpleName.contains("User")) {
+        simpleName = simpleName.substring(simpleName.lastIndexOf('.') + 1);
+      }
       return inliner.maker().Ident(inliner.asName(simpleName));
     }
 

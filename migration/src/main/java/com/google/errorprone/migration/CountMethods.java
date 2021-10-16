@@ -19,6 +19,7 @@ package com.google.errorprone.migration;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.bugpatterns.BugChecker.IdentifierTreeMatcher;
 import static com.google.errorprone.bugpatterns.BugChecker.MemberSelectTreeMatcher;
+import static com.google.errorprone.migration.CountMethods.LibraryType.ADAPTER;
 import static com.google.errorprone.migration.CountMethods.LibraryType.REACTOR;
 import static com.google.errorprone.migration.CountMethods.LibraryType.RX_JAVA;
 import static com.google.errorprone.migration.CountMethods.LocationType.CLASS_VARIABLE;
@@ -97,6 +98,8 @@ public class CountMethods extends BugChecker
   public static final ImmutableSet<String> REACTOR_TYPES =
       ImmutableSet.of("reactor.core.publisher.Mono", "reactor.core.publisher.Flux");
 
+  public static final String RXJAVA2ADAPTER = "reactor.adapter.rxjava.RxJava2Adapter";
+
   @Override
   public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
     countRxJavaAndReactorMethods(tree, state);
@@ -114,10 +117,17 @@ public class CountMethods extends BugChecker
   private void countRxJavaAndReactorMethods(ExpressionTree tree, VisitorState state) {
     Optional<LibraryType> libraryType = isClassOfLibraryType(tree);
     if (!libraryType.isPresent()) {
+      //        || (libraryType.get() == ADAPTER && tree instanceof IdentifierTree)) {
       return;
     }
 
     Optional<LocationType> locationType = getExprType(state);
+    if ((tree instanceof IdentifierTree && locationType.get() == METHOD_INVOCATION)
+        || (libraryType.get() != ADAPTER
+            && locationType.get() == METHOD_INVOCATION
+            && ASTHelpers.getSymbol(tree).getSimpleName().toString().equals("as"))) {
+      return;
+    }
     String additionalInfo = "";
     if (locationType.get() == METHOD_INVOCATION) {
       additionalInfo = state.getPath().getParentPath().getParentPath().getLeaf().toString();
@@ -134,16 +144,19 @@ public class CountMethods extends BugChecker
       return Optional.empty();
     }
 
-    return getRxReactorType(symbol);
+    return getTypeOfCall(symbol);
   }
 
-  private Optional<LibraryType> getRxReactorType(Symbol symbol) {
+  private Optional<LibraryType> getTypeOfCall(Symbol symbol) {
     if (RXJAVA_TYPES.contains(symbol.toString())
         || RXJAVA_TYPES.contains(symbol.owner.toString())) {
       return Optional.of(RX_JAVA);
     } else if (REACTOR_TYPES.contains(symbol.toString())
         || REACTOR_TYPES.contains(symbol.owner.toString())) {
       return Optional.of(REACTOR);
+    } else if (RXJAVA2ADAPTER.equals(symbol.toString())
+        || RXJAVA2ADAPTER.equals(symbol.owner.toString())) {
+      return Optional.of(ADAPTER);
     }
     return Optional.empty();
   }
@@ -191,10 +204,12 @@ public class CountMethods extends BugChecker
   }
 
   private void printLinesForRxJavaAndReactorMethods(
-      ExpressionTree tree, LibraryType type, LocationType locationType, String additionalInfo) {
+      ExpressionTree tree,
+      LibraryType libraryType,
+      LocationType locationType,
+      String additionalInfo) {
     Symbol symbol = ASTHelpers.getSymbol(tree);
 
-    String filePrefix = type.equals(RX_JAVA) ? "rx-java" : "reactor";
     String line = "1 | ";
     Name className =
         symbol instanceof MethodSymbol ? symbol.owner.getSimpleName() : symbol.getSimpleName();
@@ -206,7 +221,7 @@ public class CountMethods extends BugChecker
       line += " | " + additionalInfo;
     }
 
-    writeString(line + "\n", filePrefix);
+    writeString(line + "\n", libraryType.getFilePrefix());
   }
 
   private void writeString(String line, String filePrefix) {
@@ -222,8 +237,19 @@ public class CountMethods extends BugChecker
   }
 
   enum LibraryType {
-    RX_JAVA,
-    REACTOR
+    RX_JAVA("rxjava"),
+    REACTOR("reactor"),
+    ADAPTER("adapter");
+
+    private final String filePrefix;
+
+    LibraryType(String s) {
+      filePrefix = s;
+    }
+
+    public String getFilePrefix() {
+      return filePrefix;
+    }
   }
 
   enum LocationType {
