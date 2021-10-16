@@ -20,8 +20,6 @@ import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 @RunWith(JUnit4.class)
 public class CountMethodsTest {
@@ -79,32 +77,6 @@ public class CountMethodsTest {
         .expectUnchanged()
         .doTest();
   }
-  //   frenchGreeting = new Testing() {
-  //    String name = "tout le monde";
-  //    public void greet() {
-  //      greetSomeone("tout le monde");
-  //    }
-  //    public void greetSomeone(String someone) {
-  //      name = someone;
-  //      System.out.println("Salut " + name);
-  //    }
-  //  };
-
-  interface Foo {
-    Mono<Integer> monoFunc();
-  }
-
-  public void test() {
-    Foo foo =
-        new Foo() {
-          Flux fluxy = Flux.just(1);
-
-          @Override
-          public Mono<Integer> monoFunc() {
-            return Mono.just(1);
-          }
-        };
-  }
 
   @Test
   public void identifiersWithAnonymousClass() {
@@ -138,6 +110,31 @@ public class CountMethodsTest {
             "            }",
             "          };",
             "}",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
+  @Test
+  public void adapterCalls() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Completable;",
+            "import io.reactivex.Flowable;",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Flux;",
+            "import reactor.core.publisher.Mono;",
+            "",
+            "public final class Foo {",
+            "  private Mono<Integer> sing = RxJava2Adapter.singleToMono(Single.just(1));",
+            "  public Flowable<Object> test(Mono<Integer> moon) {",
+            "    Mono<Void> single = RxJava2Adapter.monoToCompletable(",
+            "        RxJava2Adapter.maybeToMono(RxJava2Adapter.monoToMaybe(moon)))",
+            "            .as(RxJava2Adapter::completableToMono);",
+            "    return RxJava2Adapter.fluxToFlowable(Flux.empty());",
+            "  }",
             "}")
         .expectUnchanged()
         .doTest();
