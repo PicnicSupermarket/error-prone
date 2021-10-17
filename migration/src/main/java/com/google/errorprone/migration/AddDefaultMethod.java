@@ -83,8 +83,10 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.lang.model.element.Modifier;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
+import org.checkerframework.errorprone.javacutil.TreeUtils;
 
 @AutoService(BugChecker.class)
 @BugPattern(
@@ -155,7 +157,10 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
           && annotatedOnlyWithOverrideAndDeprecated) {
         // Here we did delete methods, if it was safe to do so. The Unused bugpattern now does this.
         return Description.NO_MATCH;
-      } else if (isAlreadyMigratedInClass) {
+      } else if (isAlreadyMigratedInClass
+          || TreeUtils.elementFromDeclaration(methodTree)
+              .getModifiers()
+              .contains(Modifier.ABSTRACT)) {
         return Description.NO_MATCH;
       }
 
@@ -222,11 +227,9 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
 
   private String getOriginalMethodWithDelegatingBody(
       MethodTree methodTree, String delegatingMethodBody, VisitorState state) {
-    return state
-        .getSourceForNode(methodTree)
-        .replace(
-            state.getSourceForNode(methodTree.getBody()),
-            "{\n return " + delegatingMethodBody + ";\n}\n");
+    String sourceForNode = state.getSourceForNode(methodTree.getBody());
+    String sourceForMethod = state.getSourceForNode(methodTree);
+    return sourceForMethod.replace(sourceForNode, "{\n return " + delegatingMethodBody + ";\n}\n");
   }
 
   private Type getDesiredReturnTypeForMigration(

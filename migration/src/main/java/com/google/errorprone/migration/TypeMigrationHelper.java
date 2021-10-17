@@ -24,36 +24,35 @@ import javax.lang.model.type.TypeKind;
 
 public class TypeMigrationHelper {
 
-    protected static boolean isMethodTypeUndesiredMigrationType(
-            Types types, Type methodReturnType, Type undesiredMigrationReturnType, VisitorState state) {
-        if (undesiredMigrationReturnType == null) {
-            return false;
-        }
-        if (undesiredMigrationReturnType.getTypeArguments().isEmpty()) {
-            return types.isSameType(methodReturnType, undesiredMigrationReturnType);
-        }
-
-        Type undesiredReturnTypeArgument = undesiredMigrationReturnType.getTypeArguments().get(0);
-        boolean isTypeVar = undesiredReturnTypeArgument.getKind() == TypeKind.TYPEVAR;
-
-        if (isTypeVar) {
-            return ASTHelpers.isSameType(methodReturnType, undesiredMigrationReturnType, state)
-                    && ASTHelpers.isSubtype(
-                    methodReturnType.getTypeArguments().get(0),
-                    undesiredReturnTypeArgument.getUpperBound(),
-                    state)
-                    && ASTHelpers.isSubtype(
-                    undesiredReturnTypeArgument.getLowerBound(),
-                    methodReturnType.getTypeArguments().get(0),
-                    state);
-        } else {
-            return types.isSameType(methodReturnType, undesiredMigrationReturnType)
-                    && (methodReturnType.tsym.equals(undesiredMigrationReturnType.tsym)
-                    && methodReturnType
-                    .tsym
-                    .getTypeParameters()
-                    .equals(undesiredMigrationReturnType.tsym.getTypeParameters()));
-        }
+  protected static boolean isMethodTypeUndesiredMigrationType(
+      Types types, Type methodReturnType, Type undesiredMigrationReturnType, VisitorState state) {
+    if (undesiredMigrationReturnType == null) {
+      return false;
+    }
+    if (undesiredMigrationReturnType.getTypeArguments().isEmpty()) {
+      return types.isSameType(methodReturnType, undesiredMigrationReturnType);
     }
 
+    Type undesiredReturnTypeArgument = undesiredMigrationReturnType.getTypeArguments().get(0);
+    boolean isTypeVar = undesiredReturnTypeArgument.getKind() == TypeKind.TYPEVAR;
+
+    Type typeArguments =
+        methodReturnType.getTypeArguments().isEmpty()
+            ? null
+            : methodReturnType.getTypeArguments().get(0);
+    if (isTypeVar) {
+      return ASTHelpers.isSameType(methodReturnType, undesiredMigrationReturnType, state)
+          && ASTHelpers.isSubtype(typeArguments, undesiredReturnTypeArgument.getUpperBound(), state)
+          && ASTHelpers.isSubtype(
+              undesiredReturnTypeArgument.getLowerBound(), typeArguments, state);
+    } else {
+      return types.isSameType(methodReturnType, undesiredMigrationReturnType)
+          && (methodReturnType.tsym.equals(undesiredMigrationReturnType.tsym)
+              && !methodReturnType.tsym.getTypeParameters().isEmpty()
+              && methodReturnType
+                  .tsym
+                  .getTypeParameters()
+                  .equals(undesiredMigrationReturnType.tsym.getTypeParameters()));
+    }
+  }
 }

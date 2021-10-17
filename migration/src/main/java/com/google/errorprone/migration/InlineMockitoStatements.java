@@ -196,6 +196,9 @@ public class InlineMockitoStatements extends BugChecker implements MethodInvocat
   }
 
   private boolean isMethodAlreadyMigrated(Symbol whenSymbol, VisitorState state) {
+    if (whenSymbol == null) {
+      return false;
+    }
     TreePath pathToEnclosingMethod = state.findPathToEnclosing(MethodTree.class);
     DoesPathContainMemberSelect scan =
         new DoesPathContainMemberSelect(whenSymbol.getQualifiedName() + "_migrated");
