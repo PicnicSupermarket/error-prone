@@ -33,6 +33,7 @@ import com.google.errorprone.refaster.Inliner;
 import com.google.errorprone.refaster.UType;
 import com.google.errorprone.refaster.Unifier;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -56,9 +57,50 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
           // "matchViews", --> Verify that this one is not required anymore.
           "findAssignmentsByTopics",
           "findAssignmentsByTextIds",
-          "complete",
+          //          "complete",
           // "isBlacklisted", --> Verify that this one is not required anymore.
-          "getAggregatedDashboardOrders");
+          "getAggregatedDashboardOrders",
+          // FOR THE GRAVITEE REPO:
+          "findByTypeAndTimeFrame",
+          "findByTypeAndTimeFrame_migrated",
+          "findByNodeIdAndType",
+          "findByNodeIdAndType_migrated",
+          "create",
+          "create_migrated",
+          "update",
+          "update_migrated",
+          "delete",
+          "patch",
+          "patch_migrated",
+          "delete_migrated",
+          "revokeByUser",
+          "revokeByUser_migrated",
+          "saveConsent_migrated",
+          "addOrUpdate",
+          "addOrUpdate_migrated",
+          "deleteByDomainAndScopeKey",
+          "deleteByDomainAndScopeKey_migrated",
+          "revokeByConsent_migrated",
+          "revokeByUserAndClient",
+          "assignRoles_migrated",
+          "findAll_migrated",
+          "findById",
+          "findById_migrated",
+          "revokeByUserAndClient_migrated",
+          "findByDomain",
+          "findByDomain_migrated",
+          "findByDomainAndResource",
+          "findByDomainAndResource_migrated",
+          "createOrUpdate",
+          "createOrUpdate_migrated",
+          "revokeRoles",
+          "revokeRoles_migrated",
+          "saveConsent",
+          "authenticate",
+          "profile",
+          "profile_migrated",
+          "authenticate_migrated",
+          "answer");
 
   @Override
   public Description matchMethod(MethodTree methodTree, VisitorState state) {
@@ -106,6 +148,13 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
         return Description.NO_MATCH;
       } else if (methodTree.getName().toString().contains("_migrated")) {
 
+        if (methodTree.getBody().getStatements().get(0) instanceof MethodInvocationTree) {
+          int amountOfParams =
+              ((MethodInvocationTree) methodTree.getBody().getStatements().get(0))
+                  .getArguments()
+                  .size();
+          boolean b = methodTree.getParameters().size() != amountOfParams;
+        }
         boolean hasNormalDefaultImpl =
             !methodTree
                 .getBody()
@@ -113,6 +162,7 @@ public class RemoveOldMethods extends BugChecker implements MethodTreeMatcher {
                 .get(0)
                 .toString()
                 .contains(methodTree.getName().toString().replace("_migrated", ""));
+
         if (hasNormalDefaultImpl) {
           return Description.NO_MATCH;
         }

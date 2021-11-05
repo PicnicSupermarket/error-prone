@@ -210,5 +210,30 @@ public class RemoveOldMethodsTest {
         .doTest();
   }
 
+  @Test
+  public void dontRemoveDelegatingMethod() {
+    helper
+        .addInputLines(
+            "Foo.java",
+            "import io.reactivex.Single;",
+            "import reactor.adapter.rxjava.RxJava2Adapter;",
+            "import reactor.core.publisher.Mono;",
+            "public interface Foo {",
+            "  @Deprecated",
+            "  default Single<String> bar() {",
+            "    return RxJava2Adapter.monoToSingle(bar_migrated());",
+            "  }",
+            "  default Mono<String> bar_migrated() {",
+            "    return RxJava2Adapter.singleToMono(bar(1));",
+            "  }",
+            "  @Deprecated",
+            "  default Single<String> bar(Integer i) {",
+            "    return Single.just(\"\");",
+            "  }",
+            "}")
+        .expectUnchanged()
+        .doTest();
+  }
+
   // Add interface with default impl that must not be totally removed.
 }
