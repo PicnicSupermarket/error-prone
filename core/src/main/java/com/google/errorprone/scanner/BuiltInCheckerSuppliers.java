@@ -146,6 +146,7 @@ import com.google.errorprone.bugpatterns.HashCodeToString;
 import com.google.errorprone.bugpatterns.HashtableContains;
 import com.google.errorprone.bugpatterns.HidingField;
 import com.google.errorprone.bugpatterns.IdentityBinaryExpression;
+import com.google.errorprone.bugpatterns.IdentityConversion;
 import com.google.errorprone.bugpatterns.IdentityHashMapBoxing;
 import com.google.errorprone.bugpatterns.IdentityHashMapUsage;
 import com.google.errorprone.bugpatterns.IgnoredPureGetter;
@@ -830,6 +831,7 @@ public class BuiltInCheckerSuppliers {
           FutureReturnValueIgnored.class,
           GetClassOnEnum.class,
           HidingField.class,
+          IdentityConversion.class,
           IdentityHashMapUsage.class,
           IgnoredPureGetter.class,
           ImmutableAnnotationChecker.class,
