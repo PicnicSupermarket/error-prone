@@ -374,4 +374,9 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   public void memberSelectAndMethodParameterDisambiguation() throws IOException {
     runTest("MemberSelectAndMethodParameterDisambiguationTemplate");
   }
+
+  @Test
+  public void typeArgumentsMethodInvocation() throws IOException {
+    runTest("TypeArgumentsMethodInvocationTemplate");
+  }
 }
