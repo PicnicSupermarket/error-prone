@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
+import static com.google.errorprone.bugpatterns.BugChecker.MemberReferenceTreeMatcher;
 import static com.google.errorprone.matchers.Matchers.anyOf;
 import static com.google.errorprone.matchers.method.MethodMatchers.instanceMethod;
 import static com.google.errorprone.matchers.method.MethodMatchers.staticMethod;
@@ -27,7 +28,6 @@ import static com.google.errorprone.util.ASTHelpers.enclosingPackage;
 import static com.google.errorprone.util.ASTHelpers.findEnclosingMethod;
 import static com.google.errorprone.util.ASTHelpers.getReceiver;
 import static com.google.errorprone.util.ASTHelpers.getSymbol;
-import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.google.errorprone.util.ASTHelpers.hasDirectAnnotationWithSimpleName;
 import static com.google.errorprone.util.ASTHelpers.stringContainsComments;
 import static com.google.errorprone.util.MoreAnnotations.getValue;
@@ -81,9 +81,7 @@ import javax.annotation.Nullable;
     severity = WARNING,
     tags = Inliner.FINDING_TAG)
 public final class Inliner extends BugChecker
-    implements MethodInvocationTreeMatcher,
-        NewClassTreeMatcher,
-        BugChecker.MemberReferenceTreeMatcher {
+    implements MethodInvocationTreeMatcher, NewClassTreeMatcher, MemberReferenceTreeMatcher {
 
   public static final String FINDING_TAG = "JavaInlineMe";
 
@@ -136,11 +134,16 @@ public final class Inliner extends BugChecker
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
     MethodTree enclosingMethod = findEnclosingMethod(state);
-    if (!hasAnnotation(symbol, INLINE_ME, state)
+    if (!hasDirectAnnotationWithSimpleName(symbol, INLINE_ME)
         || isMockMethodThatCannotBeInlined(tree, state)
         || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
       return Description.NO_MATCH;
     }
+    //    if (!hasAnnotation(symbol, INLINE_ME, state)
+    //        || isMockMethodThatCannotBeInlined(tree, state)
+    //        || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
+    //      return Description.NO_MATCH;
+    //    }
 
     ImmutableList<String> callingVars =
         tree.getArguments().stream().map(state::getSourceForNode).collect(toImmutableList());
@@ -170,7 +173,7 @@ public final class Inliner extends BugChecker
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
     MethodSymbol symbol = getSymbol(tree);
     MethodTree enclosingMethod = findEnclosingMethod(state);
-    if (!hasAnnotation(symbol, INLINE_ME, state)
+    if (!hasDirectAnnotationWithSimpleName(symbol, INLINE_ME)
         || isEnclosingMethodAnAlreadyMigratedInterface(tree, enclosingMethod, state)) {
       return Description.NO_MATCH;
     }
@@ -276,7 +279,7 @@ public final class Inliner extends BugChecker
     if (inlineMe.isEmpty()) {
       return Description.NO_MATCH;
     }
-    checkState(hasAnnotation(symbol, INLINE_ME, state));
+    checkState(hasDirectAnnotationWithSimpleName(symbol, INLINE_ME));
 
     Api api = Api.create(symbol, state);
     if (!matchesApiPrefixes(api)) {

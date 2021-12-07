@@ -52,7 +52,6 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.apply.DescriptionBasedDiff;
 import com.google.errorprone.apply.ImportOrganizer;
 import com.google.errorprone.apply.SourceFile;
-import com.google.errorprone.fixes.SuggestedFixes.FixCompiler.Result;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.errorprone.util.ErrorProneToken;
 import com.google.errorprone.util.FindIdentifiers;
@@ -1273,8 +1272,6 @@ public final class SuggestedFixes {
     if (fix.isEmpty() && extraOptions.isEmpty()) {
       return true;
     }
-
-    FixCompiler fixCompiler;
     JCCompilationUnit compilationUnit = (JCCompilationUnit) state.getPath().getCompilationUnit();
     JavaFileObject modifiedFile = compilationUnit.getSourceFile();
     BasicJavacTask javacTask = (BasicJavacTask) state.context.get(JavacTask.class);
@@ -1353,14 +1350,10 @@ public final class SuggestedFixes {
                 fileObjects,
                 context);
     try {
-      fixCompiler = FixCompiler.create(fix, state);
+      newTask.analyze();
     } catch (IOException e) {
-      return false;
+      throw new UncheckedIOException(e);
     }
-
-    Result compilationResult = fixCompiler.compile(extraOptions);
-    URI modifiedFileUri = FixCompiler.getModifiedFileUri(state);
-
     // If we reached the maximum number of diagnostics of a given kind without finding one in the
     // modified compilation unit, we won't find any more diagnostics, but we can't be sure that
     // there isn't an diagnostic, as the diagnostic may simply be the (max+1)-th diagnostic, and
@@ -1369,7 +1362,7 @@ public final class SuggestedFixes {
     int countWarnings = 0;
     boolean warningIsError = false;
     boolean warningInSameCompilationUnit = false;
-    for (Diagnostic<? extends JavaFileObject> diagnostic : compilationResult.diagnostics()) {
+    for (Diagnostic<? extends JavaFileObject> diagnostic : diagnosticListener.getDiagnostics()) {
       warningIsError |= diagnostic.getCode().equals("compiler.err.warnings.and.werror");
       JavaFileObject diagnosticSource = diagnostic.getSource();
       // If the source's origin is unknown, assume that new diagnostics are due to a modification.
@@ -1389,7 +1382,6 @@ public final class SuggestedFixes {
         default:
           continue;
       }
-
       if ((warningIsError && warningInSameCompilationUnit)
           || (countErrors >= maxErrors)
           || (countWarnings >= maxWarnings)) {

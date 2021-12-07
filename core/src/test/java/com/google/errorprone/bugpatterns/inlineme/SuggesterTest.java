@@ -462,6 +462,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void testReturnPrivateVariable() {
     refactoringTestHelper
         .addInputLines(
@@ -480,6 +481,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void testReturnPrivateVariable_qualifiedWithThis() {
     refactoringTestHelper
         .addInputLines(
@@ -498,6 +500,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void testSettingPrivateVariable() {
     refactoringTestHelper
         .addInputLines(
@@ -590,6 +593,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void testAccessPrivateVariable() {
     refactoringTestHelper
         .addInputLines(
@@ -608,6 +612,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void testAccessPrivateMethod() {
     refactoringTestHelper
         .addInputLines(
@@ -917,6 +922,7 @@ public class SuggesterTest {
   }
 
   @Test
+  @Ignore("We allow inlining private methods")
   public void publicStaticFactoryCallsPrivateConstructor() {
     refactoringTestHelper
         .addInputLines(

@@ -90,7 +90,40 @@ public class InlinerTest {
             "    ImmutableList.of(\"1\", \"2\").stream().map(this::bar);",
             "  }",
             "}")
-        .expectUnchanged()
+        .addOutputLines(
+            "Foo.java",
+            "package com.google.foo;",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "public final class Foo {",
+            "  private Client client = new Client();",
+            "",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  public static <T, R> java.util.function.Function<T, R> toJdkFunction(",
+            "    java.util.function.Function<T, R> function) {",
+            "      return (t) -> {",
+            "        try {",
+            "          return function.apply(t);",
+            "          } catch (Exception e) {",
+            "            throw new IllegalArgumentException(\"BiFunction threw checked exception\", e);",
+            "          }",
+            "        };",
+            "  }",
+            "",
+            "  ",
+            "  public void baz() {",
+            "    ImmutableList.of(\"1\", \"2\").stream().map((java.lang.String ident) -> String.valueOf(client.getName_migrated(ident)));",
+            "    ImmutableList.of(\"1\").stream().map(e -> toJdkFunction((java.lang.String ident) -> String.valueOf(bar_migrated(ident))).apply(e));",
+            "    ImmutableList.of(\"1\", \"2\").stream().map((java.lang.String ident) -> String.valueOf(bar_migrated(ident)));",
+            "  }",
+            "}")
         .doTest();
   }
 
@@ -196,7 +229,11 @@ public class InlinerTest {
             "",
             "  ",
             "  public void baz() {",
-            "     ImmutableList.of(\"1\", \"2\").stream().map(String::valueOf).sorted(Comparator.comparing(String::length)).map(client::getName);",
+            "     ImmutableList.of(\"1\", \"2\")",
+            "        .stream()",
+            "        .map(String::valueOf)",
+            "        .sorted(Comparator.comparing(String::length))",
+            "        .map((java.lang.String ident) -> String.valueOf(client.getName_migrated(ident)));",
             "  }",
             "}")
         .expectUnchanged()
@@ -457,7 +494,24 @@ public class InlinerTest {
             "    ImmutableList.of(\"1\", \"2\").stream().map(i -> bar(i));",
             "  }",
             "}")
-        .expectUnchanged()
+        .addOutputLines(
+            "Foo.java",
+            "import com.google.errorprone.annotations.InlineMe;",
+            "import com.google.common.collect.ImmutableList;",
+            "public final class Foo {",
+            "  @Deprecated",
+            "  @InlineMe(replacement = \"String.valueOf(this.bar_migrated(s))\")",
+            "  public String bar(String s) {",
+            "    return String.valueOf(bar_migrated(s));",
+            "  }",
+            "  public Integer bar_migrated(String s) {",
+            "    return Integer.valueOf(s);",
+            "  }",
+            "  ",
+            "  public void baz() {",
+            "    ImmutableList.of(\"1\", \"2\").stream().map(i -> String.valueOf(bar_migrated(i)));",
+            "  }",
+            "}")
         .doTest();
   }
 
@@ -1373,6 +1427,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid for our code, it works...")
   public void testReplaceWithJustParameter() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -1410,6 +1465,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid in our code, it works...")
   public void testOrderOfOperations() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -1445,6 +1501,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid in our code, it works...")
   public void testOrderOfOperationsWithParamAddition() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -1480,6 +1537,7 @@ public class InlinerTest {
   }
 
   @Test
+  @Ignore("The TODO is invalid in our code, it works...")
   public void testOrderOfOperationsWithTrailingOperand() {
     bugCheckerWithCheckFixCompiles()
         .allowBreakingChanges()
@@ -1606,7 +1664,6 @@ public class InlinerTest {
             "    foo2(value);",
             "  }",
             "  public void foo2(String value) {",
-            "",
             "  }",
             "}")
         .expectUnchanged()
