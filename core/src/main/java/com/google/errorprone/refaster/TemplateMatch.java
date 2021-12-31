@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.util.Context;
 import java.io.IOException;
 
 /**
@@ -28,6 +29,10 @@ import java.io.IOException;
  * @author lowasser@google.com (Louis Wasserman)
  */
 public abstract class TemplateMatch {
+  // This should not be here. `Inliner` should define a similar constant, but with a more generic
+  // type parameter (perhaps just `Tree`).
+  public static final Context.Key<JCTree> MATCH_LOCATION = new Context.Key<>();
+
   private final JCTree location;
   private final Unifier unifier;
 
@@ -45,7 +50,10 @@ public abstract class TemplateMatch {
   }
 
   public Inliner createInliner() {
-    return unifier.createInliner();
+    // This should not be here; pass `location` to the `Inliner` creation instead.
+    Inliner inliner = unifier.createInliner();
+    inliner.getContext().put(MATCH_LOCATION, location);
+    return inliner;
   }
 
   public String getRange(JCCompilationUnit unit) {

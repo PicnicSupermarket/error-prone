@@ -63,11 +63,14 @@ public final class Inliner {
 
   public Inliner(Context context, Bindings bindings) {
     this.context = new SubContext(context);
+    // Content should be augmented *here* instead. Ctor should accept `matchLocation`.
     this.bindings = new Bindings(bindings).unmodifiable();
     this.importsToAdd = Sets.newHashSet();
     this.staticImportsToAdd = Sets.newHashSet();
     this.typeVarCache = Maps.newHashMap();
   }
+
+  // Implement here `getFreeVariableName(Name baseName)` (or some name like that).
 
   public void addImport(String qualifiedImport) {
     if (!qualifiedImport.startsWith("java.lang")) {

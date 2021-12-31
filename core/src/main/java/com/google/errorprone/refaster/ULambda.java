@@ -16,6 +16,7 @@
 
 package com.google.errorprone.refaster;
 
+import static com.google.errorprone.refaster.TemplateMatch.MATCH_LOCATION;
 import static com.google.errorprone.refaster.Unifier.unifications;
 import static com.google.errorprone.refaster.Unifier.unifyList;
 
@@ -64,6 +65,8 @@ abstract class ULambda extends UExpression implements LambdaExpressionTree {
 
   @Override
   public JCLambda inline(Inliner inliner) throws CouldNotResolveImportException {
+    // This shouldn't be here; call `Inliner#getFreeVariableName` instead.
+    JCTree replacementContext = inliner.getContext().get(MATCH_LOCATION);
     return inliner.maker().Lambda(inlineParams(inliner), inlineBody(inliner));
   }
 
