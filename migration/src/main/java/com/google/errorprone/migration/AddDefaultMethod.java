@@ -72,7 +72,6 @@ import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.IntHashTable;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Position;
@@ -541,7 +540,7 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
   }
 
   static final class SimpleEndPosTable implements EndPosTable {
-    private final IntHashTable endPosMap = new IntHashTable();
+    private final IntHashTableLocal endPosMap = new IntHashTableLocal();
 
     @Override
     public void storeEnd(JCTree tree, int endPos) {
