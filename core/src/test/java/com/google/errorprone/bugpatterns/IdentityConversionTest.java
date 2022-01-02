@@ -24,7 +24,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link IdentityConversion}. */
 @RunWith(JUnit4.class)
 public class IdentityConversionTest {
-
   private final BugCheckerRefactoringTestHelper helper =
       BugCheckerRefactoringTestHelper.newInstance(IdentityConversion.class, getClass());
 

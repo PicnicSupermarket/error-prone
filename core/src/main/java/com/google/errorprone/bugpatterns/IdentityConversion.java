@@ -21,15 +21,15 @@ import static com.google.errorprone.BugPattern.StandardTags;
 import static com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
 import static com.google.errorprone.matchers.Matchers.anyOf;
 import static com.google.errorprone.matchers.Matchers.staticMethod;
-import static com.google.errorprone.util.ASTHelpers.TargetType;
-import static com.google.errorprone.util.ASTHelpers.getType;
-import static com.google.errorprone.util.ASTHelpers.targetType;
 
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.fixes.SuggestedFix;
+import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.util.ASTHelpers;
+import com.google.errorprone.util.ASTHelpers.TargetType;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Type;
@@ -37,11 +37,10 @@ import java.util.List;
 
 @BugPattern(
     name = "IdentityConversion",
-    summary = "Unwrap unnecessary identity conversions",
+    summary = "Avoid or clarify identity conversions",
     severity = WARNING,
     tags = StandardTags.SIMPLIFICATION)
 public final class IdentityConversion extends BugChecker implements MethodInvocationTreeMatcher {
-
   private static final Matcher<ExpressionTree> IS_CONVERSION_METHOD =
       anyOf(
           staticMethod()
@@ -77,20 +76,26 @@ public final class IdentityConversion extends BugChecker implements MethodInvoca
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    if (!IS_CONVERSION_METHOD.matches(tree, state) && tree.getArguments().size() != 1) {
+    List<? extends ExpressionTree> arguments = tree.getArguments();
+    if (arguments.size() != 1 || !IS_CONVERSION_METHOD.matches(tree, state)) {
       return Description.NO_MATCH;
     }
 
-    List<? extends ExpressionTree> arguments = tree.getArguments();
     ExpressionTree sourceTree = arguments.get(0);
-    Type sourceType = getType(sourceTree);
-    TargetType targetType = targetType(state);
+    Type sourceType = ASTHelpers.getType(sourceTree);
+    TargetType targetType = ASTHelpers.targetType(state);
     if (sourceType == null
         || targetType == null
         || !state.getTypes().isSubtype(sourceType, targetType.type())) {
       return Description.NO_MATCH;
     }
 
-    return describeMatch(tree, SuggestedFix.replace(tree, state.getSourceForNode(sourceTree)));
+    return buildDescription(tree)
+        .setMessage(
+            "This method invocation appears redundant; remove it or suppress this warning and "
+                + "add an comment explaining its purpose")
+        .addFix(SuggestedFix.replace(tree, state.getSourceForNode(sourceTree)))
+        .addFix(SuggestedFixes.addSuppressWarnings(state, canonicalName()))
+        .build();
   }
 }
