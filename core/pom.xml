@@ -420,7 +420,7 @@
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.5.1</version>
+        <version>0.6.1</version>
         <configuration>
           <protoSourceRoot>src/main/proto</protoSourceRoot>
           <protoTestSourceRoot>src/test/proto</protoTestSourceRoot>
