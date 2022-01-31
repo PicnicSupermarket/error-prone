@@ -366,8 +366,10 @@ public class AddDefaultMethod extends BugChecker implements MethodTreeMatcher {
             .map(JCVariableDecl.class::cast)
             .map(treeMaker::Ident)
             .collect(List.collector());
+    MethodSymbol methodSymbol =
+        new MethodSymbol(0, methodName, currentType, state.getSymtab().unknownSymbol);
     treeMaker = treeMaker.at(0);
-    JCExpression identExpr = treeMaker.Ident(methodName).setType(currentType);
+    JCExpression identExpr = treeMaker.Ident(methodSymbol).setType(currentType);
     treeMaker = treeMaker.at(0);
     JCMethodInvocation methodInvocation = treeMaker.Apply(List.nil(), identExpr, params);
     methodInvocation.setType(currentType);
