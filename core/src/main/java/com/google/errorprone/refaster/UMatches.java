@@ -16,11 +16,14 @@
 
 package com.google.errorprone.refaster;
 
+import static com.sun.tools.javac.code.Symbol.MethodSymbol;
+
 import com.google.auto.value.AutoValue;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TreeVisitor;
 import com.sun.source.util.TreePath;
@@ -82,6 +85,8 @@ abstract class UMatches extends UExpression {
       matcher = makeMatcher(matcherClass());
     }
     return target instanceof ExpressionTree
+        && !(target instanceof MemberSelectTree
+            && ASTHelpers.getSymbol(target) instanceof MethodSymbol)
         && matcher.matches((ExpressionTree) target, makeVisitorState(target, unifier));
   }
 
