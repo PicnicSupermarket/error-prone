@@ -246,7 +246,7 @@ public class BugCheckerRefactoringTestHelper {
     }
   }
 
-  private BugCheckerRefactoringTestHelper addInputAndOutput(
+  public BugCheckerRefactoringTestHelper addInputAndOutput(
       JavaFileObject input, JavaFileObject output) {
     sources.put(input, output);
     return this;
