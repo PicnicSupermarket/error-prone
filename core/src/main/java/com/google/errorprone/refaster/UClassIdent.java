@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * @author lowasser@google.com (Louis Wasserman)
  */
 @AutoValue
-abstract class UClassIdent extends UIdent {
+public abstract class UClassIdent extends UIdent {
   @VisibleForTesting
   public static UClassIdent create(String qualifiedName) {
     List<String> topLevelPath = new ArrayList<>();

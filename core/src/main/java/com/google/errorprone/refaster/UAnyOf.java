@@ -38,7 +38,7 @@ public abstract class UAnyOf extends UExpression {
     return new AutoValue_UAnyOf(ImmutableList.copyOf(expressions));
   }
 
-  abstract ImmutableList<UExpression> expressions();
+  public abstract ImmutableList<UExpression> expressions();
 
   @Override
   public UExpression negate() {
@@ -64,7 +64,7 @@ public abstract class UAnyOf extends UExpression {
 
   @Override
   public <R, D> R accept(TreeVisitor<R, D> visitor, D data) {
-    return expressions().get(0).accept(visitor, data);
+    return visitor.visitOther(this, data);
   }
 
   @Override
