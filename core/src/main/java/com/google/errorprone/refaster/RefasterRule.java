@@ -126,7 +126,7 @@ public abstract class RefasterRule<M extends TemplateMatch, T extends Template<M
 
   abstract ImmutableList<UTypeVar> typeVariables();
 
-  abstract ImmutableList<T> beforeTemplates();
+  public abstract ImmutableList<T> beforeTemplates();
 
   abstract ImmutableList<T> afterTemplates();
 

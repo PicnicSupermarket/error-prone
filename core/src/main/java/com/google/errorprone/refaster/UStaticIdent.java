@@ -44,7 +44,7 @@ public abstract class UStaticIdent extends UIdent {
     return create(UClassIdent.create(classSym), member, memberType);
   }
 
-  abstract UClassIdent classIdent();
+  public abstract UClassIdent classIdent();
 
   @Override
   public abstract StringName getName();
