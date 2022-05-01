@@ -86,7 +86,7 @@ public abstract class BlockTemplate extends Template<BlockTemplateMatch> {
         annotations(), templateTypeVariables(), expressionArgumentTypes(), templateStatements);
   }
 
-  abstract ImmutableList<UStatement> templateStatements();
+  public abstract ImmutableList<UStatement> templateStatements();
 
   /**
    * If the tree is a {@link JCBlock}, returns a list of disjoint matches corresponding to the exact
