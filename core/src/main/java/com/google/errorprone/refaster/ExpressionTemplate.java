@@ -100,7 +100,7 @@ public abstract class ExpressionTemplate extends Template<ExpressionTemplateMatc
         returnType);
   }
 
-  abstract UExpression expression();
+  public abstract UExpression expression();
 
   abstract UType returnType();
 
