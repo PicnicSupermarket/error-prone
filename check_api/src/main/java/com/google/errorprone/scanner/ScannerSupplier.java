@@ -143,6 +143,7 @@ public abstract class ScannerSupplier implements Supplier<Scanner> {
         && errorProneOptions.getFlags().isEmpty()
         && !errorProneOptions.isEnableAllChecksAsWarnings()
         && !errorProneOptions.isDropErrorsToWarnings()
+        && !errorProneOptions.isSuggestionsAsWarnings()
         && !errorProneOptions.isDisableAllChecks()) {
       return this;
     }
@@ -161,6 +162,12 @@ public abstract class ScannerSupplier implements Supplier<Scanner> {
     if (errorProneOptions.isDropErrorsToWarnings()) {
       getAllChecks().values().stream()
           .filter(c -> c.defaultSeverity() == SeverityLevel.ERROR && c.disableable())
+          .forEach(c -> severities.put(c.canonicalName(), SeverityLevel.WARNING));
+    }
+
+    if (errorProneOptions.isSuggestionsAsWarnings()) {
+      getAllChecks().values().stream()
+          .filter(c -> c.defaultSeverity() == SeverityLevel.SUGGESTION)
           .forEach(c -> severities.put(c.canonicalName(), SeverityLevel.WARNING));
     }
 
