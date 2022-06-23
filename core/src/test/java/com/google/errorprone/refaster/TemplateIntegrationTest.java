@@ -419,7 +419,7 @@ public class TemplateIntegrationTest extends CompilerBasedTest {
   }
 
   @Test
-  public void rewriteFlowableFlatMap() throws IOException {
-    runTest("FlowableFlatMapTemplate");
+  public void rewriteSingleFlatMap() throws IOException {
+    runTest("SingleFlatMapTemplate");
   }
 }

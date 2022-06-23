@@ -26,9 +26,9 @@ import reactor.core.publisher.Mono;
 import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
 
 /** Example */
-abstract class MatchNestedLambdaTemplate<T, R> {
+abstract class MatchNestedLambdaTemplate<T, R extends T> {
   @Placeholder
-  abstract Mono<? extends R> placeholder(@MayOptionallyUse T input);
+  abstract Mono<? extends T> placeholder(@MayOptionallyUse T input);
 
   @BeforeTemplate
   java.util.function.Function<? extends T, ? extends Mono<? extends R>> before() {

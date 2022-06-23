@@ -8,8 +8,8 @@ import io.reactivex.functions.Function;
 import reactor.adapter.rxjava.RxJava2Adapter;
 import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
 /** Example */
-public class FlowableFlatMapTemplateExample {
-  void testFlowableFlatMap() {
+public class SingleFlatMapTemplateExample {
+  void testSingleFlatMap() {
     RxJava2Adapter.monoToSingle(
         RxJava2Adapter.singleToMono(
                 Maybe.just(1)

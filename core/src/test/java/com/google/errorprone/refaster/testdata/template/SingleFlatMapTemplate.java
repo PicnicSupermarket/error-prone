@@ -27,8 +27,7 @@ import reactor.adapter.rxjava.RxJava2Adapter;
 import tech.picnic.errorprone.migration.util.RxJavaReactorMigrationUtil;
 
 /** Example */
-// XXX: Rename to SingleFlatMapTemplate
-public final class FlowableFlatMapTemplate<I, R, T extends I, O, M extends SingleSource<O>> {
+public final class SingleFlatMapTemplate<I, R, T extends I, O, M extends SingleSource<O>> {
   @BeforeTemplate
   Single<O> before(
       Single<T> single, Function<? super T, ? extends SingleSource<? extends O>> function) {

@@ -23,9 +23,9 @@ import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Function;
 
 /** Example */
-public class FlowableFlatMapTemplateExample {
+public class SingleFlatMapTemplateExample {
 
-  void testFlowableFlatMap() {
+  void testSingleFlatMap() {
     Maybe.just(1)
         .flatMapSingle(
             new Function<Integer, SingleSource<Schema>>() {

@@ -41,7 +41,7 @@ public class IsParentReturnTreeTest extends CompilerBasedAbstractTest {
   }
 
   @Test
-  public void upperReturnTreeMathces() {
+  public void upperReturnTreeMatches() {
     writeFile(
         "A.java", "public class A {", "  public String foo() {", "    return \"\";", "  }", "}");
 
