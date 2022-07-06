@@ -465,9 +465,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
           templateExpressions(tree.getArguments()));
     } else {
       return UMethodInvocation.create(
-          templateTypeExpressions(tree.getTypeArguments()),
-          template(tree.getMethodSelect()),
-          templateExpressions(tree.getArguments()));
+          template(tree.getMethodSelect()), templateExpressions(tree.getArguments()));
     }
   }
 

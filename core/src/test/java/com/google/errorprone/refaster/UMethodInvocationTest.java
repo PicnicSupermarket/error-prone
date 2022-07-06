@@ -41,8 +41,7 @@ public class UMethodInvocationTest extends AbstractUTreeTest {
     ULiteral oneLit = ULiteral.intLit(1);
     ULiteral barLit = ULiteral.stringLit("bar");
     UMethodInvocation invocation =
-        UMethodInvocation.create(
-            ImmutableList.of(), fooIdent, ImmutableList.<UExpression>of(oneLit, barLit));
+        UMethodInvocation.create(fooIdent, ImmutableList.<UExpression>of(oneLit, barLit));
     assertUnifies("foo(1, \"bar\")", invocation);
   }
 
