@@ -369,14 +369,36 @@ public final class AnnotationPositionTest {
             "sealed @Deprecated interface Test {",
             "  final class A implements Test {}",
             "}")
-        .addOutputLines(
-            "Test.java", //
-            "/** Javadoc! */",
-            "sealed @Deprecated interface Test {",
-            "  final class A implements Test {}",
-            "}")
+        .expectUnchanged()
         .setArgs("--enable-preview", "--release", Integer.toString(RuntimeVersion.release()))
         .doTest(TEXT_MATCH);
+  }
+
+  @Test
+  public void records() {
+    assumeTrue(RuntimeVersion.isAtLeast16());
+    helper
+        .addSourceLines(
+            "bar/Foo.java",
+            "package bar;",
+            "",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Retention;",
+            "import java.lang.annotation.RetentionPolicy;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})",
+            "@Retention(RetentionPolicy.RUNTIME)",
+            "@interface Foo {",
+            "}")
+        .addSourceLines(
+            "bar/SimpleRecord.java",
+            "package bar;",
+            "",
+            "record SimpleRecord(String foo) {",
+            "  @Foo",
+            "  public SimpleRecord {}",
+            "}")
+        .doTest();
   }
 
   @Test
@@ -387,11 +409,7 @@ public final class AnnotationPositionTest {
             "interface T {",
             "  @EitherUse <T> T f();",
             "}")
-        .addOutputLines(
-            "Test.java", //
-            "interface T {",
-            "  @EitherUse <T> T f();",
-            "}")
+        .expectUnchanged()
         .doTest(TEXT_MATCH);
   }
 

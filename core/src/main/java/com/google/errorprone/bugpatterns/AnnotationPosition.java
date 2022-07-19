@@ -51,6 +51,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.TypeAnnotations.AnnotationType;
 import com.sun.tools.javac.parser.Tokens.Comment;
 import com.sun.tools.javac.parser.Tokens.TokenKind;
@@ -82,6 +83,8 @@ public final class AnnotationPosition extends BugChecker
   private static final ImmutableMap<String, TokenKind> TOKEN_KIND_BY_NAME =
       Arrays.stream(TokenKind.values()).collect(toImmutableMap(tk -> tk.name(), tk -> tk));
 
+  private static final long RECORD_FLAG = 1L << 61;
+
   private static final ImmutableSet<TokenKind> MODIFIERS =
       Streams.concat(
               Arrays.stream(Modifier.values())
@@ -100,7 +103,16 @@ public final class AnnotationPosition extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
+    //    return !isGeneratedConstructorOfRecord(tree)
+    //        ? handle(tree, tree.getName(), tree.getModifiers(), state)
+    //        : NO_MATCH;
     return handle(tree, tree.getName(), tree.getModifiers(), state);
+  }
+
+  private boolean isGeneratedConstructorOfRecord(MethodTree tree) {
+    MethodSymbol symbol = getSymbol(tree);
+    return (symbol.flags() & RECORD_FLAG) == RECORD_FLAG
+        && symbol.getSimpleName().contentEquals("<init>");
   }
 
   @Override
@@ -210,7 +222,7 @@ public final class AnnotationPosition extends BugChecker
         shouldBeBefore.stream().allMatch(a -> getStartPosition(a) < firstModifierPos)
             && shouldBeAfter.stream().allMatch(a -> getStartPosition(a) > lastModifierPos);
 
-    if (annotationsInCorrectPlace && isOrderingIsCorrect(shouldBeBefore, shouldBeAfter)) {
+    if (annotationsInCorrectPlace && isOrderingCorrect(shouldBeBefore, shouldBeAfter)) {
       return NO_MATCH;
     }
     SuggestedFix.Builder fix = SuggestedFix.builder();
@@ -260,7 +272,7 @@ public final class AnnotationPosition extends BugChecker
         .build();
   }
 
-  private static boolean isOrderingIsCorrect(
+  private static boolean isOrderingCorrect(
       List<AnnotationTree> shouldBeBefore, List<AnnotationTree> shouldBeAfter) {
     if (shouldBeBefore.isEmpty() || shouldBeAfter.isEmpty()) {
       return true;
