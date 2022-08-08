@@ -157,6 +157,21 @@ public final class UngroupedOverloadsTest {
   }
 
   @Test
+  public void records() {
+    compilationHelper
+        .addSourceLines(
+            "Bbd.java",
+            " import java.time.LocalDate;",
+            " ",
+            "public record Bbd(LocalDate date) {",
+            "  public Bbd(int year, int month, int day) {",
+            "    this(LocalDate.of(year, month, day));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void staticAndNonStaticInterspersed() {
     compilationHelper
         .addSourceLines(

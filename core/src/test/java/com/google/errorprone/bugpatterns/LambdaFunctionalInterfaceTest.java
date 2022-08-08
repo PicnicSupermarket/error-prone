@@ -90,6 +90,20 @@ public class LambdaFunctionalInterfaceTest {
   }
 
   @Test
+  public void testFloat() {
+    compilationHelper
+        .addSourceLines(
+            "FloatFunction.java",
+            "import java.util.function.Function;",
+            "public class FloatFunction {",
+            "  private Float compute(Float x, Function<Float, Float> func) {",
+            "    return func.apply(x);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testRefactoringInteger() {
     refactoringHelper
         .addInputLines(
