@@ -248,7 +248,7 @@
       <!-- Apache 2.0 -->
       <groupId>com.google.dagger</groupId>
       <artifactId>dagger-producers</artifactId>
-      <version>2.40.5</version>
+      <version>2.44</version>
       <scope>test</scope>
     </dependency>
     <dependency>
