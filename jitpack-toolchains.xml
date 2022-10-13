@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Toolchains for the JDKs installed by `jitpack.yml`. -->
+<toolchains>
+  <toolchain>
+    <type>jdk</type>
+    <provides>
+      <version>21</version>
+    </provides>
+    <configuration>
+      <jdkHome>${env.HOME}/.sdkman/candidates/java/21.0.9-tem</jdkHome>
+    </configuration>
+  </toolchain>
+  <toolchain>
+    <type>jdk</type>
+    <provides>
+      <version>25</version>
+    </provides>
+    <configuration>
+      <jdkHome>${env.HOME}/.sdkman/candidates/java/25.0.4.1+1-tem</jdkHome>
+    </configuration>
+  </toolchain>
+</toolchains>
