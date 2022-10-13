@@ -1,0 +1,8 @@
+before_install:
+  - mvn -version
+  - source "${HOME}/.sdkman/bin/sdkman-init.sh"
+  - sdk update
+  - sdk install java 17.0.12-tem
+  - sdk use java 17.0.12-tem
+  - sdk install maven 3.9.9
+  - sdk use maven 3.9.9
