@@ -24,7 +24,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.errorprone.matchers.JUnitMatchers.JUNIT4_RUN_WITH_ANNOTATION;
 import static com.google.errorprone.matchers.Matchers.isSubtypeOf;
-import static com.google.errorprone.util.ASTHelpers.isStatic;
 import static com.sun.tools.javac.code.Scope.LookupKind.NON_RECURSIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -806,6 +805,29 @@ public class ASTHelpers {
 
   private static boolean isFinal(Symbol symbol) {
     return (symbol.flags() & Flags.FINAL) == Flags.FINAL;
+  }
+
+  /**
+   * Flag for record types, canonical record constructors and type members that are part of a
+   * record's state vector. Can be replaced by {@code com.sun.tools.javac.code.Flags.RECORD} once
+   * the minimum JDK version is 14.
+   */
+  private static final long RECORD_FLAG = 1L << 61;
+
+  /**
+   * Returns true if the given {@link Tree} is a record, a record's canonical constructor or a
+   * member that is part of a record's state vector.
+   */
+  public static boolean isRecord(Tree tree) {
+    return isRecord(getSymbol(tree));
+  }
+
+  /**
+   * Returns true if the given {@link Symbol} is a record, a record's canonical constructor or a
+   * member that is part of a record's state vector.
+   */
+  public static boolean isRecord(Symbol symbol) {
+    return symbol != null && (symbol.flags() & RECORD_FLAG) == RECORD_FLAG;
   }
 
   /**

@@ -100,6 +100,9 @@ public final class AnnotationPosition extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
+    if (tree.getName().contentEquals("<init>") && ASTHelpers.isRecord(tree)) {
+      return NO_MATCH;
+    }
     return handle(tree, tree.getName(), tree.getModifiers(), state);
   }
 
