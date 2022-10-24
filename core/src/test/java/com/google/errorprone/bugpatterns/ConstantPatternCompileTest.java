@@ -347,6 +347,11 @@ public class ConstantPatternCompileTest {
             "  private void patternCompileOnNonStaticArg() {",
             "    Pattern pattern = Pattern.compile(patString);",
             "  }",
+            "",
+            "  @SuppressWarnings(\"ConstantPatternCompile\")",
+            "  public static void negative() {",
+            "    Pattern pattern = Pattern.compile(\".*\");",
+            "  }",
             "}")
         .doTest();
   }

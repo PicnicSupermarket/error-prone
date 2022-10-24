@@ -84,6 +84,9 @@ public final class ConstantPatternCompile extends BugChecker implements ClassTre
 
   @Override
   public Description matchClass(ClassTree classTree, VisitorState state) {
+    if (isSuppressed(classTree, state)) {
+      return NO_MATCH;
+    }
     NameUniquifier nameUniquifier = new NameUniquifier();
     SuggestedFix.Builder fixBuilder = SuggestedFix.builder();
     Tree[] firstHit = new Tree[1];
@@ -117,6 +120,10 @@ public final class ConstantPatternCompile extends BugChecker implements ClassTre
 
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, Void unused) {
+          if (isSuppressed(getSymbol(tree).owner, state)) {
+            return null;
+          }
+
           tryFix(tree, state.withPath(getCurrentPath()), nameUniquifier)
               .ifPresent(
                   other -> {
