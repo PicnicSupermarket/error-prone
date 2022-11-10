@@ -19,6 +19,7 @@ package com.google.errorprone.bugpatterns;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import com.google.errorprone.BugCheckerRefactoringTestHelper.TestMode;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.util.RuntimeVersion;
 import org.junit.Test;
@@ -38,19 +39,25 @@ public class UnnecessaryParenthesesTest {
     testHelper
         .addInputLines(
             "in/Test.java",
+            "import java.util.stream.Stream;",
+            "",
             "class Test {",
             "  void f(int x) {",
             "    if (true) System.err.println((x));",
+            "    Stream.of(1).anyMatch((test) -> true);",
             "  }",
             "}")
         .addOutputLines(
             "out/Test.java",
+            "import java.util.stream.Stream;",
+            "",
             "class Test {",
             "  void f(int x) {",
             "    if (true) System.err.println(x);",
+            "    Stream.of(1).anyMatch(test -> true);",
             "  }",
             "}")
-        .doTest();
+        .doTest(TestMode.TEXT_MATCH);
   }
 
   @Test

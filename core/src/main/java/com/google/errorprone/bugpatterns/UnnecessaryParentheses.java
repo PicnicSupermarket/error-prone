@@ -27,6 +27,7 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
 
@@ -36,7 +37,8 @@ import com.sun.source.tree.Tree;
         "These grouping parentheses are unnecessary; it is unlikely the code will"
             + " be misinterpreted without them",
     severity = WARNING)
-public class UnnecessaryParentheses extends BugChecker implements ParenthesizedTreeMatcher {
+public class UnnecessaryParentheses extends BugChecker
+    implements ParenthesizedTreeMatcher, BugChecker.LambdaExpressionTreeMatcher {
 
   @Override
   public Description matchParenthesized(ParenthesizedTree tree, VisitorState state) {
@@ -67,5 +69,10 @@ public class UnnecessaryParentheses extends BugChecker implements ParenthesizedT
             .replace(getStartPosition(tree), getStartPosition(expression), " ")
             .replace(state.getEndPosition(expression), state.getEndPosition(tree), "")
             .build());
+  }
+
+  @Override
+  public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
+    return NO_MATCH;
   }
 }
