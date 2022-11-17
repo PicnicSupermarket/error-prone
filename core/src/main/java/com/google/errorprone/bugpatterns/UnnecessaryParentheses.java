@@ -30,6 +30,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
+import java.util.regex.Pattern;
 
 /** A {@link BugChecker}; see the associated {@link BugPattern} annotation for details. */
 @BugPattern(
@@ -73,6 +74,9 @@ public class UnnecessaryParentheses extends BugChecker
 
   @Override
   public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
+    Pattern.compile("^\\s*\\(([^)])+\\)");
+    // move to constant, get group 1 on match.
+
     return NO_MATCH;
   }
 }
