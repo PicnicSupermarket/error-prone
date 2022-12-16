@@ -676,7 +676,7 @@ abstract class PlaceholderUnificationVisitor
             TreeMaker.class
                 .getMethod(
                     "Case",
-                    Class.forName("com.sun.source.tree.CaseTree.CaseKind"),
+                    Class.forName("com.sun.source.tree.CaseTree$CaseKind"),
                     List.class,
                     List.class,
                     JCTree.class)
