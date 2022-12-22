@@ -86,6 +86,7 @@ import javax.lang.model.element.Modifier;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import org.checkerframework.errorprone.javacutil.TreeUtils;
+// import com.google.testing.compile.JavaFileObjects;
 
 @AutoService(BugChecker.class)
 @BugPattern(

@@ -148,7 +148,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
     ImmutableMap<String, VarSymbol> freeExpressionVars = freeExpressionVariables(decl);
     @Nullable
     ImmutableMap<String, Type> parameterTargetTypes =
-        afterTemplateMethods == null
+        afterTemplateMethods == null || afterTemplateMethods.isEmpty()
             ? null
             : extractParameterTargetTypes(afterTemplateMethods.get(0));
 
@@ -160,7 +160,7 @@ public class UTemplater extends SimpleTreeVisitor<Tree, Void> {
             Maps.transformValues(
                 freeExpressionVars, (VarSymbol sym) -> templater.template(sym.type)));
 
-    if (afterTemplateMethods != null) {
+    if (afterTemplateMethods != null && !afterTemplateMethods.isEmpty()) {
       MethodSymbol symbol = ASTHelpers.getSymbol(afterTemplateMethods.get(0));
       UType genericType2 = templater.template(symbol.type);
     }
