@@ -21,6 +21,7 @@ import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.fixes.SuggestedFixes.qualifyType;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 import static com.google.errorprone.util.ASTHelpers.getSymbol;
+import static com.google.errorprone.util.ASTHelpers.hasAnnotation;
 import static com.google.errorprone.util.ASTHelpers.isSameType;
 import static com.google.errorprone.util.ASTHelpers.isSubtype;
 import static java.lang.Boolean.TRUE;
@@ -56,6 +57,9 @@ public class BuilderReturnThis extends BugChecker implements MethodTreeMatcher {
     MethodSymbol sym = getSymbol(tree);
     if (tree.getBody() == null) {
       return NO_MATCH;
+    }
+    if (hasAnnotation(tree, CRV, state)) {
+      return Description.NO_MATCH;
     }
     if (!instanceReturnsBuilder(sym, state)) {
       return NO_MATCH;

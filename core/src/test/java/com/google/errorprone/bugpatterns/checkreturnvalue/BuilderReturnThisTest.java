@@ -32,6 +32,8 @@ public class BuilderReturnThisTest {
     testHelper
         .addInputLines(
             "Test.java",
+            "import com.google.errorprone.annotations.CheckReturnValue;",
+            "",
             "class Test {",
             "  static class TestBuilder {",
             "    static TestBuilder builder() {",
@@ -57,6 +59,10 @@ public class BuilderReturnThisTest {
             "    }",
             "    TestBuilder setParens(String bar) {",
             "      return (this);",
+            "    }",
+            "    @CheckReturnValue",
+            "    TestBuilder dontFlag(String flag) {",
+            "      return new TestBuilder();",
             "    }",
             "  }",
             "}")
