@@ -1,0 +1,44 @@
+name: Publish tagged Picnic release variant to GitHub Packages
+on:
+  push:
+    tags:
+      - 'v*-picnic-*'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Install Harden-Runner
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          disable-sudo-and-containers: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.adoptium.net:443
+            github.com:443
+            maven.pkg.github.com:443
+            objects.githubusercontent.com:443
+            oss.sonatype.org:443
+            repo.maven.apache.org:443
+      - name: Check out code and set up JDK and Maven
+        uses: s4u/setup-maven-action@6c4e9964d4ecb8f1026310cd8618791fd51a8016 # v1.19.0
+        with:
+          java-version: |
+            25
+            21
+          java-distribution: temurin
+          maven-version: 3.9.12
+      - name: Determine and export release version
+        run: echo "RELEASE_VERSION=${GITHUB_REF_NAME#v*}" >> $GITHUB_ENV
+      - name: Configure release version
+        run: mvn versions:set -DnewVersion=${{ env.RELEASE_VERSION }}
+      - name: Publish package
+        run: mvn -B deploy -DaltDeploymentRepository=github::https://maven.pkg.github.com/PicnicSupermarket/error-prone
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Remove installed project artifacts
+        run: mvn dependency:purge-local-repository -DmanualInclude='${project.groupId}' -DresolutionFuzziness=groupId
