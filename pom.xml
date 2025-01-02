@@ -290,7 +290,7 @@
         <configuration>
           <toolchains>
             <jdk>
-              <version>25</version>
+              <version>25-ea</version>
             </jdk>
           </toolchains>
         </configuration>
