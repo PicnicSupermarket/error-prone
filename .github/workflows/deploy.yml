@@ -1,0 +1,54 @@
+name: Publish tagged Picnic release variant to GitHub Packages
+on:
+  push:
+    tags:
+      - 'v*-picnic-*'
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Install Harden-Runner
+        uses: step-security/harden-runner@0080882f6c36860b6ba35c610c98ce87d4e2f26f # v2.10.2
+        with:
+          disable-sudo: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.adoptium.net:443
+            github.com:443
+            maven.pkg.github.com:443
+            objects.githubusercontent.com:443
+            oss.sonatype.org:443
+            repo.maven.apache.org:443
+      # XXX: We're using `actions/setup-java` here because
+      # `s4u/setup-maven-action` does not appear to support the multi-version
+      # `java-version` syntax in a way that also causes both versions to be
+      # registered in `~/.m2/toolchains.xml`. See
+      # https://github.com/s4u/setup-maven-action/pull/112.
+      - name: Set up JDKs
+        uses: actions/setup-java@7a6d8a8234af8eb26422e24e3006232cccaa061b # v4.6.0
+        with:
+          java-version: |
+            24-ea
+            17
+          distribution: temurin
+      - name: Check out code and set up Maven
+        uses: s4u/setup-maven-action@9a27433d289dd99d73851f653607c39d3444e8ba # v1.17.0
+        with:
+          java-version: 17
+          java-distribution: temurin
+          maven-version: 3.9.9
+      - name: Determine and export release version
+        run: echo "RELEASE_VERSION=${GITHUB_REF_NAME#v*}" >> $GITHUB_ENV
+      - name: Configure release version
+        run: mvn versions:set -DnewVersion=${{ env.RELEASE_VERSION }}
+      - name: Publish package
+        run: mvn -B deploy -DaltDeploymentRepository=github::https://maven.pkg.github.com/PicnicSupermarket/error-prone
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Remove installed project artifacts
+        run: mvn dependency:purge-local-repository -DmanualInclude='${project.groupId}' -DresolutionFuzziness=groupId
