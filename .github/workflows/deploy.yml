@@ -10,11 +10,11 @@ jobs:
       - name: Show original `~/.m2/toolchains.xml`.
         run: cat ~/.m2/toolchains.xml || echo "File is absent"
       - name: Set up JDKs
-        uses: actions/setup-java@7a6d8a8234af8eb26422e24e3006232cccaa061b # v4.6.0
+        uses: s4u/setup-maven-action@4f7fb9d9675e899ca81c6161dadbba0189a4ebb1 # v1.18.0
         with:
           java-version: |
             24-ea
             17
-          distribution: temurin
-      - name: Show `~/.m2/toolchains.xml` after `actions/setup-java`.
+          java-distribution: temurin
+      - name: Show `~/.m2/toolchains.xml` after `s4u/setup-maven-action`.
         run: cat ~/.m2/toolchains.xml
