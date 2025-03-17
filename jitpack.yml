@@ -6,3 +6,4 @@ before_install:
   - sdk use java 17.0.12-tem
   - sdk install maven 3.9.9
   - sdk use maven 3.9.9
+  - mvn org.apache.maven.plugins:maven-wrapper-plugin:3.3.2:wrapper -Dmaven=3.9.9
