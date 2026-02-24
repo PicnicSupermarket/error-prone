@@ -27,7 +27,6 @@ import static com.google.errorprone.util.ASTHelpers.streamReceivers;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.BugPattern;
-import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker.ExpressionStatementTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
@@ -44,7 +43,6 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
 import java.util.HashSet;
 import java.util.Set;
-import javax.inject.Inject;
 import javax.lang.model.element.ElementKind;
 import org.jspecify.annotations.Nullable;
 
@@ -92,13 +90,6 @@ public final class MissingTestCall extends BugChecker
               instanceMethod()
                   .onDescendantOf("com.google.errorprone.CompilationTestHelper")
                   .named("doTest")));
-
-  private final boolean matchGraphVerify;
-
-  @Inject
-  MissingTestCall(ErrorProneFlags flags) {
-    this.matchGraphVerify = flags.getBoolean("MissingTestCall:MatchGraphVerify").orElse(true);
-  }
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
