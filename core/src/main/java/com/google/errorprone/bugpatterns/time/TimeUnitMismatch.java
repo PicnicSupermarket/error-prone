@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.BugPattern;
-import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.bugpatterns.BugChecker;
@@ -79,7 +78,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import javax.inject.Inject;
 import org.jspecify.annotations.Nullable;
 
 /** Checker that detects likely time-unit mismatches by looking at identifier names. */
@@ -94,12 +92,6 @@ public final class TimeUnitMismatch extends BugChecker
         MethodInvocationTreeMatcher,
         NewClassTreeMatcher,
         VariableTreeMatcher {
-  private final boolean improvements;
-
-  @Inject
-  TimeUnitMismatch(ErrorProneFlags flags) {
-    this.improvements = flags.getBoolean("TimeUnitMismatch:improvements").orElse(true);
-  }
 
   @Override
   public Description matchAssignment(AssignmentTree tree, VisitorState state) {
@@ -112,8 +104,7 @@ public final class TimeUnitMismatch extends BugChecker
 
   @Override
   public Description matchBinary(BinaryTree tree, VisitorState state) {
-    if (!improvements
-        || !NUMERIC_TIME_TYPE.matches(tree.getLeftOperand(), state)
+    if (!NUMERIC_TIME_TYPE.matches(tree.getLeftOperand(), state)
         || !NUMERIC_TIME_TYPE.matches(tree.getRightOperand(), state)) {
       return Description.NO_MATCH;
     }
@@ -471,7 +462,7 @@ public final class TimeUnitMismatch extends BugChecker
           isSameType("java.lang.Double"));
 
   private @Nullable TreeAndTimeUnit unitSuggestedByTree(ExpressionTree tree) {
-    if (improvements && tree.getKind().equals(Kind.MULTIPLY)) {
+    if (tree.getKind().equals(Kind.MULTIPLY)) {
       var lhs = ((BinaryTree) tree).getLeftOperand();
       var rhs = ((BinaryTree) tree).getRightOperand();
       var lhsConversion = conversionFactor(lhs);
@@ -483,7 +474,7 @@ public final class TimeUnitMismatch extends BugChecker
         return unitSuggestedWithConversion(rhsConversion, lhs);
       }
     }
-    if (improvements && tree.getKind().equals(Kind.DIVIDE)) {
+    if (tree.getKind().equals(Kind.DIVIDE)) {
       var lhs = ((BinaryTree) tree).getLeftOperand();
       var rhs = ((BinaryTree) tree).getRightOperand();
       var rhsConversion = conversionFactor(rhs);
