@@ -351,6 +351,28 @@ public class TimeUnitMismatchTest {
   }
 
   @Test
+  public void addingMillisAndMicros() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.google.protobuf.Timestamp;
+            import java.util.Date;
+
+            class Test {
+              record Container(Timestamp timestamp) {}
+
+              Date test(Container c) {
+                // BUG: Diagnostic contains: This operation seems to mix up time units: MILLISECONDS and
+                // MICROSECONDS.
+                return new Date(c.timestamp().getSeconds() * 1000 + c.timestamp().getNanos() / 1000);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testUnitSuggestedByName() {
     assertSeconds("sleepSec", "deadlineSeconds", "secondsTimeout", "msToS");
     assertUnknown(
