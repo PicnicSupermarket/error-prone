@@ -26,12 +26,15 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.BugChecker.AnnotationTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.CompilationUnitTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.ReturnTreeMatcher;
+import com.google.errorprone.bugpatterns.BugChecker.VariableTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -315,5 +318,45 @@ public class BugCheckerRefactoringTestHelperTest {
     IllegalStateException expected =
         assertThrows(IllegalStateException.class, () -> helper.doTest());
     assertThat(expected).hasMessageThat().contains("doTest");
+  }
+
+  @BugPattern(summary = "Replaces var types", severity = SUGGESTION)
+  public static class ReplaceVarTypes extends BugChecker implements VariableTreeMatcher {
+    @SuppressWarnings("TreeToString")
+    @Override
+    public Description matchVariable(VariableTree tree, VisitorState state) {
+      Tree type = tree.getType();
+      if (ASTHelpers.hasExplicitSource(type, state)) {
+        return Description.NO_MATCH;
+      }
+      return describeMatch(type, SuggestedFix.replace(type, "Object"));
+    }
+  }
+
+  @SuppressWarnings("MissingTestCall") // used in a method reference in assertThrows
+  @Test
+  public void replaceVarTypes() {
+    BugCheckerRefactoringTestHelper helper =
+        BugCheckerRefactoringTestHelper.newInstance(ReplaceVarTypes.class, getClass())
+            .addInputLines(
+                "Test.java",
+                """
+                public class Test {
+                  public void foo() {
+                    var x = 1 + 2;
+                    System.out.println(x);
+                  }
+                }
+                """)
+            .expectUnchanged();
+    AssertionError e = assertThrows(AssertionError.class, helper::doTest);
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            """
+            Test.java:3: error: An unhandled exception was thrown by the Error Prone static analysis plugin.
+                var x = 1 + 2;
+            """);
+    assertThat(e).hasMessageThat().contains("BugPattern: ReplaceVarTypes");
   }
 }
