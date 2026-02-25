@@ -341,6 +341,30 @@ public class JdkObsoleteTest {
   }
 
   @Test
+  public void concurrentHashMap() {
+    testHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Enumeration;
+            import java.util.concurrent.ConcurrentHashMap;
+
+            class Test {
+              Enumeration<String> keys(ConcurrentHashMap<String, Integer> map) {
+                // BUG: Diagnostic contains: ConcurrentHashMap.keySet()
+                return map.keys();
+              }
+
+              Enumeration<Integer> elements(ConcurrentHashMap<String, Integer> map) {
+                // BUG: Diagnostic contains: ConcurrentHashMap.values()
+                return map.elements();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void navigableSetRepro() {
     testHelper
         .addSourceLines(

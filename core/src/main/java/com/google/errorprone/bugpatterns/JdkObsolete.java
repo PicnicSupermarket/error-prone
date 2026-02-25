@@ -173,6 +173,18 @@ public class JdkObsolete extends BugChecker
       ImmutableList.of(
           new ObsoleteApi(
               instanceMethod()
+                  .onExactClass("java.util.concurrent.ConcurrentHashMap")
+                  .named("keys")
+                  .withNoParameters(),
+              "Use ConcurrentHashMap.keySet() instead."),
+          new ObsoleteApi(
+              instanceMethod()
+                  .onExactClass("java.util.concurrent.ConcurrentHashMap")
+                  .named("elements")
+                  .withNoParameters(),
+              "Use ConcurrentHashMap.values() instead."),
+          new ObsoleteApi(
+              instanceMethod()
                   .onExactClass("java.io.ByteArrayOutputStream")
                   .named("toString")
                   .withParameters("java.lang.String"),
