@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.errorprone.fixes.ErrorProneEndPosTable.getEndPosition;
 import static com.google.errorprone.util.ASTHelpers.getAnnotation;
@@ -28,6 +29,7 @@ import static com.google.errorprone.util.ASTHelpers.getAnnotationWithSimpleName;
 import static com.google.errorprone.util.ASTHelpers.getModifiers;
 import static com.google.errorprone.util.ASTHelpers.getStartPosition;
 import static com.google.errorprone.util.ASTHelpers.getSymbol;
+import static com.google.errorprone.util.ASTHelpers.hasExplicitSource;
 import static com.google.errorprone.util.ASTHelpers.hasImplicitType;
 import static com.google.errorprone.util.ASTHelpers.isRecord;
 import static com.sun.tools.javac.code.TypeTag.CLASS;
@@ -56,6 +58,7 @@ import com.google.errorprone.fixes.SuggestedFixes.FixCompiler.Result;
 import com.google.errorprone.util.ASTHelpers;
 import com.google.errorprone.util.ErrorProneComment;
 import com.google.errorprone.util.ErrorProneToken;
+import com.google.errorprone.util.ErrorProneTokens;
 import com.google.errorprone.util.FindIdentifiers;
 import com.sun.source.doctree.DocTree;
 import com.sun.source.doctree.ParamTree;
@@ -1757,6 +1760,42 @@ public final class SuggestedFixes {
         + (needsParentheses ? "(" : "")
         + state.getSourceForNode(expressionTree)
         + (needsParentheses ? ")" : "");
+  }
+
+  /**
+   * Replaces the type of the given variable with {@code replacementType}.
+   *
+   * <p>If the tree is a {@code var} declaration, the {@code var} keyword will be replaced with the
+   * {@code replacementType}.
+   */
+  public static Optional<SuggestedFix> replaceVariableType(
+      VariableTree tree, String replacementType, VisitorState state) {
+    Tree type = tree.getType();
+    if (hasExplicitSource(type, state)) {
+      return Optional.of(SuggestedFix.replace(type, replacementType));
+    }
+    int pos = getStartPosition(type);
+    if (pos == Position.NOPOS) {
+      pos = getStartPosition(tree);
+    }
+    int end =
+        tree.getInitializer() != null
+            ? getStartPosition(tree.getInitializer())
+            : state.getEndPosition(tree);
+    ImmutableList<ErrorProneToken> tokens =
+        ErrorProneTokens.getTokens(
+                state.getSourceCode().subSequence(pos, end).toString(), state.context)
+            .stream()
+            .filter(
+                token ->
+                    token.kind().equals(TokenKind.IDENTIFIER) && token.name().contentEquals("var"))
+            .collect(toImmutableList());
+    if (tokens.size() != 1) {
+      return Optional.empty();
+    }
+    ErrorProneToken token = getOnlyElement(tokens);
+    return Optional.of(
+        SuggestedFix.replace(pos + token.pos(), pos + token.endPos(), replacementType));
   }
 
   private SuggestedFixes() {}
