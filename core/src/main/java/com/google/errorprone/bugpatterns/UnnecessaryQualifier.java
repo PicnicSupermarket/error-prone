@@ -40,6 +40,7 @@ import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.VariableTreeMatcher;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.matchers.InjectMatchers;
 import com.google.errorprone.matchers.MultiMatcher;
 import com.google.errorprone.suppliers.Supplier;
 import com.sun.source.tree.AnnotationTree;
@@ -212,14 +213,12 @@ public final class UnnecessaryQualifier extends BugChecker
   /** Annotations for methods which have parameters injected into them. */
   private static final ImmutableSet<String> INJECTION_METHODS =
       concat(
+              InjectMatchers.INJECT_ANNOTATIONS.stream(),
               Stream.of(
                   // keep-sorted start
                   "com.google.auto.factory.AutoFactory",
                   "com.google.common.inject.components.OtherRequiredBindings",
-                  "com.google.inject.Inject",
-                  "dagger.assisted.AssistedInject",
-                  "jakarta.inject.Inject",
-                  "javax.inject.Inject"
+                  "dagger.assisted.AssistedInject"
                   // keep-sorted end
                   ),
               PROVIDER_METHODS.stream())
