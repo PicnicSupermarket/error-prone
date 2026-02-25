@@ -38,12 +38,12 @@ import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
-import java.util.List;
 
 /**
  * Checks if a constructor or method annotated with {@link
@@ -159,15 +159,19 @@ public class MustBeClosedChecker extends AbstractMustBeClosedChecker
   }
 
   private static boolean invokedConstructorMustBeClosed(VisitorState state, MethodTree methodTree) {
-    // The first statement in a constructor should be an invocation of the super/this constructor.
-    List<? extends StatementTree> statements = methodTree.getBody().getStatements();
-    if (statements.isEmpty()) {
-      // Not sure how the body would be empty, but just filter it out in case.
-      return false;
+    for (StatementTree statement : methodTree.getBody().getStatements()) {
+      if (!(statement instanceof ExpressionStatementTree est)) {
+        continue;
+      }
+      if (!(est.getExpression() instanceof MethodInvocationTree mit)) {
+        continue;
+      }
+      if (mit.getMethodSelect() instanceof IdentifierTree id
+          && (id.getName().contentEquals("super") || id.getName().contentEquals("this"))) {
+        MethodSymbol invokedConstructorSymbol = ASTHelpers.getSymbol(mit);
+        return hasAnnotation(invokedConstructorSymbol, MUST_BE_CLOSED_ANNOTATION, state);
+      }
     }
-    ExpressionStatementTree est = (ExpressionStatementTree) statements.getFirst();
-    MethodInvocationTree mit = (MethodInvocationTree) est.getExpression();
-    MethodSymbol invokedConstructorSymbol = ASTHelpers.getSymbol(mit);
-    return hasAnnotation(invokedConstructorSymbol, MUST_BE_CLOSED_ANNOTATION, state);
+    return false;
   }
 }
