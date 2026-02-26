@@ -27,6 +27,7 @@ import static com.google.errorprone.util.ASTHelpers.streamReceivers;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.BugPattern;
+import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker.ExpressionStatementTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
@@ -35,6 +36,7 @@ import com.google.errorprone.matchers.Matcher;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -43,6 +45,7 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
 import java.util.HashSet;
 import java.util.Set;
+import javax.inject.Inject;
 import javax.lang.model.element.ElementKind;
 import org.jspecify.annotations.Nullable;
 
@@ -91,6 +94,14 @@ public final class MissingTestCall extends BugChecker
                   .onDescendantOf("com.google.errorprone.CompilationTestHelper")
                   .named("doTest")));
 
+  private final boolean matchMemberReferences;
+
+  @Inject
+  MissingTestCall(ErrorProneFlags flags) {
+    this.matchMemberReferences =
+        flags.getBoolean("MissingTestCall:MatchMemberReferences").orElse(true);
+  }
+
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
     return TEST_CASE.matches(tree, state) ? handle(tree, PAIRINGS, state) : NO_MATCH;
@@ -107,6 +118,19 @@ public final class MissingTestCall extends BugChecker
     new TreePathScanner<Void, Void>() {
       @Override
       public Void visitMethodInvocation(MethodInvocationTree node, Void unused) {
+        handle(node);
+        return super.visitMethodInvocation(node, null);
+      }
+
+      @Override
+      public Void visitMemberReference(MemberReferenceTree node, Void unused) {
+        if (matchMemberReferences) {
+          handle(node);
+        }
+        return super.visitMemberReference(node, null);
+      }
+
+      private void handle(ExpressionTree node) {
         for (MethodPairing pairing : pairings) {
           VisitorState stateWithPath = state.withPath(getCurrentPath());
           if (pairing.ifCall().matches(node, stateWithPath)) {
@@ -119,7 +143,6 @@ public final class MissingTestCall extends BugChecker
             called.add(pairing);
           }
         }
-        return super.visitMethodInvocation(node, null);
       }
     }.scan(state.getPath(), null);
     return Sets.difference(required, called).stream()
