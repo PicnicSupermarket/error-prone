@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
 import static com.google.errorprone.DiagnosticTestHelper.DIAGNOSTIC_CONTAINING;
 import static com.google.errorprone.FileObjects.forResources;
+import static com.google.errorprone.FileObjects.forSourceLines;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.junit.Assert.fail;
@@ -39,6 +40,7 @@ import com.google.errorprone.bugpatterns.BugChecker.VariableTreeMatcher;
 import com.google.errorprone.bugpatterns.ChainingConstructorIgnoresParameter;
 import com.google.errorprone.bugpatterns.Finally;
 import com.google.errorprone.fixes.SuggestedFix;
+import com.google.errorprone.fixes.SuggestedFixes;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.scanner.ScannerSupplier;
 import com.google.errorprone.util.ASTHelpers;
@@ -165,6 +167,38 @@ public class ErrorProneJavaCompilerTest {
             ImmutableList.of());
     assertThat(result.output).doesNotContain("Error Prone ran");
     assertThat(ErrorProneTimings.instance(result.context()).timings()).isNotEmpty();
+  }
+
+  @BugPattern(summary = "Invokes `SuggestedFixes#compilesWithFix` for each class", severity = ERROR)
+  public static final class CompilesWithFixInvoker extends BugChecker implements ClassTreeMatcher {
+    @Override
+    public Description matchClass(ClassTree tree, VisitorState state) {
+      SuggestedFixes.compilesWithFix(SuggestedFix.prefixWith(tree, "/* Comment. */ "), state);
+      return Description.NO_MATCH;
+    }
+  }
+
+  @Test
+  public void verboseModeLogsCompilesWithFixInvocations() {
+    CompilationResult result =
+        doCompile(
+            ImmutableList.of(forSourceLines("A.java", "class A {}")),
+            ImmutableList.of("-verbose"),
+            ImmutableList.of(CompilesWithFixInvoker.class));
+    assertSucceeded(result);
+    assertThat(result.output)
+        .containsMatch("Running `compilesWithFix` for .*\\Q/* Comment. */\\E.* in .*A\\.java");
+  }
+
+  @Test
+  public void withoutVerboseModeNoCompilesWithFixInvocationsAreLogged() {
+    CompilationResult result =
+        doCompile(
+            ImmutableList.of(forSourceLines("A.java", "class A {}")),
+            ImmutableList.of(),
+            ImmutableList.of(CompilesWithFixInvoker.class));
+    assertSucceeded(result);
+    assertThat(result.output).doesNotContain("compilesWithFix");
   }
 
   @Test
